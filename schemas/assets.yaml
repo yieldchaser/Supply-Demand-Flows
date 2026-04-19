@@ -1,0 +1,189 @@
+# Blue Tide Asset Registry
+# This file contains the canonical registry of physical assets in the North American natural gas market.
+# IDs defined here are stable and should not be renamed once published to ensure data consistency.
+
+storage_regions:
+  storage.east:
+    name: Eastern Consuming Region
+  storage.midwest:
+    name: Midwest Consuming Region
+  storage.mountain:
+    name: Mountain Consuming Region
+  storage.pacific:
+    name: Pacific Consuming Region
+  storage.south_central_salt:
+    name: South Central Salt
+  storage.south_central_nonsalt:
+    name: South Central Non-Salt
+
+lng_terminals:
+  lng.sabine_pass:
+    name: Sabine Pass
+    operator: Cheniere
+    state: LA
+    nameplate_bcfd: 4.4
+    cheniere_affiliated: true
+  lng.corpus_christi:
+    name: Corpus Christi
+    operator: Cheniere
+    state: TX
+    nameplate_bcfd: 2.7
+    cheniere_affiliated: true
+  lng.cameron:
+    name: Cameron LNG
+    operator: Sempra/Venture Global
+    state: LA
+    nameplate_bcfd: 2.1
+    cheniere_affiliated: false
+  lng.freeport:
+    name: Freeport LNG
+    operator: Freeport LNG
+    state: TX
+    nameplate_bcfd: 2.1
+    cheniere_affiliated: false
+  lng.cove_point:
+    name: Cove Point
+    operator: Berkshire Hathaway
+    state: MD
+    nameplate_bcfd: 0.82
+    cheniere_affiliated: false
+  lng.elba_island:
+    name: Elba Island
+    operator: Kinder Morgan
+    state: GA
+    nameplate_bcfd: 0.35
+    cheniere_affiliated: false
+  lng.calcasieu_pass:
+    name: Calcasieu Pass
+    operator: Venture Global
+    state: LA
+    nameplate_bcfd: 1.6
+    cheniere_affiliated: false
+  lng.plaquemines:
+    name: Plaquemines
+    operator: Venture Global
+    state: LA
+    nameplate_bcfd: 2.7
+    cheniere_affiliated: false
+
+basins:
+  basin.appalachia:
+    name: Marcellus + Utica
+    states: [PA, WV, OH]
+    dominant_type: gas
+  basin.permian:
+    name: West Texas / SE New Mexico
+    states: [TX, NM]
+    dominant_type: associated
+  basin.haynesville:
+    name: LA/TX
+    states: [LA, TX]
+    dominant_type: gas
+  basin.bakken:
+    name: ND/MT
+    states: [ND, MT]
+    dominant_type: associated
+  basin.eagle_ford:
+    name: South Texas
+    states: [TX]
+    dominant_type: gas/associated
+  basin.anadarko:
+    name: SCOOP/STACK
+    states: [OK]
+    dominant_type: gas
+
+isos:
+  iso.ercot:
+    name: Electric Reliability Council of Texas
+    eia_respondent_code: ERCO
+    region: Texas
+  iso.pjm:
+    name: PJM Interconnection
+    eia_respondent_code: PJM
+    region: Mid-Atlantic
+  iso.miso:
+    name: Midcontinent ISO
+    eia_respondent_code: MISO
+    region: Midwest
+  iso.spp:
+    name: Southwest Power Pool
+    eia_respondent_code: SWPP
+    region: Great Plains
+  iso.caiso:
+    name: California ISO
+    eia_respondent_code: CISO
+    region: California
+  iso.isone:
+    name: ISO New England
+    eia_respondent_code: ISNE
+    region: New England
+  iso.nyiso:
+    name: New York ISO
+    eia_respondent_code: NYIS
+    region: New York
+  iso.seso:
+    name: Southeast (aggregated)
+    eia_respondent_code: SEC
+    region: Southeast
+
+pipeline_operators:
+  pipe.tgp:
+    name: Tennessee Gas Pipeline
+    operator_parent: Kinder Morgan
+    ebb_url: https://pipeline2.kindermorgan.com/default.aspx?code=TGP
+    notes: NE corridor
+  pipe.epng:
+    name: El Paso Natural Gas
+    operator_parent: Kinder Morgan
+    ebb_url: https://pipeline2.kindermorgan.com/default.aspx?code=EPNG
+    notes: SW corridor
+  pipe.ngpl:
+    name: Natural Gas Pipeline
+    operator_parent: Kinder Morgan
+    ebb_url: https://pipeline2.kindermorgan.com/default.aspx?code=NGPL
+    notes: Midcon to Gulf
+  pipe.rex:
+    name: Rockies Express
+    operator_parent: Tallgrass
+    ebb_url: https://pipeline2.kindermorgan.com/default.aspx?code=REX
+    notes: W-to-E
+  pipe.cig:
+    name: Colorado Interstate Gas
+    operator_parent: Kinder Morgan
+    ebb_url: https://pipeline2.kindermorgan.com/default.aspx?code=CIG
+    notes: Rockies
+  pipe.transco:
+    name: Transcontinental Gas Pipe Line
+    operator_parent: Williams
+    ebb_url: https://www.1line.williams.com/Transco/index.html
+    notes: Gulf to NE
+  pipe.nwp:
+    name: Northwest Pipeline
+    operator_parent: Williams
+    ebb_url: https://www.1line.williams.com/NWP/index.html
+    notes: Pacific NW
+  pipe.texas_eastern:
+    name: Texas Eastern
+    operator_parent: Enbridge
+    ebb_url: https://link.enbridge.com
+    notes: Gulf to NE
+  pipe.algonquin:
+    name: Algonquin Gas Transmission
+    operator_parent: Enbridge
+    ebb_url: https://link.enbridge.com
+    notes: New England
+  pipe.columbia_gulf:
+    name: Columbia Gulf Transmission
+    operator_parent: TC Energy
+    ebb_url: https://ebb.tcplm.com
+    notes: Appalachia to Gulf
+  pipe.anr:
+    name: ANR Pipeline
+    operator_parent: TC Energy
+    ebb_url: https://ebb.tcplm.com
+    notes: Midcon
+  pipe.great_lakes:
+    name: Great Lakes Gas Transmission
+    operator_parent: TC Energy
+    ebb_url: https://ebb.tcplm.com
+    notes: Upper Midwest
