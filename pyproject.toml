@@ -27,11 +27,12 @@ dependencies = [
     "websockets==13.1",
     "python-dotenv==1.0.1",
     "pyxlsb==1.0.10",
-    # requests is used only by scrapers/baker_hughes/rigs.py - Baker Hughes' Drupal CDN
-    # uses aggressive SSL renegotiation that hangs Python's stdlib ssl on Windows.
-    # curl works (via SChannel), and requests works (via urllib3). Do not use requests
-    # elsewhere - everything else uses httpx for async performance.
-    "requests==2.32.3",
+    # curl_cffi wraps libcurl with browser TLS fingerprint impersonation.
+    # Used by scrapers/baker_hughes/rigs.py because Baker Hughes' Cloudflare/Drupal
+    # CDN throttles Python's OpenSSL-based HTTP libraries (httpx, requests) via
+    # JA3/JA4 fingerprinting. curl_cffi with impersonate="chrome124" passes through.
+    # Do not use for other scrapers - httpx remains canonical for speed.
+    "curl_cffi==0.7.4",
 ]
 
 [project.optional-dependencies]
