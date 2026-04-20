@@ -27,6 +27,11 @@ dependencies = [
     "websockets==13.1",
     "python-dotenv==1.0.1",
     "pyxlsb==1.0.10",
+    # requests is used only by scrapers/baker_hughes/rigs.py - Baker Hughes' Drupal CDN
+    # uses aggressive SSL renegotiation that hangs Python's stdlib ssl on Windows.
+    # curl works (via SChannel), and requests works (via urllib3). Do not use requests
+    # elsewhere - everything else uses httpx for async performance.
+    "requests==2.32.3",
 ]
 
 [project.optional-dependencies]
