@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from scrapers.base.errors import ScraperError
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.safe_writer import StatePreservingWriter, safe_write_json
 from scrapers.eia_api.client import EIAClient, load_api_key_from_env
@@ -21,15 +22,11 @@ RAW_DIR = Path("data/raw/eia_supply")
 
 PROCESS_CODES: dict[str, str] = {
     "FPD": "Dry Production",
-    "VGT": "Supplemental Gaseous Fuels",  # TODO_VERIFY
-    "VRS": "Interstate Receipts",  # TODO_VERIFY
-    "VIM": "Receipts Across U.S. Borders",  # TODO_VERIFY
-    "VWS": "Withdrawals from Underground Storage",
-    "VC0": "Consumption",
-    "VGD": "Interstate Deliveries",  # TODO_VERIFY
-    "VEX": "Deliveries Across U.S. Borders",  # TODO_VERIFY
-    "VIS": "Injections into Storage",  # TODO_VERIFY
-    "VBA": "Balancing Item",  # TODO_VERIFY
+    "OVI": "Input Supplemental Fuels",
+    "SAI": "Underground Storage Injections",
+    "SAW": "Underground Storage Withdrawals",
+    "VC0": "Total Consumption",
+    "VG4": "Balancing Item",
 }
 
 
@@ -112,7 +109,9 @@ async def run() -> dict[str, Any]:
             found_processes = {row.get("process") for row in rows if isinstance(row, dict)}
             missing_processes = set(PROCESS_CODES.keys()) - found_processes
             if missing_processes:
-                log.warning("Empty rows for process codes: %s", ", ".join(missing_processes))
+                msg = f"Missing expected process codes: {', '.join(missing_processes)}"
+                health.record_failure(error=msg)
+                raise ScraperError(msg)
 
             health.record_success(metadata={"latest_date": latest_api_date, "rows": rows_count})
             return {

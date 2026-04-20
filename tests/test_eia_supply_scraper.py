@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from scrapers.base.errors import ScraperError
 from scrapers.eia_api.supply import PROCESS_CODES
 from scrapers.eia_api.supply import run as run_supply
 
@@ -70,18 +71,16 @@ async def test_eia_supply_staleness_gate(clean_supply_dir: None) -> None:
 
 
 @pytest.mark.asyncio
-async def test_eia_supply_success_fetch_and_warning(
-    clean_supply_dir: None, caplog: pytest.LogCaptureFixture
+async def test_eia_supply_missing_codes_raise_scraper_error(
+    clean_supply_dir: None,
 ) -> None:
-    """Test successful fetch with process check warning."""
+    """Test zero rows for any code raises ScraperError instead of a warning."""
     dt_str = "2024-04"
 
-    # Return 9 processes, miss 'VBA'
+    # Return 5 processes, missing 'VG4'
     mock_data = [
-        {"period": dt_str, "process": k, "value": 100} for k in PROCESS_CODES if k != "VBA"
+        {"period": dt_str, "process": k, "value": 100} for k in PROCESS_CODES if k != "VG4"
     ]
-
-    req_facets = {}
 
     class MockEIAClient:
         def __init__(self, *args, **kwargs):
@@ -97,23 +96,13 @@ async def test_eia_supply_success_fetch_and_warning(
             return dt_str
 
         async def get_series(self, *args, **kwargs) -> dict:
-            nonlocal req_facets
-            req_facets = kwargs.get("facets", {})
             return {"response": {"data": mock_data}}
 
     with (
         patch("scrapers.eia_api.supply.EIAClient", MockEIAClient),
         patch("scrapers.eia_api.supply.load_api_key_from_env", return_value="TEST"),
     ):
-        result = await run_supply()
+        with pytest.raises(ScraperError) as exc_info:
+            await run_supply()
 
-    assert result["status"] == "ok"
-    assert result["latest_date"] == dt_str
-    assert result["rows"] == 9
-
-    # Check that all 10 processes were *requested*
-    assert "process" in req_facets
-    assert len(req_facets["process"]) == 10
-
-    # Ensure missing code warning logged
-    assert "Empty rows for process codes: VBA" in caplog.text
+        assert "Missing expected process codes: VG4" in str(exc_info.value)

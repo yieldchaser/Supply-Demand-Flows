@@ -1,11 +1,12 @@
 {
   "source": "baker_hughes_rigs",
   "status": "ok",
-  "timestamp_utc": "2026-04-20T02:46:59Z",
+  "timestamp_utc": "2026-04-20T05:31:40Z",
   "error": null,
   "metadata": {
-    "latest_date": "2024-04-19",
-    "size": 20,
-    "url": "https://rigcount.bakerhughes.com/static/na_rig_count.xlsb"
+    "latest_date": "2026-04-20",
+    "size": 16,
+    "hash": "c8419ae9",
+    "url": "https://rigcount.bakerhughes.com/static-files/f506ff08-37eb-445f-8dc8-34e7ca4d938a"
   }
 }

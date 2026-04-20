@@ -1,18 +1,32 @@
-"""Baker Hughes North America Rig Count Scraper (Session-Scoped xlsb)."""
-
+# Baker Hughes NA Rig Count scraper
+#
+# Selector strategy (last verified: 2026-04-20):
+#   Baker Hughes publishes ~4 static-files links on /na-rig-count, all with UUIDs
+#   that change weekly. We identify the "current weekly" file by:
+#     - link href contains "static-files"
+#     - link text contains "New Report"
+#     - link text does NOT contain year strings "2013", "2011", "2000"
+#       (these identify the archive files)
+#
+#   File is .xlsx format, requires Referer + User-Agent to download.
+#   The file at the resolved UUID returns 404 without a Referer header.
+#
+#   If selector breaks: re-run DevTools recon on /na-rig-count,
+#   look for the link dated most recent with a green document icon.
 from __future__ import annotations
 
 import asyncio
-import email.utils
+import hashlib
 import json
 import logging
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from bs4 import BeautifulSoup
 
-from scrapers.base.errors import HttpClientError, ScraperError
+from scrapers.base.errors import ScraperError
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.http_client import HttpClient
 from scrapers.base.safe_writer import StatePreservingWriter, safe_write_bytes
@@ -24,154 +38,141 @@ RAW_DIR = Path("data/raw/baker_hughes")
 BASE_URL = "https://rigcount.bakerhughes.com"
 OVERVIEW_URL = f"{BASE_URL}/na-rig-count"
 
-FALLBACK_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://rigcount.bakerhughes.com/na-rig-count",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
 
 
-def _get_latest_local_file() -> Path | None:
-    """Find the most recent baker hughes file by sorting paths."""
-    if not RAW_DIR.exists():
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _find_latest_existing(raw_dir: Path) -> Path | None:
+    """Return the newest existing .xlsx file in raw_dir, or None."""
+    files = sorted(raw_dir.rglob("baker_hughes_*.xlsx"))
+    return files[-1] if files else None
+
+
+def _extract_recent_date(text: str) -> datetime | None:
+    matches = re.findall(r"(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})", text)
+    if not matches:
         return None
-    files = list(RAW_DIR.rglob("baker_hughes_*.xlsb"))
-    if not files:
-        return None
-    return max(files, key=lambda f: f.name)
-
-
-def _find_best_link(candidates: list[dict[str, str]]) -> str | None:
-    """Select the best matching .xlsb link from a list of candidates."""
-    matched = []
-    for c in candidates:
-        href_lower = c["href"].lower()
-        title_lower = c.get("title", "").lower()
-
-        # Must end with .xlsb or .xlsx (though we prefer xlsb based on recon)
-        if not (href_lower.endswith(".xlsb") or href_lower.endswith(".xlsx")):
-            continue
-
-        # Should ideally contain 'rig_count' and 'na' or 'rotary'
-        if (
-            "rig_count" in href_lower
-            or "rig_count" in title_lower
-            or "rotary_rig_count" in href_lower
-            or "rotary" in title_lower
-        ):
-            if "na" in href_lower or "na" in title_lower or "north america" in title_lower:
-                matched.append(c["href"])
-
-    if not matched:
-        # Fallback to broader match if strict fails
-        for c in candidates:
-            h = c["href"].lower()
-            t = c.get("title", "").lower()
-            if (h.endswith(".xlsb") or h.endswith(".xlsx")) and ("rig" in h or "rig" in t):
-                matched.append(c["href"])
-
-    if not matched:
-        return None
-
-    # Sort matching by length (shortest filename usually summary)
-    matched.sort(key=len)
-    return matched[0]
+    dates = []
+    for m, d, y in matches:
+        year = int(y)
+        if year < 100:
+            year += 2000
+        try:
+            dates.append(datetime(year, int(m), int(d), tzinfo=UTC))
+        except ValueError:
+            pass
+    return max(dates) if dates else None
 
 
 async def run() -> dict[str, Any]:
-    """Fetch Baker Hughes North America rig count session-scoped Excel file."""
     health = HealthWriter(source_name=SOURCE_NAME)
 
-    async def fetch_pipeline(client: HttpClient) -> dict[str, Any] | None:
-        html = await client.get_bytes(OVERVIEW_URL)
-        soup = BeautifulSoup(html, "lxml")
-
-        candidates = []
-        for a in soup.find_all("a", href=True):
-            entry = {"href": str(a["href"]), "title": str(a.get("title", ""))}
-            candidates.append(entry)
-
-        extracted_url = _find_best_link(candidates)
-        if not extracted_url:
-            raise ScraperError("No valid .xlsb link found on Baker Hughes landing page.")
-
-        target_url = BASE_URL + extracted_url if extracted_url.startswith("/") else extracted_url
-
-        resp = await client._request("GET", target_url)
-        excel_bytes = resp.content
-        if not excel_bytes:
-            raise RuntimeError("Empty response received from download")
-
-        # Resolve Last-Modified
-        lm_header = resp.headers.get("Last-Modified")
-        if lm_header:
-            parsed_dt = email.utils.parsedate_to_datetime(lm_header)
-            iso_date = parsed_dt.strftime("%Y-%m-%d")
-            remote_timestamp = parsed_dt.timestamp()
-        else:
-            iso_date = datetime.now(UTC).strftime("%Y-%m-%d")
-            remote_timestamp = datetime.now(UTC).timestamp()
-
-        # Staleness check against local disk
-        latest_file = _get_latest_local_file()
-        if latest_file is not None and latest_file.exists():
-            local_timestamp = latest_file.stat().st_mtime
-            if remote_timestamp <= local_timestamp:
-                health.record_skipped(reason="Remote file not newer than local")
-                return {"status": "skipped", "latest_date": iso_date}
-
+    async with HttpClient(rate_limit_per_second=1.0, default_headers=HEADERS) as client:
         try:
-            dt = datetime.strptime(iso_date, "%Y-%m-%d")
-        except ValueError:
-            dt = datetime.now()
+            # 1. Warm session
+            html = await client.get_bytes(OVERVIEW_URL)
+            soup = BeautifulSoup(html, "lxml")
 
-        # Format output using .xlsb
-        suffix = ".xlsb" if target_url.lower().endswith(".xlsb") else ".xlsx"
-        out_path = RAW_DIR / str(dt.year) / f"{dt.month:02d}" / f"baker_hughes_{iso_date}{suffix}"
+            # 2. Link selection
+            candidates = []
+            links = soup.find_all("a", href=True)
+            for a in links:
+                href = a["href"]
+                text = a.get_text(strip=True)
+                if "static-files" in href and "New Report" in text:
+                    if not any(yr in text for yr in ["2013", "2011", "2000"]):
+                        candidates.append(a)
 
-        async def compute_data() -> bytes:
-            return excel_bytes
+            if not candidates:
+                all_static = sum(1 for tag in links if "static-files" in tag.get("href", ""))
+                title = soup.title.string if soup.title else "No Title"
+                raise ScraperError(
+                    f"Page '{title}', found {all_static} static-files links, but 0 matched requirements."
+                )
 
-        writer = StatePreservingWriter(source_name=SOURCE_NAME, writer=safe_write_bytes)
-        success = await writer.guarded_write(out_path, compute_data)
+            selected_a = None
+            if len(candidates) == 1:
+                selected_a = candidates[0]
+            else:
+                best_date = None
+                for a in candidates:
+                    tr = a.find_parent("tr")
+                    context = tr.get_text() if tr else a.get_text()
+                    d = _extract_recent_date(context)
+                    if d:
+                        if not best_date or d > best_date:
+                            best_date = d
+                            selected_a = a
+                if not selected_a:
+                    selected_a = candidates[0]
 
-        if success:
-            health.record_success(
-                metadata={
+            extracted_url = selected_a["href"]
+            target_url = (
+                BASE_URL + extracted_url if extracted_url.startswith("/") else extracted_url
+            )
+
+            # 3. Download
+            resp = await client._request("GET", target_url)
+            excel_bytes = resp.content
+            if not excel_bytes:
+                raise RuntimeError("Empty response received from download")
+
+            # 4. Hash checking
+            new_hash = _sha256_bytes(excel_bytes)
+            latest_file = _find_latest_existing(RAW_DIR)
+            if latest_file and latest_file.exists():
+                existing_hash = _sha256_bytes(latest_file.read_bytes())
+                if existing_hash == new_hash:
+                    health.record_skipped(reason=f"content unchanged since {latest_file.name}")
+                    return {
+                        "status": "skipped",
+                        "latest_date": latest_file.stem.replace("baker_hughes_", ""),
+                    }
+
+            # 5. Output
+            today = datetime.now(UTC)
+            iso_date = today.strftime("%Y-%m-%d")
+            out_path = (
+                RAW_DIR / str(today.year) / f"{today.month:02d}" / f"baker_hughes_{iso_date}.xlsx"
+            )
+
+            async def compute_data() -> bytes:
+                return excel_bytes
+
+            writer = StatePreservingWriter(source_name=SOURCE_NAME, writer=safe_write_bytes)
+            success = await writer.guarded_write(out_path, compute_data)
+
+            if success:
+                health.record_success(
+                    metadata={
+                        "latest_date": iso_date,
+                        "size": len(excel_bytes),
+                        "hash": new_hash[:8],
+                        "url": target_url,
+                    }
+                )
+                return {
+                    "status": "ok",
                     "latest_date": iso_date,
                     "size": len(excel_bytes),
+                    "path": str(out_path),
                     "url": target_url,
                 }
-            )
-            return {
-                "status": "ok",
-                "latest_date": iso_date,
-                "size": len(excel_bytes),
-                "path": str(out_path),
-                "url": target_url,
-            }
 
-        return {"status": "failed"}
+            return {"status": "failed"}
 
-    # Attempt with standard UA
-    try:
-        async with HttpClient(rate_limit_per_second=1.0) as client:
-            return await fetch_pipeline(client) or {"status": "failed"}
-    except HttpClientError as e:
-        status_code = getattr(e, "status", None)
-        if status_code != 403:
+        except Exception as e:
             health.record_failure(error=str(e))
+            if isinstance(e, ScraperError):
+                raise
             return {"status": "failed", "error": str(e)}
-        log.warning("Standard UA hit 403. Retrying with Mozilla fallback.")
-    except Exception as e:
-        health.record_failure(error=str(e))
-        return {"status": "failed", "error": str(e)}
-
-    # Attempt with fallback Mozilla UA
-    try:
-        async with HttpClient(rate_limit_per_second=1.0) as client:
-            # Overwrite the default user-agent header
-            client._client.headers["User-Agent"] = FALLBACK_UA
-            return await fetch_pipeline(client) or {"status": "failed"}
-    except Exception as e:
-        health.record_failure(error=str(e))
-        return {"status": "failed", "error": str(e)}
 
 
 if __name__ == "__main__":

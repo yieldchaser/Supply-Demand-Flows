@@ -1,7 +1,7 @@
 {
   "source": "baker_hughes_rigs",
-  "status": "failed",
-  "timestamp_utc": "2026-04-20T02:46:59Z",
-  "error": "No valid .xlsb link found on Baker Hughes landing page.",
+  "status": "skipped",
+  "timestamp_utc": "2026-04-20T05:31:40Z",
+  "error": "content unchanged since baker_hughes_1999-01-01.xlsx",
   "metadata": null
 }
