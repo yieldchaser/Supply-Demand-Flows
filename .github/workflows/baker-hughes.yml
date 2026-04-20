@@ -1,0 +1,79 @@
+name: Baker Hughes Rig Count (weekly)
+
+on:
+  schedule:
+    - cron: '0 19 * * 5'  # Friday 19:00 UTC (1h after publish, ensures file is live)
+    - cron: '0 19 * * 6'  # Saturday retry
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: baker-hughes
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5.3.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Baker Hughes scraper
+        id: scrape
+        run: |
+          python -m scrapers.baker_hughes.rigs | tee /tmp/scraper_output.json
+          STATUS=$(python -c "import json; print(json.load(open('/tmp/scraper_output.json'))['status'])")
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          if [ "$STATUS" = "ok" ]; then
+            DATE=$(python -c "import json; print(json.load(open('/tmp/scraper_output.json'))['date'])")
+            echo "date=$DATE" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit
+        if: steps.scrape.outputs.status == 'ok'
+        env:
+          DATE: ${{ steps.scrape.outputs.date }}
+        run: |
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          # data/raw/baker_hughes/*.xlsx is gitignored (see .gitignore)
+          # We commit only the health file; the .xlsx lives on runner for this job only.
+          # A future transformer will produce data/curated/baker_hughes_rigs.parquet (A4.2).
+          git add data/health/baker_hughes_rigs.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data(rigs): Baker Hughes ${DATE}"
+          git push
+
+      - name: Report skip
+        if: steps.scrape.outputs.status == 'skipped'
+        run: echo "Staleness gate held — no new data since last fetch"
+
+      - name: Report failure
+        if: steps.scrape.outputs.status == 'failed' || failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Scraper failed — health file will show details"
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          git add data/health/baker_hughes_rigs.json || true
+          if ! git diff --cached --quiet; then
+            git commit -m "data(rigs): health update (failure recorded)"
+            git push
+          fi
+          exit 1

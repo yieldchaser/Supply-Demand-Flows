@@ -20,14 +20,19 @@ env/
 secrets.yaml
 *.secrets
 
-# Data artifacts (large, rotated separately)
-data/raw/**/*.parquet
-data/raw/**/*.json
-data/raw/**/*.db
-data/curated/**/*.parquet
-!data/raw/.gitkeep
-!data/curated/.gitkeep
-!data/health/.gitkeep
+# Raw ingested data — gitignored, re-fetchable from source APIs
+data/raw/
+
+# Health observability — committed so we can track system health over time
+!data/health/
+!data/health/*.json
+
+# Curated canonical data — committed as source of truth for dashboard
+!data/curated/
+!data/curated/**/*.parquet
+
+# Alert idempotency state — committed so GHA jobs deduplicate across runs
+!data/sent_alerts.json
 
 # Playwright
 .playwright/

@@ -1,0 +1,78 @@
+name: EIA Supply (monthly)
+
+on:
+  schedule:
+    - cron: '0 15 1 * *'  # 1st of every month 15:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eia-supply
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5.3.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run EIA supply scraper
+        id: scrape
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: |
+          python -m scrapers.eia_api.supply | tee /tmp/scraper_output.json
+          STATUS=$(python -c "import json; print(json.load(open('/tmp/scraper_output.json'))['status'])")
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          if [ "$STATUS" = "ok" ]; then
+            LATEST=$(python -c "import json; print(json.load(open('/tmp/scraper_output.json'))['latest_date'])")
+            echo "latest_date=$LATEST" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit
+        if: steps.scrape.outputs.status == 'ok'
+        env:
+          LATEST: ${{ steps.scrape.outputs.latest_date }}
+        run: |
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          git add data/health/eia_supply.json
+          git add data/raw/eia_supply/ || true
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data(supply): EIA ${LATEST}"
+          git push
+
+      - name: Report skip
+        if: steps.scrape.outputs.status == 'skipped'
+        run: echo "Staleness gate held — no new data since last fetch"
+
+      - name: Report failure
+        if: steps.scrape.outputs.status == 'failed' || failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Scraper failed — health file will show details"
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          git add data/health/eia_supply.json || true
+          if ! git diff --cached --quiet; then
+            git commit -m "data(supply): health update (failure recorded)"
+            git push
+          fi
+          exit 1
