@@ -1,8 +1,14 @@
 <html>
     <body>
         <div class="downloads">
-            <a href="/static/na_rotary.xlsx">North America Rotary Rig Count</a>
+            <!-- Wrong URL -->
             <a href="/static/other.pdf">Other Report</a>
+            <!-- Right extension, wrong keyword -->
+            <a href="/static/unrelated.xlsb">Random Data</a>
+            <!-- Good match but long name -->
+            <a href="/static/north_america_rotary_rig_count_detailed.xlsb" title="NA Rig Count Detailed">Detailed</a>
+            <!-- Good match and shortest name -->
+            <a href="/static/na_rig_count.xlsb" title="North America Rotary Rig Count Summary">Summary</a>
         </div>
     </body>
 </html>

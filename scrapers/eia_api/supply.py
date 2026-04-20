@@ -1,15 +1,13 @@
-"""EIA Natural Gas Weekly Supply/Demand Scraper."""
+"""EIA Natural Gas Monthly Supply/Demand Scraper."""
 
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-
-from dateutil.relativedelta import relativedelta
 
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.safe_writer import StatePreservingWriter, safe_write_json
@@ -20,6 +18,19 @@ log = logging.getLogger(__name__)
 ROUTE = "natural-gas/sum/snd"
 SOURCE_NAME = "eia_supply"
 RAW_DIR = Path("data/raw/eia_supply")
+
+PROCESS_CODES: dict[str, str] = {
+    "FPD": "Dry Production",
+    "VGT": "Supplemental Gaseous Fuels",  # TODO_VERIFY
+    "VRS": "Interstate Receipts",  # TODO_VERIFY
+    "VIM": "Receipts Across U.S. Borders",  # TODO_VERIFY
+    "VWS": "Withdrawals from Underground Storage",
+    "VC0": "Consumption",
+    "VGD": "Interstate Deliveries",  # TODO_VERIFY
+    "VEX": "Deliveries Across U.S. Borders",  # TODO_VERIFY
+    "VIS": "Injections into Storage",  # TODO_VERIFY
+    "VBA": "Balancing Item",  # TODO_VERIFY
+}
 
 
 def _get_latest_local_date() -> str | None:
@@ -33,7 +44,7 @@ def _get_latest_local_date() -> str | None:
 
 
 async def run() -> dict[str, Any]:
-    """Fetch latest weekly natural gas supply and demand data from EIA."""
+    """Fetch latest monthly natural gas supply and demand data from EIA."""
     health = HealthWriter(source_name=SOURCE_NAME)
     try:
         api_key = load_api_key_from_env()
@@ -43,7 +54,14 @@ async def run() -> dict[str, Any]:
 
     async with EIAClient(api_key=api_key) as client:
         try:
-            latest_api_date = await client.get_latest_date(route=ROUTE, frequency="weekly")
+            latest_api_date = await client.get_latest_date(
+                route=ROUTE,
+                frequency="monthly",
+                facets={
+                    "duoarea": ["NUS"],
+                    "process": list(PROCESS_CODES.keys()),
+                },
+            )
         except Exception as exc:
             err = f"API error: {exc}"
             health.record_failure(error=err)
@@ -59,22 +77,25 @@ async def run() -> dict[str, Any]:
             health.record_skipped(reason=f"no new data since {latest_api_date}")
             return {"status": "skipped", "latest_date": latest_api_date}
 
-        start_date = (date.today() - relativedelta(weeks=52)).isoformat()
-
         data_to_write: dict[str, Any] | None = None
 
         async def compute_data() -> dict[str, Any]:
             nonlocal data_to_write
             data_to_write = await client.get_series(
                 route=ROUTE,
-                frequency="weekly",
-                start=start_date,
+                frequency="monthly",
+                facets={
+                    "duoarea": ["NUS"],
+                    "process": list(PROCESS_CODES.keys()),
+                },
                 data_columns=["value"],
+                start="2020-01",
+                length=5000,
             )
             return data_to_write
 
         try:
-            dt = datetime.strptime(latest_api_date, "%Y-%m-%d")
+            dt = datetime.strptime(latest_api_date, "%Y-%m")
         except ValueError:
             dt = datetime.now()
 
@@ -85,7 +106,13 @@ async def run() -> dict[str, Any]:
 
         if success and data_to_write:
             resp_obj = data_to_write.get("response", {})
-            rows_count = len(resp_obj.get("data", [])) if isinstance(resp_obj, dict) else 0
+            rows = resp_obj.get("data", []) if isinstance(resp_obj, dict) else []
+            rows_count = len(rows)
+
+            found_processes = {row.get("process") for row in rows if isinstance(row, dict)}
+            missing_processes = set(PROCESS_CODES.keys()) - found_processes
+            if missing_processes:
+                log.warning("Empty rows for process codes: %s", ", ".join(missing_processes))
 
             health.record_success(metadata={"latest_date": latest_api_date, "rows": rows_count})
             return {

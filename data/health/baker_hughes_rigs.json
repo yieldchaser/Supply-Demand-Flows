@@ -1,11 +1,7 @@
 {
   "source": "baker_hughes_rigs",
-  "status": "ok",
-  "timestamp_utc": "2026-04-20T02:19:18Z",
-  "error": null,
-  "metadata": {
-    "latest_date": "2026-04-20",
-    "size": 13,
-    "url": "https://rigcount.bakerhughes.com/static-files/na_rotary_rig_count.xlsx"
-  }
+  "status": "failed",
+  "timestamp_utc": "2026-04-20T02:46:59Z",
+  "error": "No valid .xlsb link found on Baker Hughes landing page.",
+  "metadata": null
 }

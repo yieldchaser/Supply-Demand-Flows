@@ -137,3 +137,31 @@ class EIAClient:
             return None
 
         return str(data[0].get("period"))
+
+    async def get_metadata(self, route: str) -> dict[str, Any]:
+        """
+        Why: EIA v2 routes often surprise us with different frequency/facet requirements.
+        Hitting the route without /data/ returns the schema, letting us self-debug 400s.
+        What: GETs {base_url}/{route}/ (no /data/ suffix), returns the 'response' envelope.
+        Failure modes: propagates HttpClientError on network/401/etc.
+        """
+        params: dict[str, Any] = {"api_key": self.api_key}
+        url = f"{self.base_url}/{route.strip('/')}/"
+        resp = await self.client.get_json(url, params=params)
+
+        if isinstance(resp, dict) and "error" in resp:
+            raise HttpClientError(
+                url=url,
+                status=None,
+                attempts=1,
+                elapsed_s=0.0,
+                reason=str(resp["error"]),
+            )
+
+        if not isinstance(resp, dict):
+            raise TypeError("Expected dict response from EIA JSON endpoint")
+
+        resp_obj = resp.get("response", {})
+        if not isinstance(resp_obj, dict):
+            return {}
+        return resp_obj
