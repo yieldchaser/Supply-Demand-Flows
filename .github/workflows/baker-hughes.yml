@@ -52,7 +52,7 @@ jobs:
           import json
           from transformers.baker_hughes import transform
           latest = sorted(Path('data/raw/baker_hughes').rglob('*.xlsx'))[-1]
-          out = Path('data/curated/baker_hughes.parquet')
+          out = Path('data/curated/baker_hughes_weekly.parquet')
           out.parent.mkdir(parents=True, exist_ok=True)
           result = transform(latest, out)
           print(json.dumps(result, indent=2, default=str))
@@ -66,7 +66,7 @@ jobs:
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
           git add data/health/baker_hughes_rigs.json
-          git add data/curated/baker_hughes.parquet || true
+          git add data/curated/baker_hughes_weekly.parquet || true
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data(rigs): Baker Hughes ${DATE}"
           git push

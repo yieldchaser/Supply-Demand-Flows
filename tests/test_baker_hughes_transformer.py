@@ -4,67 +4,183 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
+from openpyxl import Workbook
 
-from transformers.baker_hughes import transform
+from transformers.baker_hughes import EXPECTED_COLUMNS, TransformError, transform
 
 
-def test_transform_baker_hughes(tmp_path: Path):
-    """Verify Excel → curated Parquet transformation for Baker Hughes."""
+def create_mock_xlsx(
+    path: Path,
+    sheet_name: str = "NAM Weekly",
+    modify_header: bool = False,
+    add_bad_date: bool = False,
+):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = sheet_name
+
+    # Rows 1-10 blank
+    for _ in range(10):
+        ws.append([])
+
+    # Row 11 header
+    header = list(EXPECTED_COLUMNS)
+    if modify_header:
+        header.remove("Rig Count Value")
+    ws.append(header)
+
+    if not modify_header:
+        # Get column indices
+        col_map = {name: idx for idx, name in enumerate(header)}
+
+        def make_row(country, basin, drillfor, location, state, trajectory, date_val, rig_count):
+            row = [None] * len(header)
+            row[col_map["Country"]] = country
+            row[col_map["Basin"]] = basin
+            row[col_map["DrillFor"]] = drillfor
+            row[col_map["Location"]] = location
+            row[col_map["State/Province"]] = state
+            row[col_map["Trajectory"]] = trajectory
+            row[col_map["US_PublishDate"]] = date_val
+            row[col_map["Rig Count Value"]] = rig_count
+            return row
+
+        # Period 1: 2024-04-12
+        p1 = datetime(2024, 4, 12)
+        # Period 2: 2024-04-19
+        p2 = "19-04-2024"
+
+        ws.append(
+            make_row("UNITED STATES", "Permian", "Oil", "Land", "Texas", "Horizontal", p1, 10)
+        )
+        ws.append(
+            make_row("UNITED STATES", "Permian", "Gas", "Land", "New Mexico", "Directional", p1, 5)
+        )
+        ws.append(
+            make_row(
+                "UNITED STATES", "Marcellus", "Gas", "Land", "Pennsylvania", "Horizontal", p1, 20
+            )
+        )
+        ws.append(make_row("CANADA", "Alberta", "Oil", "Land", "Alberta", "Horizontal", p1, 15))
+
+        ws.append(
+            make_row("UNITED STATES", "Permian", "Oil", "Land", "Texas", "Horizontal", p2, 12)
+        )
+        ws.append(make_row("CANADA", "Alberta", "Gas", "Land", "Alberta", "Vertical", p2, 8))
+
+        if add_bad_date:
+            ws.append(
+                make_row(
+                    "UNITED STATES",
+                    "Eagle Ford",
+                    "Oil",
+                    "Land",
+                    "Texas",
+                    "Horizontal",
+                    "invalid_date",
+                    50,
+                )
+            )
+            ws.append(
+                make_row(
+                    "UNITED STATES", "Eagle Ford", "Oil", "Land", "Texas", "Horizontal", None, 50
+                )
+            )
+
+    wb.save(path)
+
+
+def test_transform_produces_rollup_and_granular(tmp_path: Path):
     raw_path = tmp_path / "raw.xlsx"
     out_path = tmp_path / "curated.parquet"
+    create_mock_xlsx(raw_path)
 
-    # We mock load_workbook because creating a real .xlsx is heavy
-    with patch("transformers.baker_hughes.load_workbook") as mock_load:
-        mock_wb = MagicMock()
-        mock_wb.sheetnames = ["US Oil & Gas Split", "Canada Oil & Gas Split"]
+    res = transform(raw_path, out_path)
 
-        # Mock US sheet
-        mock_us_ws = MagicMock()
-        mock_us_ws.iter_rows.return_value = [
-            [
-                MagicMock(value="Date"),
-                MagicMock(value="Oil"),
-                MagicMock(value="Gas"),
-                MagicMock(value="Total"),
-            ],
-            [
-                MagicMock(value=datetime(2024, 4, 12)),
-                MagicMock(value=500),
-                MagicMock(value=100),
-                MagicMock(value=600),
-            ],
-        ]
+    assert res["rows"] > 0
+    assert res["rollup_count"] > 0
+    assert res["granular_count"] == 6
 
-        # Mock Canada sheet
-        mock_ca_ws = MagicMock()
-        mock_ca_ws.iter_rows.return_value = [
-            [
-                MagicMock(value="Date"),
-                MagicMock(value="Oil"),
-                MagicMock(value="Gas"),
-                MagicMock(value="Total"),
-            ],
-            [
-                MagicMock(value=datetime(2024, 4, 12)),
-                MagicMock(value=100),
-                MagicMock(value=20),
-                MagicMock(value=120),
-            ],
-        ]
+    df = pd.read_parquet(out_path)
+    assert len(df) == res["rows"]
 
-        mock_wb.__getitem__.side_effect = lambda name: mock_us_ws if "US" in name else mock_ca_ws
-        mock_load.return_value = mock_wb
+    # Check that both rollup and granular series exist
+    rollups = df[df["series_id"].str.startswith("bh_rollup_")]
+    granulars = df[df["series_id"].str.startswith("bh_granular_")]
 
-        result = transform(raw_path, out_path)
+    assert not rollups.empty
+    assert not granulars.empty
 
-        assert result["rows"] > 0
-        assert "US" in result["regions"]
-        assert "CANADA" in result["regions"]
-        assert out_path.exists()
 
-        df = pd.read_parquet(out_path)
-        assert "us_oil" in df["series_id"].values
-        assert "canada_oil" in df["series_id"].values
+def test_missing_sheet_raises_error(tmp_path: Path):
+    raw_path = tmp_path / "raw.xlsx"
+    out_path = tmp_path / "curated.parquet"
+    create_mock_xlsx(raw_path, sheet_name="Wrong Sheet")
+
+    with pytest.raises(TransformError, match="Missing expected sheet"):
+        transform(raw_path, out_path)
+
+
+def test_missing_header_column_raises_error(tmp_path: Path):
+    raw_path = tmp_path / "raw.xlsx"
+    out_path = tmp_path / "curated.parquet"
+    create_mock_xlsx(raw_path, modify_header=True)
+
+    with pytest.raises(TransformError, match="missing expected columns"):
+        transform(raw_path, out_path)
+
+
+def test_unparseable_dates_skipped(tmp_path: Path, caplog):
+    raw_path = tmp_path / "raw.xlsx"
+    out_path = tmp_path / "curated.parquet"
+    create_mock_xlsx(raw_path, add_bad_date=True)
+
+    res = transform(raw_path, out_path)
+
+    # Granular count should still be 6 because the bad date rows are skipped
+    assert res["granular_count"] == 6
+    assert "rows had unparseable US_PublishDate, skipped." in caplog.text
+
+
+def test_na_total_equals_us_plus_canada(tmp_path: Path):
+    raw_path = tmp_path / "raw.xlsx"
+    out_path = tmp_path / "curated.parquet"
+    create_mock_xlsx(raw_path)
+
+    transform(raw_path, out_path)
+    df = pd.read_parquet(out_path)
+
+    periods = df["period"].unique()
+    for p in periods:
+        us_total = df[(df["period"] == p) & (df["series_id"] == "bh_rollup_us_total")][
+            "value"
+        ].sum()
+        ca_total = df[(df["period"] == p) & (df["series_id"] == "bh_rollup_canada_total")][
+            "value"
+        ].sum()
+        na_total = df[(df["period"] == p) & (df["series_id"] == "bh_rollup_na_total")][
+            "value"
+        ].sum()
+
+        assert na_total == us_total + ca_total
+
+
+def test_basin_rollups_only_emitted_when_rig_count_positive(tmp_path: Path):
+    raw_path = tmp_path / "raw.xlsx"
+    out_path = tmp_path / "curated.parquet"
+    create_mock_xlsx(raw_path)
+
+    transform(raw_path, out_path)
+    df = pd.read_parquet(out_path)
+
+    # In period 1, Permian and Marcellus have rigs. Eagle Ford does not.
+    p1 = pd.Timestamp("2024-04-12").date()
+    p1_df = df[df["period"] == p1]
+
+    series_ids = p1_df["series_id"].tolist()
+    assert "bh_rollup_basin_permian" in series_ids
+    assert "bh_rollup_basin_marcellus" in series_ids
+    assert "bh_rollup_basin_eagle_ford" not in series_ids
