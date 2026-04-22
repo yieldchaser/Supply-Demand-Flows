@@ -15,24 +15,25 @@ license = { text = "MIT" }
 authors = [{ name = "yieldchaser" }]
 
 dependencies = [
-    "httpx==0.27.2",
-    "pandas==2.2.3",
-    "pyarrow==18.0.0",
-    "pydantic==2.9.2",
-    "pyyaml==6.0.2",
-    "python-dateutil==2.9.0",
-    "playwright==1.48.0",
     "beautifulsoup4==4.12.3",
-    "lxml==5.3.0",
-    "websockets==13.1",
-    "python-dotenv==1.0.1",
-    "pyxlsb==1.0.10",
     # curl_cffi wraps libcurl with browser TLS fingerprint impersonation.
     # Used by scrapers/baker_hughes/rigs.py because Baker Hughes' Cloudflare/Drupal
     # CDN throttles Python's OpenSSL-based HTTP libraries (httpx, requests) via
     # JA3/JA4 fingerprinting. curl_cffi with impersonate="chrome124" passes through.
     # Do not use for other scrapers - httpx remains canonical for speed.
     "curl_cffi==0.7.4",
+    "httpx==0.27.2",
+    "lxml==5.3.0",
+    "openpyxl==3.1.5",
+    "pandas==2.2.3",
+    "playwright==1.48.0",
+    "pyarrow==18.0.0",
+    "pydantic==2.9.2",
+    "python-dateutil==2.9.0",
+    "python-dotenv==1.0.1",
+    "pyxlsb==1.0.10",
+    "pyyaml==6.0.2",
+    "websockets==13.1",
 ]
 
 [project.optional-dependencies]
