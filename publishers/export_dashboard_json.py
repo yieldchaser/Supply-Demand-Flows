@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -18,6 +19,21 @@ from scrapers.base.safe_writer import safe_write_json, safe_write_text
 CURATED_DIR = Path("data/curated")
 HEALTH_DIR = Path("data/health")
 DOCS_DATA_DIR = Path("docs/data")
+
+
+def _json_default(obj: object) -> str:
+    """
+    Fallback serializer for non-JSON-native types emitted by pandas/transformers.
+    Handles date, datetime, pd.Timestamp, numpy scalar types, Decimal.
+    """
+    if isinstance(obj, date | datetime):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return str(obj)
+    # numpy types (int64, float64) have .item() method
+    if hasattr(obj, "item"):
+        return obj.item()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
 def build() -> dict:
@@ -59,7 +75,7 @@ def build() -> dict:
                 print(f"Error reading {health_path}: {exc}")
 
     # 3. Serialise and Hash
-    bundle_json = json.dumps(bundle, indent=2, ensure_ascii=False)
+    bundle_json = json.dumps(bundle, indent=2, ensure_ascii=False, default=_json_default)
     bundle_hash = hashlib.md5(bundle_json.encode("utf-8")).hexdigest()[:8]
 
     # 4. Write Files
@@ -90,4 +106,4 @@ def build() -> dict:
 
 if __name__ == "__main__":
     result = build()
-    print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2, default=_json_default))

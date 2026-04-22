@@ -49,3 +49,14 @@ def test_build_bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     assert "eia_storage" in bundle["sources"]
     assert "eia_storage" in bundle["health"]
     assert bundle["sources"]["eia_storage"]["data"][0]["value"] == 100.0
+
+
+def test_bundle_handles_date_objects():
+    """Verify the default serializer handles pandas/transformer date outputs."""
+    # Simulate a bundle with a date object
+    import json
+    from datetime import date
+    from publishers.export_dashboard_json import _json_default
+
+    result = json.dumps({"period": date(2026, 4, 22)}, default=_json_default)
+    assert "2026-04-22" in result
