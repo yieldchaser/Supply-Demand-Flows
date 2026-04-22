@@ -74,15 +74,13 @@ jobs:
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
           git add data/health/eia_storage.json
-          git add data/raw/eia_storage/ || true
           git add data/curated/eia_storage.parquet || true
-          if git diff --cached --quiet; then
-            echo "Nothing to commit (staleness gate already held)"
-            exit 0
+          if ! git diff --cached --quiet; then
+            git commit -m "data(storage): EIA ${LATEST}"
+            for i in {1..5}; do
+              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
+            done
           fi
-          git commit -m "data(storage): EIA ${LATEST}"
-          git pull --rebase origin main
-          git push origin main
 
       - name: Report skip
         if: steps.scrape.outputs.status == 'skipped'
@@ -94,13 +92,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Scraper failed — health file will show details"
-          # Still commit the health file so we can observe the failure
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
           git add data/health/eia_storage.json || true
           if ! git diff --cached --quiet; then
             git commit -m "data(storage): health update (failure recorded)"
-            git pull --rebase origin main
-          git push origin main
+            for i in {1..5}; do
+              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
+            done
           fi
           exit 1

@@ -67,12 +67,13 @@ jobs:
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
           git add data/health/eia_supply.json
-          git add data/raw/eia_supply/ || true
           git add data/curated/eia_supply.parquet || true
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "data(supply): EIA ${LATEST}"
-          git pull --rebase origin main
-          git push origin main
+          if ! git diff --cached --quiet; then
+            git commit -m "data(supply): EIA ${LATEST}"
+            for i in {1..5}; do
+              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
+            done
+          fi
 
       - name: Report skip
         if: steps.scrape.outputs.status == 'skipped'
@@ -83,13 +84,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Scraper failed — health file will show details"
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
           git add data/health/eia_supply.json || true
           if ! git diff --cached --quiet; then
             git commit -m "data(supply): health update (failure recorded)"
-            git pull --rebase origin main
-          git push origin main
+            for i in {1..5}; do
+              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
+            done
           fi
           exit 1
