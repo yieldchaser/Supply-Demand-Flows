@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-04-22T10:05:45.346361+00:00",
+  "sources": {},
+  "health": {
+    "baker_hughes_rigs": {
+      "source": "baker_hughes_rigs",
+      "status": "failed",
+      "timestamp_utc": "2026-04-22T10:05:20Z",
+      "error": "Baker Hughes download too small (4 bytes) - likely an error page, not an Excel file.",
+      "metadata": null
+    },
+    "baker_hughes_rigs.prev": {
+      "source": "baker_hughes_rigs",
+      "status": "skipped",
+      "timestamp_utc": "2026-04-22T10:05:20Z",
+      "error": "content unchanged since baker_hughes_1999-01-01",
+      "metadata": null
+    },
+    "eia_storage": {
+      "source": "eia_storage",
+      "status": "failed",
+      "timestamp_utc": "2026-04-22T10:05:21Z",
+      "error": "API error: HTTP failure for test: Fail (status=500, attempts=1, elapsed=1.00s)",
+      "metadata": null
+    },
+    "eia_storage.prev": {
+      "source": "eia_storage",
+      "status": "ok",
+      "timestamp_utc": "2026-04-22T10:05:21Z",
+      "error": null,
+      "metadata": {
+        "latest_date": "2024-04-19",
+        "rows": 1
+      }
+    },
+    "eia_supply": {
+      "source": "eia_supply",
+      "status": "failed",
+      "timestamp_utc": "2026-04-22T10:05:21Z",
+      "error": "Missing expected process codes: VG4",
+      "metadata": null
+    },
+    "eia_supply.prev": {
+      "source": "eia_supply",
+      "status": "skipped",
+      "timestamp_utc": "2026-04-22T10:05:21Z",
+      "error": "no new data since 2024-04",
+      "metadata": null
+    }
+  }
+}

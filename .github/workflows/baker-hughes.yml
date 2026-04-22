@@ -44,6 +44,20 @@ jobs:
             echo "date=$DATE" >> $GITHUB_OUTPUT
           fi
 
+      - name: Transform raw → curated
+        if: steps.scrape.outputs.status == 'ok'
+        run: |
+          python -c "
+          from pathlib import Path
+          import json
+          from transformers.baker_hughes import transform
+          latest = sorted(Path('data/raw/baker_hughes').rglob('*.xlsx'))[-1]
+          out = Path('data/curated/baker_hughes.parquet')
+          out.parent.mkdir(parents=True, exist_ok=True)
+          result = transform(latest, out)
+          print(json.dumps(result, indent=2, default=str))
+          "
+
       - name: Commit
         if: steps.scrape.outputs.status == 'ok'
         env:
@@ -51,10 +65,8 @@ jobs:
         run: |
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
-          # data/raw/baker_hughes/*.xlsx is gitignored (see .gitignore)
-          # We commit only the health file; the .xlsx lives on runner for this job only.
-          # A future transformer will produce data/curated/baker_hughes_rigs.parquet (A4.2).
           git add data/health/baker_hughes_rigs.json
+          git add data/curated/baker_hughes.parquet || true
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data(rigs): Baker Hughes ${DATE}"
           git push

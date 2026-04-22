@@ -52,6 +52,20 @@ jobs:
             echo "latest_date=$LATEST" >> $GITHUB_OUTPUT
           fi
 
+      - name: Transform raw → curated
+        if: steps.scrape.outputs.status == 'ok'
+        run: |
+          python -c "
+          from pathlib import Path
+          import json
+          from transformers.eia_storage import transform
+          latest = sorted(Path('data/raw/eia_storage').rglob('*.json'))[-1]
+          out = Path('data/curated/eia_storage.parquet')
+          out.parent.mkdir(parents=True, exist_ok=True)
+          result = transform(latest, out)
+          print(json.dumps(result, indent=2, default=str))
+          "
+
       - name: Commit new data
         if: steps.scrape.outputs.status == 'ok'
         env:
@@ -61,6 +75,7 @@ jobs:
           git config user.email "bot@bluetide.local"
           git add data/health/eia_storage.json
           git add data/raw/eia_storage/ || true
+          git add data/curated/eia_storage.parquet || true
           if git diff --cached --quiet; then
             echo "Nothing to commit (staleness gate already held)"
             exit 0

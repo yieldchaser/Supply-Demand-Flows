@@ -31,6 +31,10 @@ data/raw/
 !data/curated/
 !data/curated/**/*.parquet
 
+# Dashboard bundle — committed for Pages
+!docs/data/
+!docs/data/*.json
+
 # Alert idempotency state — committed so GHA jobs deduplicate across runs
 !data/sent_alerts.json
 

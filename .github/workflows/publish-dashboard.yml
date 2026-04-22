@@ -1,0 +1,54 @@
+name: Publish Dashboard Bundle
+
+on:
+  workflow_run:
+    workflows:
+      - "EIA Storage (weekly)"
+      - "EIA Supply (monthly)"
+      - "Baker Hughes Rig Count (weekly)"
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-dashboard
+  cancel-in-progress: true
+
+jobs:
+  build-and-commit:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5.3.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Build dashboard bundle
+        run: python -m publishers.export_dashboard_json
+
+      - name: Commit bundle
+        run: |
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          git add docs/data/
+          if git diff --cached --quiet; then
+            echo "No bundle changes"
+            exit 0
+          fi
+          git commit -m "docs(bundle): rebuild dashboard bundle"
+          git push
