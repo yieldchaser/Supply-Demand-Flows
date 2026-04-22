@@ -81,7 +81,8 @@ jobs:
             exit 0
           fi
           git commit -m "data(storage): EIA ${LATEST}"
-          git push
+          git pull --rebase origin main
+          git push origin main
 
       - name: Report skip
         if: steps.scrape.outputs.status == 'skipped'
@@ -99,6 +100,7 @@ jobs:
           git add data/health/eia_storage.json || true
           if ! git diff --cached --quiet; then
             git commit -m "data(storage): health update (failure recorded)"
-            git push
+            git pull --rebase origin main
+          git push origin main
           fi
           exit 1

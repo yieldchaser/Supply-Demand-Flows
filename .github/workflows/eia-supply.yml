@@ -71,7 +71,8 @@ jobs:
           git add data/curated/eia_supply.parquet || true
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data(supply): EIA ${LATEST}"
-          git push
+          git pull --rebase origin main
+          git push origin main
 
       - name: Report skip
         if: steps.scrape.outputs.status == 'skipped'
@@ -88,6 +89,7 @@ jobs:
           git add data/health/eia_supply.json || true
           if ! git diff --cached --quiet; then
             git commit -m "data(supply): health update (failure recorded)"
-            git push
+            git pull --rebase origin main
+          git push origin main
           fi
           exit 1

@@ -69,7 +69,8 @@ jobs:
           git add data/curated/baker_hughes_weekly.parquet || true
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data(rigs): Baker Hughes ${DATE}"
-          git push
+          git pull --rebase origin main
+          git push origin main
 
       - name: Report skip
         if: steps.scrape.outputs.status == 'skipped'
@@ -86,6 +87,7 @@ jobs:
           git add data/health/baker_hughes_rigs.json || true
           if ! git diff --cached --quiet; then
             git commit -m "data(rigs): health update (failure recorded)"
-            git push
+            git pull --rebase origin main
+          git push origin main
           fi
           exit 1

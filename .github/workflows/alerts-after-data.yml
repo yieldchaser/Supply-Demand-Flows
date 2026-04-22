@@ -73,5 +73,6 @@ jobs:
           git add data/sent_alerts.json || true
           if ! git diff --cached --quiet; then
             git commit -m "chore(alerts): update sent_alerts idempotency state"
-            git push
+            git pull --rebase origin main
+            git push origin main
           fi
