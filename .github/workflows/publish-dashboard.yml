@@ -24,11 +24,27 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4.2.2
+      # workflow_run staleness workaround:
+      # GitHub Actions runs workflow_run-triggered workflows against the SHA at the
+      # START of the parent workflow, not at its END. Since parent scrapers commit
+      # their curated Parquet at the END of their run, a default checkout here
+      # would miss that commit. `ref: main` forces a fresh pull of main's current
+      # HEAD including any commits made during the parent run.
+      - name: Checkout (fresh main HEAD, not parent workflow SHA)
+        uses: actions/checkout@v4.2.2
         with:
+          ref: main
           fetch-depth: 1
 
-      - uses: actions/setup-python@v5.3.0
+      - name: Verify curated data is present
+        run: |
+          echo "=== data/curated/ contents ==="
+          ls -la data/curated/ || echo "(directory missing)"
+          echo "=== Parquet count ==="
+          find data/curated -name "*.parquet" -type f | wc -l
+
+      - name: Uses setup-python
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.12'
           cache: 'pip'
