@@ -77,9 +77,9 @@ async def test_eia_supply_missing_codes_raise_scraper_error(
     """Test zero rows for any code raises ScraperError instead of a warning."""
     dt_str = "2024-04"
 
-    # Return 5 processes, missing 'VG4'
+    # Return 5 processes, missing 'FPD' (Dry Production) which is NOT soft-missing
     mock_data = [
-        {"period": dt_str, "process": k, "value": 100} for k in PROCESS_CODES if k != "VG4"
+        {"period": dt_str, "process": k, "value": 100} for k in PROCESS_CODES if k != "FPD"
     ]
 
     class MockEIAClient:
@@ -105,4 +105,4 @@ async def test_eia_supply_missing_codes_raise_scraper_error(
         with pytest.raises(ScraperError) as exc_info:
             await run_supply()
 
-        assert "Missing expected process codes: VG4" in str(exc_info.value)
+        assert "Missing expected process codes: FPD" in str(exc_info.value)

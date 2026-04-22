@@ -1,0 +1,77 @@
+name: Alerts (events + health)
+
+on:
+  workflow_run:
+    workflows:
+      - "EIA Storage (weekly)"
+      - "EIA Supply (monthly)"
+      - "Baker Hughes Rig Count (weekly)"
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alerts
+  cancel-in-progress: false  # Never cancel mid-send
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (fresh main HEAD)
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5.3.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run event detectors + send alerts
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -c "
+          from publishers.events import run_all_detectors
+          from publishers.alerts import send_alert, send_health_only_if_failing
+          import logging
+
+          # Configure minimal logging to see what's happening in GHA logs
+          logging.basicConfig(level=logging.INFO)
+
+          events = run_all_detectors()
+          for e in events:
+              sent = send_alert(e['dedup_key'], e['html_body'])
+              print(f'{e[\"dedup_key\"]}: {\"SENT\" if sent else \"dedup-skipped\"}')
+          
+          # Health-only check at end (covers cases where no events fired but a
+          # scraper failed): send_alert already includes health prefix, so the
+          # only reason for a separate call is when no event fires at all.
+          if not events:
+              sent = send_health_only_if_failing()
+              print(f'health-only: {\"SENT\" if sent else \"no failures\"}')
+          "
+
+      - name: Commit sent_alerts.json
+        run: |
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          git add data/sent_alerts.json || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(alerts): update sent_alerts idempotency state"
+            git push
+          fi

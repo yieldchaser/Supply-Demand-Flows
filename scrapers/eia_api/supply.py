@@ -106,12 +106,20 @@ async def run() -> dict[str, Any]:
             rows = resp_obj.get("data", []) if isinstance(resp_obj, dict) else []
             rows_count = len(rows)
 
+            soft_process_codes = {"VG4"}  # Balancing Item publishes later than others
             found_processes = {row.get("process") for row in rows if isinstance(row, dict)}
             missing_processes = set(PROCESS_CODES.keys()) - found_processes
-            if missing_processes:
-                msg = f"Missing expected process codes: {', '.join(missing_processes)}"
+
+            hard_empty = [c for c in missing_processes if c not in soft_process_codes]
+            soft_empty = [c for c in missing_processes if c in soft_process_codes]
+
+            if hard_empty:
+                msg = f"Missing expected process codes: {', '.join(hard_empty)}"
                 health.record_failure(error=msg)
                 raise ScraperError(msg)
+
+            if soft_empty:
+                log.warning(f"Soft-missing (expected, will retry later): {', '.join(soft_empty)}")
 
             health.record_success(metadata={"latest_date": latest_api_date, "rows": rows_count})
             return {

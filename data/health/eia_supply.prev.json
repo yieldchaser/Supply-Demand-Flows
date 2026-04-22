@@ -1,7 +1,7 @@
 {
   "source": "eia_supply",
   "status": "skipped",
-  "timestamp_utc": "2026-04-22T10:05:21Z",
+  "timestamp_utc": "2026-04-22T11:23:04Z",
   "error": "no new data since 2024-04",
   "metadata": null
 }

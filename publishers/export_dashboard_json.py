@@ -68,6 +68,8 @@ def build() -> dict:
     if HEALTH_DIR.exists():
         for health_path in HEALTH_DIR.glob("*.json"):
             source_key = health_path.stem
+            if source_key.endswith(".prev"):
+                continue  # .prev files are local rotation state, not for dashboard
             try:
                 with health_path.open("r", encoding="utf-8") as f:
                     bundle["health"][source_key] = json.load(f)
