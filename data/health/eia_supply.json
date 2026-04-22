@@ -1,7 +1,10 @@
 {
   "source": "eia_supply",
-  "status": "failed",
-  "timestamp_utc": "2026-04-22T11:23:04Z",
-  "error": "Missing expected process codes: FPD",
-  "metadata": null
+  "status": "ok",
+  "timestamp_utc": "2026-04-22T14:40:03Z",
+  "error": null,
+  "metadata": {
+    "latest_date": "2026-01",
+    "rows": 438
+  }
 }
