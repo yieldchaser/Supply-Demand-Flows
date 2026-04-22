@@ -1,7 +1,10 @@
 {
   "source": "eia_supply",
-  "status": "failed",
-  "timestamp_utc": "2026-04-22T10:05:21Z",
-  "error": "Missing expected process codes: VG4",
-  "metadata": null
+  "status": "ok",
+  "timestamp_utc": "2026-04-22T10:50:56Z",
+  "error": null,
+  "metadata": {
+    "latest_date": "2026-01",
+    "rows": 438
+  }
 }
