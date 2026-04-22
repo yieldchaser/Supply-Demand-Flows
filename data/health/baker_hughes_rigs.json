@@ -1,7 +1,11 @@
 {
   "source": "baker_hughes_rigs",
-  "status": "failed",
-  "timestamp_utc": "2026-04-22T10:05:20Z",
-  "error": "Baker Hughes download too small (4 bytes) - likely an error page, not an Excel file.",
-  "metadata": null
+  "status": "ok",
+  "timestamp_utc": "2026-04-22T10:10:26Z",
+  "error": null,
+  "metadata": {
+    "date": "2026-04-22",
+    "bytes": 7179070,
+    "sha256": "a1282e2e69ceb787"
+  }
 }
