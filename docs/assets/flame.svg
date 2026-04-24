@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="flame-outer" x1="0.5" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="flame-inner" x1="0.5" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="80%" stop-color="#bae6fd"/>
+    </linearGradient>
+  </defs>
+  <!-- Outer cone — deeper blue -->
+  <path d="M16 2 C16 2, 6 14, 6 20 C6 25.5 10.5 30 16 30 C21.5 30 26 25.5 26 20 C26 14, 16 2, 16 2 Z"
+        fill="url(#flame-outer)"/>
+  <!-- Inner core — bright cyan -->
+  <path d="M16 10 C16 10, 10 18, 10 22 C10 25.3 12.7 28 16 28 C19.3 28 22 25.3 22 22 C22 18, 16 10, 16 10 Z"
+        fill="url(#flame-inner)"/>
+</svg>

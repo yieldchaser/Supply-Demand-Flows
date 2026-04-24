@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://yieldchaser.github.io/Supply-Demand-Flows/sitemap.xml

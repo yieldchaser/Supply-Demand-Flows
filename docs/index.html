@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Blue Tide — North America Natural Gas Observatory</title>
+  <meta name="description" content="Open-source physical observatory of North American natural gas: weekly storage, supply/demand, rig counts.">
+
+  <link rel="icon" type="image/svg+xml" href="assets/flame.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <div class="flame-bg" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <!-- populated by js/components/header.js -->
+  </header>
+
+  <nav class="health-strip" aria-label="Data source health">
+    <!-- populated by js/components/health-strip.js -->
+  </nav>
+
+  <main class="dashboard">
+    <section class="panel" id="panel-storage" data-panel="storage"></section>
+    <section class="panel" id="panel-balance" data-panel="balance"></section>
+    <section class="panel" id="panel-rigs" data-panel="rigs"></section>
+    <section class="panel" id="panel-basins" data-panel="basins"></section>
+  </main>
+
+  <footer class="site-footer"></footer>
+</body>
+</html>

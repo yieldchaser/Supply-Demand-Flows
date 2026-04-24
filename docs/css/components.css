@@ -1,0 +1,355 @@
+/* ========================================================
+   Components — Glassmorphism language for Blue Tide
+   ======================================================== */
+
+/* === Flame Background === */
+.flame-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at top, rgba(125, 211, 252, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(56, 189, 248, 0.04) 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+  pointer-events: none;
+}
+
+/* === Brand Flame (animated logo) === */
+.brand-flame {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  animation: flame-flicker 3s ease-in-out infinite;
+}
+
+@keyframes flame-flicker {
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(125, 211, 252, 0.4)); }
+  50%      { filter: drop-shadow(0 0 20px rgba(125, 211, 252, 0.6)); }
+}
+
+/* === Header lockup === */
+.header-lockup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.header-title {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--blue-flame), var(--blue-flame-deep));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-subtitle {
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+}
+
+.header-meta__refresh-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-bullish-supply);
+  display: inline-block;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* === Panel — Glass Card === */
+.panel {
+  background: var(--surface-glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-panel);
+  position: relative;
+  isolation: isolate;
+  transition: box-shadow var(--dur-slow) var(--ease-out),
+              border-color var(--dur-slow) var(--ease-out);
+}
+
+.panel:hover {
+  border-color: var(--border-glass-strong);
+  box-shadow: var(--shadow-panel), var(--shadow-glow-blue);
+}
+
+/* Gradient border overlay */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+    rgba(125, 211, 252, 0.15) 0%,
+    transparent 40%,
+    transparent 60%,
+    rgba(125, 211, 252, 0.08) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* === Panel Header === */
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.panel-header__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.panel-header__title {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.panel-header__subtitle {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+/* === Vintage Pill === */
+.vintage-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.vintage-pill:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.vintage-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.vintage-pill__dot--fresh    { background: var(--color-bullish-supply); }
+.vintage-pill__dot--stale    { background: var(--color-warning); }
+.vintage-pill__dot--critical { background: var(--color-bearish-supply); }
+
+/* === Health Strip === */
+.health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.health-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-glass-strong);
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.health-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.health-pill__label {
+  font-weight: 500;
+}
+
+.health-pill__meta {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+
+/* === KPI Card (for future panel use) === */
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+}
+
+.kpi-card__label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.kpi-card__value {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.kpi-card__delta {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.kpi-card__delta--positive { color: var(--color-bullish-supply); }
+.kpi-card__delta--negative { color: var(--color-bearish-supply); }
+.kpi-card__delta--neutral  { color: var(--color-neutral); }
+
+/* === Panel Placeholder === */
+.panel-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-8);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.panel-placeholder__label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.panel-placeholder__rule {
+  width: 180px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border-glass-strong) 50%,
+    transparent 100%
+  );
+}
+
+.panel-placeholder__desc {
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
+  max-width: 320px;
+  line-height: 1.6;
+}
+
+/* === Footer === */
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
+}
+
+.footer-left__sep {
+  color: var(--border-glass-strong);
+}
+
+.footer-right {
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  color: var(--text-tertiary);
+}
+
+/* === Boot Error === */
+.boot-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-8);
+  text-align: center;
+  gap: var(--space-4);
+}
+
+.boot-error h1 {
+  font-size: var(--fs-xl);
+  color: var(--color-bearish-supply);
+}
+
+.boot-error pre {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  max-width: 600px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.boot-error p {
+  font-size: var(--fs-base);
+  color: var(--text-tertiary);
+}

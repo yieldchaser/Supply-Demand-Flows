@@ -1,0 +1,75 @@
+:root {
+  /* === Color: Surface === */
+  --bg-0: #0a0e14;
+  --bg-1: #0f1419;
+  --surface-glass: rgba(20, 26, 38, 0.55);
+  --surface-glass-hover: rgba(25, 32, 46, 0.65);
+  --border-glass: rgba(255, 255, 255, 0.06);
+  --border-glass-strong: rgba(255, 255, 255, 0.1);
+
+  /* === Color: Text === */
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --text-inverse: #0a0e14;
+
+  /* === Color: Semantic === */
+  --blue-flame: #7dd3fc;
+  --blue-flame-deep: #38bdf8;
+  --blue-flame-glow: rgba(125, 211, 252, 0.35);
+  --color-bullish-supply: #22d3a4;
+  --color-bearish-supply: #ef4e5c;
+  --color-warning: #f59e0b;
+  --color-neutral: #9ca3af;
+
+  /* === Color: Chart grid === */
+  --chart-grid: rgba(255, 255, 255, 0.04);
+  --chart-grid-major: rgba(255, 255, 255, 0.08);
+  --chart-axis: rgba(255, 255, 255, 0.25);
+  --chart-label: rgba(255, 255, 255, 0.55);
+
+  /* === Typography === */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 14px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 24px;
+  --fs-2xl: 32px;
+  --fs-display: 48px;
+
+  /* === Spacing === */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* === Radius === */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* === Motion === */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 320ms;
+
+  /* === Shadows === */
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 32px rgba(0, 0, 0, 0.2);
+  --shadow-glow-blue: 0 0 32px rgba(125, 211, 252, 0.15);
+
+  /* === Layout === */
+  --max-width: 1440px;
+  --content-gutter: 32px;
+}
