@@ -24,23 +24,23 @@ import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { getSeries } from '../util/series.js';
 
-/** All 15 known basins with display labels and gas/oil/mixed flavor. */
+/** All 15 known basins with display labels. */
 const BASINS = [
-  { slug: 'marcellus',       label: 'Marcellus',        flavor: 'gas' },
-  { slug: 'haynesville',     label: 'Haynesville',      flavor: 'gas' },
-  { slug: 'permian',         label: 'Permian',           flavor: 'mixed' },
-  { slug: 'eagle_ford',      label: 'Eagle Ford',        flavor: 'mixed' },
-  { slug: 'utica',           label: 'Utica',             flavor: 'gas' },
-  { slug: 'dj_niobrara',     label: 'DJ-Niobrara',      flavor: 'oil' },
-  { slug: 'bakken',          label: 'Bakken',            flavor: 'oil' },
-  { slug: 'cana_woodford',   label: 'Cana Woodford',     flavor: 'mixed' },
-  { slug: 'arkoma_woodford', label: 'Arkoma Woodford',   flavor: 'gas' },
-  { slug: 'ardmore_woodford',label: 'Ardmore Woodford',  flavor: 'oil' },
-  { slug: 'barnett',         label: 'Barnett',           flavor: 'gas' },
-  { slug: 'granite_wash',    label: 'Granite Wash',      flavor: 'mixed' },
-  { slug: 'fayetteville',    label: 'Fayetteville',      flavor: 'gas' },
-  { slug: 'mississippian',   label: 'Mississippian',     flavor: 'oil' },
-  { slug: 'williston',       label: 'Williston',         flavor: 'oil' },
+  { slug: 'marcellus',       label: 'Marcellus' },
+  { slug: 'haynesville',     label: 'Haynesville' },
+  { slug: 'permian',         label: 'Permian' },
+  { slug: 'eagle_ford',      label: 'Eagle Ford' },
+  { slug: 'utica',           label: 'Utica' },
+  { slug: 'dj_niobrara',     label: 'DJ-Niobrara' },
+  { slug: 'bakken',          label: 'Bakken' },
+  { slug: 'cana_woodford',   label: 'Cana Woodford' },
+  { slug: 'arkoma_woodford', label: 'Arkoma Woodford' },
+  { slug: 'ardmore_woodford',label: 'Ardmore Woodford' },
+  { slug: 'barnett',         label: 'Barnett' },
+  { slug: 'granite_wash',    label: 'Granite Wash' },
+  { slug: 'fayetteville',    label: 'Fayetteville' },
+  { slug: 'mississippian',   label: 'Mississippian' },
+  { slug: 'williston',       label: 'Williston' },
 ];
 
 /**
@@ -92,12 +92,18 @@ function computeBasinMetrics(bundle) {
     const gasShare  = latest.value > 0 ? Math.min(100, Math.max(0, (gasLatest / latest.value) * 100)) : 0;
     const avg12m    = last52.reduce((s, r) => s + r.value, 0) / last52.length;
 
+    let flavor;
+    if (gasShare >= 70) flavor = 'gas';
+    else if (gasShare >= 30) flavor = 'mixed';
+    else flavor = 'oil';
+
     return {
       ...b,
       latest: latest.value,
       gasLatest,
       oilLatest,
       gasShare,
+      flavor,
       d1w:  delta(1),
       d4w:  delta(4),
       d12w: delta(12),
