@@ -82,35 +82,26 @@ export function formatIsoDate(date) {
 export function classifyVintage(sourceKey, latestPeriod) {
   const RULES = {
     eia_storage: {
-      // EIA weekly storage: report covers period ending Friday F, publishes Thursday F+6.
-      // Next report covers period ending F+7, publishes Thursday F+13.
-      // Fresh if today < expected_next_publish + 1d grace.
-      // Stale if 1-7 days past, critical if 8+ days past.
-      periodLength: 7,
-      publishLag: 6,
+      kind: 'weekly',
+      publishLag: 6,           // period date Friday → published Thursday +6d
+      cadenceDays: 7,
       graceDays: 1,
       criticalAfterOverdueDays: 7,
-      parsePeriod: (s) => new Date(s + 'T00:00:00Z'),
     },
     eia_supply: {
-      // EIA monthly supply: report covers month M, publishes ~60 days after M-end.
-      // Next report covers M+1, publishes ~90 days after M-end.
-      // Fresh if today < expected_next_publish + 7d grace (EIA often slips).
-      // Stale if 7-30 days past, critical if 30+ days past.
-      periodLength: 30,
-      publishLag: 60,
-      graceDays: 7,
+      kind: 'monthly_eia_ngm',
+      // EIA Natural Gas Monthly publishes on the last day of (period_month + 2).
+      // E.g. Jan 2026 data published Mar 31 2026; Feb 2026 data due ~Apr 30 2026.
+      // Stale 14d after expected publish; critical 30d after that.
+      graceDays: 14,
       criticalAfterOverdueDays: 30,
-      parsePeriod: (s) => new Date(s + '-01T00:00:00Z'),
     },
     baker_hughes_weekly: {
-      // BH weekly: published Friday for that Friday's date. Lag 0.
-      // Next report = next Friday.
-      periodLength: 7,
-      publishLag: 0,
+      kind: 'weekly',
+      publishLag: 0,           // period date IS Friday publish day
+      cadenceDays: 7,
       graceDays: 1,
       criticalAfterOverdueDays: 7,
-      parsePeriod: (s) => new Date(s + 'T00:00:00Z'),
     },
   };
 
@@ -122,9 +113,24 @@ export function classifyVintage(sourceKey, latestPeriod) {
     };
   }
 
-  const periodDate = rule.parsePeriod(latestPeriod);
-  const latestPublishDate = new Date(periodDate.getTime() + rule.publishLag * 86400000);
-  const nextExpectedPublishDate = new Date(latestPublishDate.getTime() + rule.periodLength * 86400000);
+  let latestPublishDate;
+  let nextExpectedPublishDate;
+
+  if (rule.kind === 'weekly') {
+    const periodDate = new Date(latestPeriod + 'T00:00:00Z');
+    latestPublishDate = new Date(periodDate.getTime() + rule.publishLag * 86400000);
+    nextExpectedPublishDate = new Date(latestPublishDate.getTime() + rule.cadenceDays * 86400000);
+  } else if (rule.kind === 'monthly_eia_ngm') {
+    // latestPeriod is 'YYYY-MM' — the data month
+    const [yStr, mStr] = latestPeriod.split('-');
+    const year = parseInt(yStr, 10);
+    const month = parseInt(mStr, 10);  // 1-12
+    // Latest publish: last day of (month + 2)
+    // For period Jan (1) → publish at end of March (month index 2 → Date month=3, day 0 = last day of March)
+    latestPublishDate = new Date(Date.UTC(year, month + 1, 0));  // day=0 → last of prior month
+    // Next publish: last day of (month + 3)
+    nextExpectedPublishDate = new Date(Date.UTC(year, month + 2, 0));
+  }
 
   const now = new Date();
   const ageDays = Math.max(0, Math.floor((now.getTime() - latestPublishDate.getTime()) / 86400000));
