@@ -410,6 +410,64 @@ function drawCoverMiniChart(container, coverRows, envelope) {
     .attr('r', 3.5)
     .style('fill', 'var(--blue-flame)')
     .style('filter', 'drop-shadow(0 0 5px rgba(125, 211, 252, 0.5))');
+
+  setupCoverHover(svg, g, x, y, width, height, currentRows, margin);
+}
+
+/* ================================================================== */
+/*  Cover hover                                                        */
+/* ================================================================== */
+
+function setupCoverHover(svg, g, x, y, width, height, currentRows, margin) {
+  const tooltipDiv = d3.select(svg.node().parentNode).append('div')
+    .attr('class', 'chart-tooltip').style('opacity', 0);
+
+  const crosshair = g.append('line')
+    .attr('y1', 0).attr('y2', height)
+    .attr('stroke', 'rgba(255,255,255,0.2)').attr('stroke-width', 1)
+    .attr('stroke-dasharray', '2,2').style('opacity', 0);
+
+  const hoverDot = g.append('circle').attr('r', 4)
+    .style('fill', 'var(--blue-flame)')
+    .attr('stroke', 'rgba(10,14,20,0.8)').attr('stroke-width', 2)
+    .style('opacity', 0);
+
+  const hitbox = g.append('rect')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('fill', 'none')
+    .style('pointer-events', 'all');
+
+  hitbox
+    .on('mousemove', function (event) {
+      const [mx] = d3.pointer(event);
+      const wk  = Math.round(x.invert(mx));
+      const row = currentRows.find((r) => isoWeekFromDate(r.period) === wk);
+      if (!row) {
+        crosshair.style('opacity', 0); hoverDot.style('opacity', 0); tooltipDiv.style('opacity', 0);
+        return;
+      }
+      crosshair.attr('x1', x(wk)).attr('x2', x(wk)).style('opacity', 1);
+      hoverDot.attr('cx', x(wk)).attr('cy', y(row.daysOfCover)).style('opacity', 1);
+
+      const containerRect = svg.node().parentNode.getBoundingClientRect();
+      const svgRect  = svg.node().getBoundingClientRect();
+      const scaleX   = svgRect.width / (width + margin.left + margin.right);
+      const tooltipX = margin.left * scaleX + x(wk) * scaleX + 16;
+      const tooltipY = margin.top  * scaleX + y(row.daysOfCover) * scaleX - 20;
+
+      tooltipDiv
+        .style('opacity', 1)
+        .style('left', `${Math.min(tooltipX, containerRect.width - 150)}px`)
+        .style('top',  `${Math.max(tooltipY, 10)}px`)
+        .html(`
+          <div class="tt-date">${row.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+          <div class="tt-row"><span class="tt-label">Cover</span><span class="num">${Math.round(row.daysOfCover)} days</span></div>
+        `);
+    })
+    .on('mouseleave', () => {
+      crosshair.style('opacity', 0); hoverDot.style('opacity', 0); tooltipDiv.style('opacity', 0);
+    });
 }
 
 /* ================================================================== */
