@@ -286,8 +286,8 @@ function drawCoverMiniChart(container, coverRows, envelope) {
   container.innerHTML = '';
   const rect = container.getBoundingClientRect();
   const W = Math.max(rect.width || 600, 300);
-  const H = 200;
-  const margin = { top: 12, right: 16, bottom: 24, left: 48 };
+  const H = 140;
+  const margin = { top: 8, right: 16, bottom: 20, left: 48 };
   const width  = W - margin.left - margin.right;
   const height = H - margin.top - margin.bottom;
 

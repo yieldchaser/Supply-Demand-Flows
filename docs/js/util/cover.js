@@ -2,69 +2,73 @@
  * Days-of-Cover analytical utilities.
  *
  * Compute Days-of-Cover series by joining weekly storage (Bcf) with monthly
- * consumption (MMcf → Bcf/day via piecewise-constant interpolation).
+ * consumption (MMcf → Bcf/day), using SEASONALLY-MATCHED consumption as the
+ * divisor — same calendar month from the prior year.
  *
- * Why two cadences: EIA storage publishes weekly, consumption publishes monthly.
- * We interpolate each month's total into a daily burn rate and apply it to every
- * storage week that falls within that month. Weeks past the latest known
- * consumption month forward-carry the most recent monthly rate.
+ * Why: dividing April storage by January consumption (peak heating) gives a
+ * wildly low cover number — different seasons have 40-60% different burn rates.
+ * The correct question is "how many days of TYPICAL APRIL demand does this cover?"
+ * Prior-year same-month is the best available forward-typical-demand proxy.
  */
 
 /**
  * @param {Array<{period: Date, value: number}>} storageRows  - Weekly Bcf
  * @param {Array<{period: Date, value: number}>} consumptionRows - Monthly MMcf
- * @returns {Array<{period, storage, dailyConsumption, daysOfCover, extrapolated}>}
+ * @returns {Array<{period, storage, dailyConsumption, daysOfCover, denominatorSource}>}
  */
 export function computeStorageCover(storageRows, consumptionRows) {
-  if (!storageRows || storageRows.length === 0) return [];
-  if (!consumptionRows || consumptionRows.length === 0) return [];
+  if (!storageRows?.length || !consumptionRows?.length) return [];
 
-  // Build piecewise-constant daily rate table from monthly MMcf totals.
-  const dailyByMonth = consumptionRows
-    .map((r) => {
-      const d = r.period instanceof Date ? r.period : new Date(r.period);
-      const year = d.getFullYear();
-      const month = d.getMonth(); // 0-indexed
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const valueBcf = Number(r.value) / 1000; // MMcf → Bcf
-      return {
-        monthStart: new Date(year, month, 1),
-        monthEnd:   new Date(year, month + 1, 0, 23, 59, 59),
-        dailyBcf:   valueBcf / daysInMonth,
-      };
-    })
-    .filter((m) => m.dailyBcf > 0)
-    .sort((a, b) => a.monthStart - b.monthStart);
+  // Build {`${year}-${month}`: Bcf/day} lookup (month is 0-indexed)
+  const byYearMonth = new Map();
+  for (const r of consumptionRows) {
+    const d = r.period instanceof Date ? r.period : new Date(r.period);
+    const year = d.getFullYear();
+    const month = d.getMonth(); // 0-indexed
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const dailyBcf = (Number(r.value) / 1000) / daysInMonth; // MMcf/month → Bcf/day
+    if (dailyBcf > 0) byYearMonth.set(`${year}-${month}`, dailyBcf);
+  }
 
-  if (dailyByMonth.length === 0) return [];
+  if (byYearMonth.size === 0) return [];
 
-  const earliestConsumption = dailyByMonth[0].monthStart;
-  const latestMonthRecord   = dailyByMonth[dailyByMonth.length - 1];
+  // Pre-compute per-calendar-month historical average across ALL years (fallback)
+  const byMonthAvg = new Map();
+  for (let m = 0; m < 12; m++) {
+    const values = [];
+    for (const [key, v] of byYearMonth) {
+      const mm = Number(key.split('-')[1]);
+      if (mm === m) values.push(v);
+    }
+    if (values.length > 0) {
+      byMonthAvg.set(m, values.reduce((s, v) => s + v, 0) / values.length);
+    }
+  }
 
   return storageRows
-    .filter((s) => {
-      const d = s.period instanceof Date ? s.period : new Date(s.period);
-      return d >= earliestConsumption;
-    })
     .map((s) => {
       const sd = s.period instanceof Date ? s.period : new Date(s.period);
+      const month = sd.getMonth(); // 0-indexed
+      const priorYearKey = `${sd.getFullYear() - 1}-${month}`;
 
-      // Find the month window containing this storage date.
-      let match = dailyByMonth.find((m) => sd >= m.monthStart && sd <= m.monthEnd);
-      let extrapolated = false;
-      if (!match) {
-        // Forward-carry: storage date is beyond latest known consumption month
-        match = latestMonthRecord;
-        extrapolated = true;
+      // Prefer prior-year same-month; fall back to all-history average for that month
+      let dailyConsumption;
+      let denominatorSource;
+      if (byYearMonth.has(priorYearKey)) {
+        dailyConsumption = byYearMonth.get(priorYearKey);
+        denominatorSource = 'prior-year';
+      } else if (byMonthAvg.has(month)) {
+        dailyConsumption = byMonthAvg.get(month);
+        denominatorSource = 'historical-avg';
+      } else {
+        return null; // no seasonal data for this month at all — skip
       }
 
-      const dailyConsumption = match.dailyBcf;
       const storage = Number(s.value);
-      const daysOfCover = dailyConsumption > 0 ? storage / dailyConsumption : null;
-
-      return { period: sd, storage, dailyConsumption, daysOfCover, extrapolated };
+      const daysOfCover = storage / dailyConsumption;
+      return { period: sd, storage, dailyConsumption, daysOfCover, denominatorSource };
     })
-    .filter((r) => r.daysOfCover !== null && !isNaN(r.daysOfCover));
+    .filter((r) => r !== null && isFinite(r.daysOfCover));
 }
 
 /**
