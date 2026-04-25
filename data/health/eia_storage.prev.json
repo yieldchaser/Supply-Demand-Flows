@@ -1,10 +1,7 @@
 {
   "source": "eia_storage",
-  "status": "ok",
-  "timestamp_utc": "2026-04-22T11:23:04Z",
-  "error": null,
-  "metadata": {
-    "latest_date": "2024-04-19",
-    "rows": 1
-  }
+  "status": "failed",
+  "timestamp_utc": "2026-04-25T03:51:05Z",
+  "error": "API error: HTTP failure for test: Fail (status=500, attempts=1, elapsed=1.00s)",
+  "metadata": null
 }

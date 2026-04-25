@@ -218,7 +218,10 @@
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   transition: background var(--dur-base) var(--ease-out);
 }
 .kpi-card:hover {
@@ -229,7 +232,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-secondary);
-  margin-bottom: var(--space-2);
+  margin-bottom: 0;  /* gap handles spacing */
 }
 .kpi-card__value {
   font-size: var(--fs-xl);
@@ -238,12 +241,13 @@
   font-feature-settings: 'tnum';
   color: var(--text-primary);
   letter-spacing: -0.02em;
+  margin-bottom: 0;
 }
 .kpi-card__delta {
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
   font-feature-settings: 'tnum';
-  margin-top: var(--space-2);
+  margin-top: 0;  /* gap handles spacing */
 }
 .kpi-card__delta--bullish  { color: var(--color-bullish-supply); }
 .kpi-card__delta--bearish  { color: var(--color-bearish-supply); }
@@ -251,7 +255,7 @@
 .kpi-card__help {
   font-size: var(--fs-xs);
   color: var(--text-tertiary);
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
   line-height: 1.4;
 }
 
@@ -357,24 +361,37 @@
   color: var(--text-tertiary);
 }
 
-/* === Panel Body (chart + sidebar grid) === */
+/* === Panel Body (chart on top, KPI strip below) === */
 .panel-body {
-  display: grid;
-  grid-template-columns: 1fr 280px;
-  gap: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
   margin-top: var(--space-6);
 }
-@media (max-width: 1100px) {
-  .panel-body { grid-template-columns: 1fr; }
-}
+
 .panel-chart {
+  width: 100%;
   min-height: 360px;
   position: relative;
 }
+
 .panel-sidebar {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-4);
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .panel-sidebar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .panel-sidebar {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* === Chart Tooltip === */
