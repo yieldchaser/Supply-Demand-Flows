@@ -287,7 +287,7 @@ function drawCoverMiniChart(container, coverRows, envelope) {
   const rect = container.getBoundingClientRect();
   const W = Math.max(rect.width || 600, 300);
   const H = 140;
-  const margin = { top: 8, right: 16, bottom: 20, left: 48 };
+  const margin = { top: 8, right: 16, bottom: 32, left: 48 };
   const width  = W - margin.left - margin.right;
   const height = H - margin.top - margin.bottom;
 
@@ -345,7 +345,7 @@ function drawCoverMiniChart(container, coverRows, envelope) {
   ];
   g.selectAll('.cov-x-tick').data(monthTicks).enter()
     .append('text')
-    .attr('x', (d) => x(d.wk)).attr('y', height + 16)
+    .attr('x', (d) => x(d.wk)).attr('y', height + 18)
     .attr('text-anchor', 'middle')
     .attr('font-size', 10).attr('font-family', 'var(--font-sans)')
     .style('fill', 'rgba(255,255,255,0.5)')
