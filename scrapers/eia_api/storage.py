@@ -5,11 +5,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-
-from dateutil.relativedelta import relativedelta
 
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.safe_writer import StatePreservingWriter, safe_write_json
@@ -21,6 +19,10 @@ ROUTE = "natural-gas/stor/wkly"
 SOURCE_NAME = "eia_storage"
 RAW_DIR = Path("data/raw/eia_storage")
 
+# 8 years of history gives the dashboard 5+ years for the seasonal envelope.
+# EIA returns up to 5000 rows per call; 8y × 52w × 5 regions ≈ 2,080 rows.
+START_DATE = "2018-01-01"
+
 
 def _get_latest_local_date() -> str | None:
     """Find the most recent downloaded data date based on file names."""
@@ -31,6 +33,27 @@ def _get_latest_local_date() -> str | None:
         return None
     # Returns the largest timestamp date string
     return max(p.stem.replace("eia_storage_", "") for p in files)
+
+
+def _get_latest_local_path() -> Path | None:
+    """Return the Path of the most recent stored JSON file, or None."""
+    if not RAW_DIR.exists():
+        return None
+    files = list(RAW_DIR.rglob("eia_storage_*.json"))
+    if not files:
+        return None
+    return max(files, key=lambda p: p.stem)
+
+
+def _count_existing_rows(path: Path | None) -> int:
+    """Return row count from the latest stored JSON, or 0 if missing."""
+    if not path or not path.exists():
+        return 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return len(data.get("response", {}).get("data", []))
+    except Exception:
+        return 0
 
 
 async def run() -> dict[str, Any]:
@@ -56,11 +79,25 @@ async def run() -> dict[str, Any]:
             return {"status": "failed", "error": err}
 
         latest_local = _get_latest_local_date()
-        if latest_local == latest_api_date:
+        latest_existing_path = _get_latest_local_path()
+        existing_rows = _count_existing_rows(latest_existing_path)
+
+        # Staleness gate: skip only when the latest date is unchanged AND the
+        # existing row count indicates a full backfill has already been done.
+        # The 500-row threshold distinguishes the old 52-week fetch (~416 rows)
+        # from the new 8-year backfill (~2,080 rows).
+        # - First run post-commit: 416 rows < 500 → bypasses skip → fetches 2,080 rows.
+        # - Subsequent same-date runs: rows >= 500 and date matches → skips cleanly.
+        if latest_local == latest_api_date and existing_rows >= 500:
             health.record_skipped(reason=f"no new data since {latest_api_date}")
             return {"status": "skipped", "latest_date": latest_api_date}
 
-        start_date = (date.today() - relativedelta(weeks=52)).isoformat()
+        if latest_local == latest_api_date and existing_rows < 500:
+            # Date unchanged but history is sparse — force a backfill re-fetch.
+            log.info(
+                "Sparse history detected (%d rows < 500). Re-fetching full backfill.",
+                existing_rows,
+            )
 
         data_to_write: dict[str, Any] | None = None
 
@@ -69,8 +106,9 @@ async def run() -> dict[str, Any]:
             data_to_write = await client.get_series(
                 route=ROUTE,
                 frequency="weekly",
-                start=start_date,
+                start=START_DATE,
                 data_columns=["value"],
+                length=5000,  # 8y × 52w × 5 regions ≈ 2,080 rows; well within EIA max
             )
             return data_to_write
 
