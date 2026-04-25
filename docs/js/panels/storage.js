@@ -227,32 +227,47 @@ function setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelop
       const wk  = Math.round(x.invert(mx));
       const row = currentYearRows.find((r) => isoWeek(r.period) === wk);
       const env = envelope.get(wk);
-      if (!row || !env) {
+      
+      if (!env) {
         crosshair.style('opacity', 0); hoverDot.style('opacity', 0); tooltipDiv.style('opacity', 0);
         return;
       }
-      crosshair.attr('x1', x(wk)).attr('x2', x(wk)).style('opacity', 1);
-      hoverDot.attr('cx', x(wk)).attr('cy', y(row.value)).style('opacity', 1);
 
-      const vsAvg    = row.value - env.mean;
-      const vsAvgPct = (vsAvg / env.mean) * 100;
+      crosshair.attr('x1', x(wk)).attr('x2', x(wk)).style('opacity', 1);
 
       const containerRect = svg.node().parentNode.getBoundingClientRect();
       const svgRect  = svg.node().getBoundingClientRect();
       const scaleX   = svgRect.width / (width + margin.left + margin.right);
       const tooltipX = margin.left * scaleX + x(wk) * scaleX + 16;
-      const tooltipY = margin.top  * scaleX + y(row.value) * scaleX - 20;
+      const yVal     = row ? row.value : env.mean;
+      const tooltipY = margin.top  * scaleX + y(yVal) * scaleX - 20;
 
       tooltipDiv
         .style('opacity', 1)
         .style('left', `${Math.min(tooltipX, containerRect.width - 200)}px`)
-        .style('top',  `${Math.max(tooltipY, 10)}px`)
-        .html(`
+        .style('top',  `${Math.max(tooltipY, 10)}px`);
+
+      if (row) {
+        hoverDot.attr('cx', x(wk)).attr('cy', y(row.value)).style('opacity', 1);
+
+        const vsAvg    = row.value - env.mean;
+        const vsAvgPct = (vsAvg / env.mean) * 100;
+
+        tooltipDiv.html(`
           <div class="tt-date">${row.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
           <div class="tt-row"><span class="tt-label">Storage</span><span class="num">${row.value.toLocaleString()} Bcf</span></div>
           <div class="tt-row"><span class="tt-label">5y avg</span><span class="num">${Math.round(env.mean).toLocaleString()} Bcf</span></div>
           <div class="tt-row tt-row--accent"><span class="tt-label">vs avg</span><span class="num">${vsAvg >= 0 ? '+' : ''}${Math.round(vsAvg).toLocaleString()} (${vsAvgPct >= 0 ? '+' : ''}${vsAvgPct.toFixed(1)}%)</span></div>
         `);
+      } else {
+        hoverDot.style('opacity', 0);
+        
+        tooltipDiv.html(`
+          <div class="tt-date">Week ${wk} \u00b7 Seasonal avg</div>
+          <div class="tt-row"><span class="tt-label">5y avg</span><span class="num">${Math.round(env.mean).toLocaleString()} Bcf</span></div>
+          <div class="tt-row"><span class="tt-label">Band</span><span class="num">${Math.round(env.min).toLocaleString()}\u2013${Math.round(env.max).toLocaleString()} Bcf</span></div>
+        `);
+      }
     })
     .on('mouseleave', () => {
       crosshair.style('opacity', 0); hoverDot.style('opacity', 0); tooltipDiv.style('opacity', 0);
