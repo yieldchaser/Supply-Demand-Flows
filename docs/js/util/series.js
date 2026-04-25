@@ -36,20 +36,30 @@ export function groupBySeriesId(rows) {
 }
 
 /**
- * For a weekly series, compute week-of-year statistics for a 5-year band overlay.
- * Returns Map<weekNumber, {min, max, mean, p25, p75, count}> across the lookback years.
+ * For a weekly series, compute week-of-year statistics for a band overlay.
+ * Returns Map<weekNumber, {min, max, mean, p25, p75, count}> across prior years.
+ *
+ * Uses all data from non-current years. The `lookbackYears` limit is applied
+ * only as a soft cap — if less data is available (e.g., bundle only covers
+ * 1 year), all available prior-year data is still used so the envelope isn't
+ * empty for weeks not covered by the prior calendar year's window.
  */
 export function computeWeeklyEnvelope(rows, lookbackYears = 5) {
   const now = new Date();
-  const cutoff = new Date(now.getFullYear() - lookbackYears, now.getMonth(), now.getDate());
-  const currentYearStart = new Date(now.getFullYear(), 0, 1);
-  const filtered = rows.filter((r) => r.period >= cutoff && r.period < currentYearStart);
+  const currentYear = now.getFullYear();
+  // Soft lower cutoff — only exclude data older than lookbackYears
+  const cutoff = new Date(currentYear - lookbackYears, 0, 1);
+  // Use all rows from prior calendar years within the lookback window
+  const filtered = rows.filter((r) => {
+    const yr = r.period instanceof Date ? r.period.getFullYear() : new Date(r.period).getFullYear();
+    return yr < currentYear && r.period >= cutoff;
+  });
 
   const byWeek = new Map();
   for (const r of filtered) {
-    const wk = isoWeek(r.period);
+    const wk = isoWeek(r.period instanceof Date ? r.period : new Date(r.period));
     if (!byWeek.has(wk)) byWeek.set(wk, []);
-    byWeek.get(wk).push(r.value);
+    byWeek.get(wk).push(Number(r.value));
   }
 
   const envelope = new Map();

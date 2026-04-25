@@ -135,7 +135,7 @@ function drawStorageChart(container, currentYearRows, envelope) {
     .datum(currentYearRows)
     .attr('d', currentLine)
     .attr('fill', 'none')
-    .attr('stroke', 'var(--blue-flame)')
+    .style('stroke', 'var(--blue-flame)')   // style() resolves CSS custom properties; attr() does not
     .attr('stroke-width', 2.5)
     .attr('stroke-linecap', 'round')
     .attr('stroke-linejoin', 'round')
@@ -148,16 +148,18 @@ function drawStorageChart(container, currentYearRows, envelope) {
       .attr('cx', x(isoWeek(latest.period)))
       .attr('cy', y(latest.value))
       .attr('r', 4)
-      .attr('fill', 'var(--blue-flame)')
+      .style('fill', 'var(--blue-flame)')   // style() resolves CSS custom properties
       .style('filter', 'drop-shadow(0 0 6px rgba(125, 211, 252, 0.6))');
   }
 
-  // X-axis: month labels
+  // X-axis: 6 month labels (every other month) — prevents crowding
   const monthTicks = [
-    { wk: 2, label: 'Jan' }, { wk: 6, label: 'Feb' }, { wk: 10, label: 'Mar' },
-    { wk: 14, label: 'Apr' }, { wk: 19, label: 'May' }, { wk: 23, label: 'Jun' },
-    { wk: 27, label: 'Jul' }, { wk: 31, label: 'Aug' }, { wk: 36, label: 'Sep' },
-    { wk: 40, label: 'Oct' }, { wk: 44, label: 'Nov' }, { wk: 49, label: 'Dec' },
+    { wk: 1,  label: 'Jan' },
+    { wk: 9,  label: 'Mar' },
+    { wk: 18, label: 'May' },
+    { wk: 27, label: 'Jul' },
+    { wk: 36, label: 'Sep' },
+    { wk: 44, label: 'Nov' },
   ];
   g.selectAll('.x-tick')
     .data(monthTicks)
@@ -168,7 +170,7 @@ function drawStorageChart(container, currentYearRows, envelope) {
     .attr('text-anchor', 'middle')
     .attr('font-size', 11)
     .attr('font-family', 'var(--font-sans)')
-    .attr('fill', 'var(--chart-label)')
+    .style('fill', 'var(--chart-label)')  // style() resolves CSS custom properties
     .text((d) => d.label);
 
   // Y-axis labels
@@ -182,7 +184,7 @@ function drawStorageChart(container, currentYearRows, envelope) {
     .attr('font-size', 11)
     .attr('font-family', 'var(--font-mono)')
     .attr('font-feature-settings', "'tnum'")
-    .attr('fill', 'var(--chart-label)')
+    .style('fill', 'var(--chart-label)')  // style() resolves CSS custom properties
     .text((d) => d >= 1000 ? `${(d / 1000).toFixed(1)}k` : `${d}`);
 
   // Hover crosshair + tooltip
@@ -203,7 +205,7 @@ function setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelop
 
   const hoverDot = g.append('circle')
     .attr('r', 5)
-    .attr('fill', 'var(--blue-flame)')
+    .style('fill', 'var(--blue-flame)')   // style() resolves CSS custom properties
     .attr('stroke', 'rgba(10,14,20,0.8)')
     .attr('stroke-width', 2)
     .style('opacity', 0);
@@ -259,9 +261,16 @@ function setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelop
 function renderStorageKpis(sidebarEl, seriesRows, envelope) {
   if (seriesRows.length < 2) return;
 
+  // Defensive Date coercion — JSON parse may leave period as string
+  seriesRows = seriesRows.map((r) => ({
+    ...r,
+    period: r.period instanceof Date ? r.period : new Date(r.period),
+  }));
+
   const latest = seriesRows[seriesRows.length - 1];
   const prior = seriesRows[seriesRows.length - 2];
   const latestWk = isoWeek(latest.period);
+  console.debug('[storage] latestWk:', latestWk, 'envelope size:', envelope.size, 'keys sample:', Array.from(envelope.keys()).slice(0, 8));
   const env = envelope.get(latestWk);
 
   const wow = latest.value - prior.value;
