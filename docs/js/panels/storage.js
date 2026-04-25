@@ -76,7 +76,7 @@ export function renderStoragePanel(panelEl, bundle) {
   // Insert companion mini-chart between chart and KPI strip
   insertCoverMiniChart(panelEl, coverRows, coverEnvelope);
 
-  renderStorageKpis(sidebarEl, seriesRows, envelope, coverRows, coverEnvelope);
+  renderStorageKpis(sidebarEl, seriesRows, envelope);
 }
 
 /* ================================================================== */
@@ -262,15 +262,31 @@ function setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelop
 
 function insertCoverMiniChart(panelEl, coverRows, coverEnvelope) {
   const panelBody = panelEl.querySelector('.panel-body');
-  if (!panelBody) return;
-  if (coverRows.length === 0) return;
+  if (!panelBody || coverRows.length === 0) return;
+
+  const latestCover    = coverRows[coverRows.length - 1];
+  const classification = classifyCover(latestCover, coverEnvelope);
+  const env            = classification?.envelope;
+
+  const classKind =
+    ['critical', 'low'].includes(classification?.label)          ? 'bearish' :
+    ['elevated', 'comfortable'].includes(classification?.label)  ? 'bullish' :
+    'neutral';
+
+  const rangeText = env
+    ? `5-yr range: ${Math.round(env.min)}\u2013${Math.round(env.max)} days`
+    : 'Storage \u00f7 daily consumption';
 
   const wrapper = document.createElement('div');
   wrapper.className = 'panel-subchart';
   wrapper.innerHTML = `
     <div class="panel-subchart__header">
-      <span class="panel-subchart__title">Days of Cover</span>
-      <span class="panel-subchart__subtitle">Weekly trajectory · 5-year seasonal range</span>
+      <div class="panel-subchart__title-group">
+        <span class="panel-subchart__title">Days of Cover</span>
+        <span class="panel-subchart__hero num">${Math.round(latestCover.daysOfCover)} days</span>
+        <span class="panel-subchart__badge panel-subchart__badge--${classKind}">${(classification?.label || 'normal').toUpperCase()}</span>
+      </div>
+      <span class="panel-subchart__subtitle">Weekly trajectory \u00b7 ${rangeText}</span>
     </div>
     <div class="panel-subchart__body"></div>
   `;
@@ -397,7 +413,7 @@ function drawCoverMiniChart(container, coverRows, envelope) {
 /*  KPI sidebar                                                        */
 /* ================================================================== */
 
-function renderStorageKpis(sidebarEl, seriesRows, envelope, coverRows = [], coverEnvelope = new Map()) {
+function renderStorageKpis(sidebarEl, seriesRows, envelope) {
   if (seriesRows.length < 2) return;
 
   // Defensive Date coercion — JSON parse may leave period as string
@@ -424,28 +440,6 @@ function renderStorageKpis(sidebarEl, seriesRows, envelope, coverRows = [], cove
     .sort((a, b) => Math.abs(a.period - yearAgoTarget) - Math.abs(b.period - yearAgoTarget))[0];
   const yoy    = yearAgo ? latest.value - yearAgo.value : null;
   const yoyPct = yearAgo && yearAgo.value !== 0 ? (yoy / yearAgo.value) * 100 : null;
-
-  // Days-of-Cover KPI
-  const latestCover  = coverRows.length > 0 ? coverRows[coverRows.length - 1] : null;
-  const classification = latestCover ? classifyCover(latestCover, coverEnvelope) : null;
-  const coverEnvEntry  = classification?.envelope;
-
-  const coverKpi = latestCover && latestCover.daysOfCover != null
-    ? kpiCardHtml({
-        label: 'Days of Cover',
-        value: `${Math.round(latestCover.daysOfCover)} days`,
-        delta: classification ? {
-          value: classification.label.toUpperCase(),
-          kind:
-            ['critical', 'low'].includes(classification.label) ? 'bearish' :
-            ['elevated', 'comfortable'].includes(classification.label) ? 'bullish' :
-            'neutral',
-        } : null,
-        helpText: coverEnvEntry
-          ? `5-yr range: ${Math.round(coverEnvEntry.min)}–${Math.round(coverEnvEntry.max)} days`
-          : 'Storage ÷ daily consumption',
-      })
-    : '';
 
   sidebarEl.innerHTML = [
     kpiCardHtml({
@@ -478,6 +472,5 @@ function renderStorageKpis(sidebarEl, seriesRows, envelope, coverRows = [], cove
         kind:  yoyPct >= 0 ? 'bullish' : 'bearish',
       } : null,
     }),
-    coverKpi,
   ].join('');
 }
