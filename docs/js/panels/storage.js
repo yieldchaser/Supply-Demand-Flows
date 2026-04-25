@@ -216,7 +216,10 @@ function setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelop
     .style('opacity', 0);
 
   const hitbox = g.append('rect')
-    .attr('width', width).attr('height', height).attr('fill', 'transparent');
+    .attr('width', width)
+    .attr('height', height)
+    .attr('fill', 'none')
+    .style('pointer-events', 'all');
 
   hitbox
     .on('mousemove', function (event) {
