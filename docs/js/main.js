@@ -1,10 +1,11 @@
 import { loadBundle } from './data/bundle-loader.js';
 import { renderHeader } from './components/header.js';
 import { renderHealthStrip } from './components/health-strip.js';
-import { renderPanelPlaceholder } from './components/panel-placeholder.js';
 import { renderFooter } from './components/footer.js';
 import { renderStoragePanel } from './panels/storage.js';
 import { renderBalancePanel } from './panels/balance.js';
+import { renderRigsPanel } from './panels/rigs.js';
+import { renderBasinsPanel } from './panels/basins.js';
 
 async function main() {
   const bundle = await loadBundle();
@@ -16,20 +17,9 @@ async function main() {
   renderStoragePanel(document.getElementById('panel-storage'), bundle);
   renderBalancePanel(document.getElementById('panel-balance'), bundle);
 
-  // Rigs and Basins — placeholders until B2.2
-  renderPanelPlaceholder('panel-rigs', {
-    title: 'US Rig Count Monitor',
-    subtitle: 'Baker Hughes — weekly',
-    source: 'baker_hughes_weekly',
-    bundle,
-  });
-
-  renderPanelPlaceholder('panel-basins', {
-    title: 'Basin Momentum',
-    subtitle: 'Baker Hughes — by basin, 4-week delta',
-    source: 'baker_hughes_weekly',
-    bundle,
-  });
+  // Baker Hughes panels — live charts
+  renderRigsPanel(document.getElementById('panel-rigs'), bundle);
+  renderBasinsPanel(document.getElementById('panel-basins'), bundle);
 
   renderFooter(bundle);
 }

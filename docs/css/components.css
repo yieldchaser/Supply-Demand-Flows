@@ -429,3 +429,109 @@
   text-align: center;
   font-size: var(--fs-sm);
 }
+
+/* === Basin Grid (small-multiples sparklines) === */
+.basin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+@media (max-width: 1100px) {
+  .basin-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .basin-grid { grid-template-columns: 1fr; }
+}
+
+.basin-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  transition: background var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out);
+}
+.basin-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-glass-strong);
+}
+.basin-card--accel { border-color: rgba(125, 211, 252, 0.25); }
+.basin-card--decel { border-color: rgba(245, 158, 11, 0.25); }
+.basin-card--flat  { /* default border */ }
+.basin-card--empty { opacity: 0.5; }
+
+.basin-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+.basin-card__name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.basin-card__flavor {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.basin-card__flavor--gas {
+  color: var(--blue-flame);
+  background: rgba(125, 211, 252, 0.12);
+}
+.basin-card__flavor--mixed {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+.basin-card__flavor--oil {
+  color: var(--text-tertiary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.basin-card__metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-2);
+}
+.basin-card__value {
+  font-size: var(--fs-xl);
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.basin-card__delta {
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  color: var(--text-secondary);
+  display: inline-flex;
+  gap: 2px;
+  align-items: baseline;
+}
+.basin-card--accel .basin-card__delta { color: var(--blue-flame); }
+.basin-card--decel .basin-card__delta { color: #f59e0b; }
+
+.basin-card__arrow {
+  font-size: var(--fs-base);
+}
+
+.basin-card__spark {
+  width: 100%;
+  height: 60px;
+  display: block;
+}
+
+.basin-card__empty-msg {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--space-4) 0;
+}
