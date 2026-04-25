@@ -63,91 +63,96 @@ export function formatIsoDate(date) {
 }
 
 /**
- * Classify the vintage of a data source against its real publish cadence.
+ * Classify the vintage of a data source by asking "when is the NEXT print due?"
  *
- * Why: comparing today to `latest_period` is misleading. EIA Supply for period
- * 2026-01 was published in early March 2026, so on April 24 it is ~7 weeks
- * since the publish date, NOT 16 weeks. Each source has its own publish lag.
+ * Why: comparing today to the LATEST publish trips false-stale for sources with
+ * long inter-publish gaps (monthly EIA data). The honest question is whether
+ * the next print is overdue.
  *
- * @param {string} sourceKey - one of: 'eia_storage', 'eia_supply', 'baker_hughes_weekly'
- * @param {string} latestPeriod - the source's most recent period string
- *   - 'YYYY-MM-DD' for weekly sources
- *   - 'YYYY-MM' for monthly sources
+ * @param {string} sourceKey - 'eia_storage' | 'eia_supply' | 'baker_hughes_weekly'
+ * @param {string} latestPeriod - 'YYYY-MM-DD' (weekly) or 'YYYY-MM' (monthly)
  * @returns {{
- *   ageDays: number,           // days since the EXPECTED publish, not the period
+ *   ageDays: number,                  // days since LATEST published (display only)
+ *   daysUntilNext: number,            // negative means overdue
  *   freshness: 'fresh' | 'stale' | 'critical',
- *   tooltip: string,           // human-readable explanation
- *   labelText: string          // short pill text e.g. "FRESH · 1d" or "STALE · 12d"
+ *   tooltip: string,
+ *   labelText: string
  * }}
  */
 export function classifyVintage(sourceKey, latestPeriod) {
-  const SOURCE_RULES = {
+  const RULES = {
     eia_storage: {
-      // EIA publishes weekly storage Thursdays for the prior Friday's date.
-      // So latest_period = '2026-04-17' (Fri) -> published Thu 2026-04-23.
-      // Publish lag from period: 6 days.
-      // Cadence: weekly. Fresh until next expected Thursday + 1d grace.
-      publishLagDays: 6,
-      cadenceDays: 7,
-      freshGraceDays: 2,
-      criticalDays: 14,
+      // EIA weekly storage: report covers period ending Friday F, publishes Thursday F+6.
+      // Next report covers period ending F+7, publishes Thursday F+13.
+      // Fresh if today < expected_next_publish + 1d grace.
+      // Stale if 1-7 days past, critical if 8+ days past.
+      periodLength: 7,
+      publishLag: 6,
+      graceDays: 1,
+      criticalAfterOverdueDays: 7,
       parsePeriod: (s) => new Date(s + 'T00:00:00Z'),
     },
     eia_supply: {
-      // EIA publishes monthly supply ~30-60 days after month-close.
-      // So latest_period = '2026-01' -> published ~early March 2026.
-      // Publish lag from period start: ~60 days conservatively.
-      // Cadence: monthly. Fresh through the next expected publish + 14d grace.
-      publishLagDays: 60,
-      cadenceDays: 30,
-      freshGraceDays: 14,
-      criticalDays: 75,
+      // EIA monthly supply: report covers month M, publishes ~60 days after M-end.
+      // Next report covers M+1, publishes ~90 days after M-end.
+      // Fresh if today < expected_next_publish + 7d grace (EIA often slips).
+      // Stale if 7-30 days past, critical if 30+ days past.
+      periodLength: 30,
+      publishLag: 60,
+      graceDays: 7,
+      criticalAfterOverdueDays: 30,
       parsePeriod: (s) => new Date(s + '-01T00:00:00Z'),
     },
     baker_hughes_weekly: {
-      // Baker Hughes publishes Fridays at noon CT. latest_period = '2026-04-17'
-      // is the Friday it was published. Publish lag from period: 0 days.
-      // Cadence: weekly. Fresh until next Friday + 1d grace.
-      publishLagDays: 0,
-      cadenceDays: 7,
-      freshGraceDays: 2,
-      criticalDays: 14,
+      // BH weekly: published Friday for that Friday's date. Lag 0.
+      // Next report = next Friday.
+      periodLength: 7,
+      publishLag: 0,
+      graceDays: 1,
+      criticalAfterOverdueDays: 7,
       parsePeriod: (s) => new Date(s + 'T00:00:00Z'),
     },
   };
 
-  const rule = SOURCE_RULES[sourceKey];
+  const rule = RULES[sourceKey];
   if (!rule) {
-    return { ageDays: 0, freshness: 'fresh', tooltip: 'Unknown source', labelText: 'UNKNOWN' };
+    return {
+      ageDays: 0, daysUntilNext: 0, freshness: 'fresh',
+      tooltip: 'Unknown source', labelText: 'UNKNOWN',
+    };
   }
 
   const periodDate = rule.parsePeriod(latestPeriod);
-  const expectedPublishDate = new Date(periodDate.getTime() + rule.publishLagDays * 86400000);
-  const now = new Date();
-  const daysSincePublish = Math.floor((now.getTime() - expectedPublishDate.getTime()) / 86400000);
+  const latestPublishDate = new Date(periodDate.getTime() + rule.publishLag * 86400000);
+  const nextExpectedPublishDate = new Date(latestPublishDate.getTime() + rule.periodLength * 86400000);
 
-  // Negative means we're not yet past the expected publish date — definitely fresh
-  const ageDays = Math.max(0, daysSincePublish);
+  const now = new Date();
+  const ageDays = Math.max(0, Math.floor((now.getTime() - latestPublishDate.getTime()) / 86400000));
+  const daysUntilNext = Math.floor((nextExpectedPublishDate.getTime() - now.getTime()) / 86400000);
 
   let freshness;
-  if (ageDays <= rule.cadenceDays + rule.freshGraceDays) {
+  if (daysUntilNext >= -rule.graceDays) {
     freshness = 'fresh';
-  } else if (ageDays <= rule.criticalDays) {
+  } else if (daysUntilNext >= -(rule.graceDays + rule.criticalAfterOverdueDays)) {
     freshness = 'stale';
   } else {
     freshness = 'critical';
   }
 
   const tooltip =
-    `Period: ${latestPeriod} · Expected publish: ${expectedPublishDate.toISOString().slice(0, 10)}` +
-    ` · ${ageDays} day(s) since publish`;
+    `Latest period: ${latestPeriod}` +
+    ` · Published ${latestPublishDate.toISOString().slice(0, 10)}` +
+    ` · Next due ${nextExpectedPublishDate.toISOString().slice(0, 10)}` +
+    (daysUntilNext >= 0
+      ? ` · Next print in ${daysUntilNext}d`
+      : ` · Next print overdue by ${-daysUntilNext}d`);
 
   const labelText =
     freshness === 'fresh' ? `LATEST · ${formatAgeShort(ageDays)}` :
-    freshness === 'stale' ? `STALE · ${formatAgeShort(ageDays)}` :
-    `OVERDUE · ${formatAgeShort(ageDays)}`;
+    freshness === 'stale' ? `STALE · ${-daysUntilNext}d overdue` :
+    `OVERDUE · ${-daysUntilNext}d`;
 
-  return { ageDays, freshness, tooltip, labelText };
+  return { ageDays, daysUntilNext, freshness, tooltip, labelText };
 }
 
 function formatAgeShort(days) {
