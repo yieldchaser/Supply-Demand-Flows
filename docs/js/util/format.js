@@ -125,11 +125,14 @@ export function classifyVintage(sourceKey, latestPeriod) {
     const [yStr, mStr] = latestPeriod.split('-');
     const year = parseInt(yStr, 10);
     const month = parseInt(mStr, 10);  // 1-12
-    // Latest publish: last day of (month + 2)
-    // For period Jan (1) → publish at end of March (month index 2 → Date month=3, day 0 = last day of March)
-    latestPublishDate = new Date(Date.UTC(year, month + 1, 0));  // day=0 → last of prior month
-    // Next publish: last day of (month + 3)
-    nextExpectedPublishDate = new Date(Date.UTC(year, month + 2, 0));
+    // IMPORTANT: Date.UTC month is 0-indexed (Jan=0), but period month is 1-indexed
+    // (Jan=1 from parseInt('01')). To get end-of-month-N in 1-indexed terms, pass N
+    // to Date.UTC with day=0 — "day 0 of month N" = last day of month N-1 in 0-indexed.
+    // For period Jan (month=1): end of March = Date.UTC(year, 1+2, 0) = Date.UTC(year, 3, 0) ✓
+    latestPublishDate = new Date(Date.UTC(year, month + 2, 0));
+    // For period Jan (month=1): end of April = Date.UTC(year, 1+3, 0) = Date.UTC(year, 4, 0) ✓
+    // Date.UTC handles month overflow automatically (Dec=12: 12+3=15 → end of Mar next year).
+    nextExpectedPublishDate = new Date(Date.UTC(year, month + 3, 0));
   }
 
   const now = new Date();
