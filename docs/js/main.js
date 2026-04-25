@@ -3,6 +3,8 @@ import { renderHeader } from './components/header.js';
 import { renderHealthStrip } from './components/health-strip.js';
 import { renderPanelPlaceholder } from './components/panel-placeholder.js';
 import { renderFooter } from './components/footer.js';
+import { renderStoragePanel } from './panels/storage.js';
+import { renderBalancePanel } from './panels/balance.js';
 
 async function main() {
   const bundle = await loadBundle();
@@ -10,20 +12,11 @@ async function main() {
   renderHeader(bundle);
   renderHealthStrip(bundle);
 
-  renderPanelPlaceholder('panel-storage', {
-    title: 'Weekly Storage',
-    subtitle: 'EIA — 5 regions, 5-year band',
-    source: 'eia_storage',
-    bundle,
-  });
+  // EIA panels — live charts
+  renderStoragePanel(document.getElementById('panel-storage'), bundle);
+  renderBalancePanel(document.getElementById('panel-balance'), bundle);
 
-  renderPanelPlaceholder('panel-balance', {
-    title: 'Supply & Demand Balance',
-    subtitle: 'EIA — monthly production, consumption, storage flows',
-    source: 'eia_supply',
-    bundle,
-  });
-
+  // Rigs and Basins — placeholders until B2.2
   renderPanelPlaceholder('panel-rigs', {
     title: 'US Rig Count Monitor',
     subtitle: 'Baker Hughes — weekly',

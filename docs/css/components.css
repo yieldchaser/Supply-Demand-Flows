@@ -213,44 +213,47 @@
   color: var(--text-tertiary);
 }
 
-/* === KPI Card (for future panel use) === */
+/* === KPI Card === */
 .kpi-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-4);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  transition: background var(--dur-base) var(--ease-out);
 }
-
+.kpi-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
 .kpi-card__label {
   font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--text-secondary);
+  margin-bottom: var(--space-2);
 }
-
 .kpi-card__value {
-  font-family: var(--font-mono);
-  font-feature-settings: 'tnum';
-  font-size: var(--fs-2xl);
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.1;
-}
-
-.kpi-card__delta {
-  font-family: var(--font-mono);
-  font-feature-settings: 'tnum';
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xl);
   font-weight: 500;
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
-
-.kpi-card__delta--positive { color: var(--color-bullish-supply); }
-.kpi-card__delta--negative { color: var(--color-bearish-supply); }
-.kpi-card__delta--neutral  { color: var(--color-neutral); }
+.kpi-card__delta {
+  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  margin-top: var(--space-2);
+}
+.kpi-card__delta--bullish  { color: var(--color-bullish-supply); }
+.kpi-card__delta--bearish  { color: var(--color-bearish-supply); }
+.kpi-card__delta--neutral  { color: var(--text-secondary); }
+.kpi-card__help {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
+  line-height: 1.4;
+}
 
 /* === Panel Placeholder === */
 .panel-placeholder {
@@ -352,4 +355,77 @@
 .boot-error p {
   font-size: var(--fs-base);
   color: var(--text-tertiary);
+}
+
+/* === Panel Body (chart + sidebar grid) === */
+.panel-body {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: var(--space-8);
+  margin-top: var(--space-6);
+}
+@media (max-width: 1100px) {
+  .panel-body { grid-template-columns: 1fr; }
+}
+.panel-chart {
+  min-height: 360px;
+  position: relative;
+}
+.panel-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* === Chart Tooltip === */
+.chart-tooltip {
+  position: absolute;
+  background: rgba(15, 20, 30, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  pointer-events: none;
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: opacity var(--dur-fast) var(--ease-out);
+  z-index: 100;
+  min-width: 180px;
+}
+.chart-tooltip .tt-date {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-glass);
+}
+.chart-tooltip .tt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font-size: var(--fs-sm);
+  margin: var(--space-1) 0;
+}
+.chart-tooltip .tt-label {
+  color: var(--text-secondary);
+}
+.chart-tooltip .tt-row--accent {
+  border-top: 1px solid var(--border-glass);
+  padding-top: var(--space-2);
+  margin-top: var(--space-2);
+}
+.chart-tooltip .tt-row--accent .num {
+  color: var(--blue-flame);
+  font-weight: 500;
+}
+
+/* === Panel Error === */
+.panel-error {
+  padding: var(--space-8);
+  color: var(--text-tertiary);
+  text-align: center;
+  font-size: var(--fs-sm);
 }
