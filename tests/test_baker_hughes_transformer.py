@@ -184,3 +184,33 @@ def test_basin_rollups_only_emitted_when_rig_count_positive(tmp_path: Path):
     assert "bh_rollup_basin_permian" in series_ids
     assert "bh_rollup_basin_marcellus" in series_ids
     assert "bh_rollup_basin_eagle_ford" not in series_ids
+
+
+def test_basin_drill_split_rollups_present_and_sum_to_total(tmp_path: Path):
+    """Verify per-basin gas/oil rollups exist and sum equals total rollup."""
+    raw_path = tmp_path / "raw.xlsx"
+    out_path = tmp_path / "curated.parquet"
+    create_mock_xlsx(raw_path)
+
+    transform(raw_path, out_path)
+    df = pd.read_parquet(out_path)
+
+    rows = df.to_dict(orient="records")
+
+    permian_total_rows = [r for r in rows if r["series_id"] == "bh_rollup_basin_permian"]
+    permian_gas_rows = [r for r in rows if r["series_id"] == "bh_rollup_basin_permian_gas"]
+    permian_oil_rows = [r for r in rows if r["series_id"] == "bh_rollup_basin_permian_oil"]
+
+    assert len(permian_gas_rows) > 0
+    assert len(permian_oil_rows) > 0
+
+    by_period_total = {str(r["period"]): r["value"] for r in permian_total_rows}
+    by_period_gas = {str(r["period"]): r["value"] for r in permian_gas_rows}
+    by_period_oil = {str(r["period"]): r["value"] for r in permian_oil_rows}
+
+    for period, total in by_period_total.items():
+        gas = by_period_gas.get(period, 0)
+        oil = by_period_oil.get(period, 0)
+        # Allow small discrepancy for Miscellaneous rigs not split
+        assert gas + oil <= total
+        assert gas + oil >= total * 0.85

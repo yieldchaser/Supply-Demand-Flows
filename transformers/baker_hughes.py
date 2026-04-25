@@ -286,7 +286,11 @@ def _build_rollup_rows(df: pd.DataFrame, ingested_at: str) -> list[dict]:
 
         # Basin aggregates (US only — Canadian basin naming is different)
         for basin_name, basin_slug in BASIN_SLUGS.items():
-            basin_rigs = us_df[us_df["Basin"] == basin_name]["Rig Count Value"].sum()
+            basin_rows = us_df[us_df["Basin"] == basin_name]
+            if basin_rows.empty:
+                continue
+
+            basin_rigs = basin_rows["Rig Count Value"].sum()
             if basin_rigs > 0:
                 add(
                     f"bh_rollup_basin_{basin_slug}",
@@ -294,6 +298,18 @@ def _build_rollup_rows(df: pd.DataFrame, ingested_at: str) -> list[dict]:
                     basin_rigs,
                     "United States",
                 )
+
+            for drill_for, drill_slug in [("Gas", "gas"), ("Oil", "oil")]:
+                drill_rigs = basin_rows[basin_rows["DrillFor"] == drill_for][
+                    "Rig Count Value"
+                ].sum()
+                if drill_rigs > 0:
+                    add(
+                        f"bh_rollup_basin_{basin_slug}_{drill_slug}",
+                        f"{basin_name} basin · {drill_for} rigs",
+                        drill_rigs,
+                        "United States",
+                    )
 
     return out
 
