@@ -208,9 +208,13 @@ def test_basin_drill_split_rollups_present_and_sum_to_total(tmp_path: Path):
     by_period_gas = {str(r["period"]): r["value"] for r in permian_gas_rows}
     by_period_oil = {str(r["period"]): r["value"] for r in permian_oil_rows}
 
+    # Verify period-level alignment: the keys must be identical
+    assert set(by_period_total.keys()) == set(by_period_gas.keys())
+    assert set(by_period_total.keys()) == set(by_period_oil.keys())
+
     for period, total in by_period_total.items():
-        gas = by_period_gas.get(period, 0)
-        oil = by_period_oil.get(period, 0)
+        gas = by_period_gas[period]
+        oil = by_period_oil[period]
         # Allow small discrepancy for Miscellaneous rigs not split
         assert gas + oil <= total
         assert gas + oil >= total * 0.85

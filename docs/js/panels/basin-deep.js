@@ -85,9 +85,11 @@ function computeBasinMetrics(bundle) {
       else if (latest.value < priorMin) extreme = 'low';
     }
 
-    const gasLatest = gas.length ? gas[gas.length - 1].value : 0;
-    const oilLatest = oil.length ? oil[oil.length - 1].value : 0;
-    const gasShare  = latest.value > 0 ? (gasLatest / latest.value) * 100 : 0;
+    const gasAtLatest = gas.find(r => r.period.getTime() === latest.period.getTime());
+    const gasLatest = gasAtLatest ? gasAtLatest.value : 0;
+    const oilAtLatest = oil.find(r => r.period.getTime() === latest.period.getTime());
+    const oilLatest = oilAtLatest ? oilAtLatest.value : 0;
+    const gasShare  = latest.value > 0 ? Math.min(100, Math.max(0, (gasLatest / latest.value) * 100)) : 0;
     const avg12m    = last52.reduce((s, r) => s + r.value, 0) / last52.length;
 
     return {
@@ -280,15 +282,32 @@ export function renderBasinScatter(panelEl, bundle) {
     .style('stroke',       (m) => m.gasShare > 50 ? '#7dd3fc' : 'rgba(156,163,175,0.4)')
     .attr('stroke-width', 1.5);
 
+  // Simple label collision avoidance: if a label would overlap a previously-placed
+  // label, push it down by 12px. Sort by latest desc so larger basins get priority.
+  const labeled = [...metrics].sort((a, b) => b.latest - a.latest);
+  const placed = [];
+  labeled.forEach(m => {
+    let yOffset = -r(m.avg12m) - 4;
+    const cx = x(m.latest);
+    let cy = y(m.d4w) + yOffset;
+    // Check collision with previously placed labels (within 50px x and 14px y)
+    let bumps = 0;
+    while (placed.some(p => Math.abs(p.x - cx) < 60 && Math.abs(p.y - cy) < 14) && bumps < 6) {
+      cy += 14;
+      bumps++;
+    }
+    placed.push({ x: cx, y: cy, basin: m });
+  });
+
   // Basin labels — nudged above bubble
-  g.selectAll('.bubble-lbl').data(metrics).enter().append('text')
-    .attr('x', (m) => x(m.latest))
-    .attr('y', (m) => y(m.d4w) - r(m.avg12m) - 5)
+  g.selectAll('.bubble-lbl').data(placed).enter().append('text')
+    .attr('x', (d) => d.x)
+    .attr('y', (d) => d.y)
     .attr('text-anchor', 'middle')
     .attr('font-size', 10)
     .attr('font-family', 'Inter, sans-serif')
     .style('fill', 'rgba(255,255,255,0.72)')
-    .text((m) => m.label);
+    .text((d) => d.basin.label);
 
   // X-axis tick labels
   g.selectAll('.xt').data(x.ticks(6)).enter().append('text')

@@ -299,11 +299,10 @@ def _build_rollup_rows(df: pd.DataFrame, ingested_at: str) -> list[dict]:
                     "United States",
                 )
 
-            for drill_for, drill_slug in [("Gas", "gas"), ("Oil", "oil")]:
-                drill_rigs = basin_rows[basin_rows["DrillFor"] == drill_for][
-                    "Rig Count Value"
-                ].sum()
-                if drill_rigs > 0:
+                for drill_for, drill_slug in [("Gas", "gas"), ("Oil", "oil")]:
+                    drill_rigs = basin_rows[basin_rows["DrillFor"] == drill_for][
+                        "Rig Count Value"
+                    ].sum()
                     add(
                         f"bh_rollup_basin_{basin_slug}_{drill_slug}",
                         f"{basin_name} basin · {drill_for} rigs",
