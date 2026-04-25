@@ -6,6 +6,12 @@ import { renderStoragePanel } from './panels/storage.js';
 import { renderBalancePanel } from './panels/balance.js';
 import { renderRigsPanel } from './panels/rigs.js';
 import { renderBasinsPanel } from './panels/basins.js';
+import {
+  renderBasinTable,
+  renderBasinScatter,
+  renderBasinShare,
+  renderBasinExtremes,
+} from './panels/basin-deep.js';
 
 async function main() {
   const bundle = await loadBundle();
@@ -20,6 +26,12 @@ async function main() {
   // Baker Hughes panels — live charts
   renderRigsPanel(document.getElementById('panel-rigs'), bundle);
   renderBasinsPanel(document.getElementById('panel-basins'), bundle);
+
+  // Section 2: Basin Momentum Deep
+  renderBasinTable(document.getElementById('panel-basin-table'), bundle);
+  renderBasinScatter(document.getElementById('panel-basin-scatter'), bundle);
+  renderBasinShare(document.getElementById('panel-basin-share'), bundle);
+  renderBasinExtremes(document.getElementById('panel-basin-extremes'), bundle);
 
   renderFooter(bundle);
 }

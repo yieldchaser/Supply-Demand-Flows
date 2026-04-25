@@ -619,3 +619,134 @@
   text-align: center;
   padding: var(--space-4) 0;
 }
+
+/* ========================================================
+   Basin Momentum Deep — Section 2 styles
+   ======================================================== */
+
+.section {
+  max-width: 1440px;
+  margin: var(--space-12) auto 0;
+  padding: 0 var(--content-gutter);
+}
+
+.section-header {
+  margin-bottom: var(--space-6);
+}
+
+.section-header h2 {
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--blue-flame), var(--blue-flame-deep));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.section-header p {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  margin-top: var(--space-2);
+}
+
+.deep-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  margin: var(--space-6) 0;
+}
+
+@media (max-width: 1100px) {
+  .deep-grid { grid-template-columns: 1fr; }
+}
+
+/* Panel slim variant — used for extremes strip */
+.panel--slim {
+  padding: var(--space-5) var(--space-6);
+}
+
+/* === Basin Table === */
+.basin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.basin-table th {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-align: right;
+  padding: var(--space-3);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-glass);
+  white-space: nowrap;
+  user-select: none;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.basin-table th:hover {
+  color: var(--text-primary);
+}
+
+.basin-table th:first-child,
+.basin-table td:first-child {
+  text-align: left;
+}
+
+.basin-table th.sorted {
+  color: var(--blue-flame);
+}
+
+.basin-table td {
+  padding: var(--space-3);
+  text-align: right;
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.basin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.basin-table .delta-pos { color: var(--color-bullish-supply); }
+.basin-table .delta-neg { color: var(--color-bearish-supply); }
+
+.basin-table .badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  margin-left: var(--space-2);
+}
+
+.badge--gas   { color: var(--blue-flame);      background: rgba(125, 211, 252, 0.12); }
+.badge--mixed { color: var(--text-secondary);  background: rgba(255, 255, 255, 0.05); }
+.badge--oil   { color: var(--text-tertiary);   background: rgba(255, 255, 255, 0.03); }
+
+/* === Extremes Strip === */
+.extreme-card {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+}
+
+.extreme-card--high { border: 1px solid rgba(125, 211, 252, 0.25); }
+.extreme-card--low  { border: 1px solid rgba(245, 158, 11, 0.25); }
+
+.extremes-empty {
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+  padding: var(--space-2);
+}
