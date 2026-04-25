@@ -5,7 +5,8 @@
  * In B2, these placeholders will be replaced with actual chart components.
  */
 
-import { formatRelativeTime, formatIsoDate, classifyVintage, getCadenceDays } from '../util/format.js';
+import { classifyVintage } from '../util/format.js';
+
 
 const PANEL_DESCRIPTIONS = {
   eia_storage: 'Weekly storage levels across 5 regions with 5-year historical band.',
@@ -25,12 +26,16 @@ export function renderPanelPlaceholder(panelId, { title, subtitle, source, bundl
   const panel = document.getElementById(panelId);
   if (!panel) return;
 
-  const vintage = bundle.sourceVintage(source);
-  const cadence = getCadenceDays(source);
-  const ageDays = vintage?.ageDays ?? 999;
-  const freshness = classifyVintage(ageDays, cadence);
-  const relTime = vintage ? formatRelativeTime(vintage.latest) : 'no data';
-  const dateTitle = vintage ? `Data published ${formatIsoDate(vintage.latest)}` : '';
+  const src = bundle.sources?.[source];
+  if (!src || !src.latest_period) return;
+
+  const vintage = classifyVintage(source, src.latest_period);
+  const colorClass = {
+    fresh: 'vintage-pill__dot--fresh',
+    stale: 'vintage-pill__dot--stale',
+    critical: 'vintage-pill__dot--critical',
+  }[vintage.freshness];
+
   const desc = PANEL_DESCRIPTIONS[source] || '';
 
   panel.innerHTML = `
@@ -39,9 +44,9 @@ export function renderPanelPlaceholder(panelId, { title, subtitle, source, bundl
         <h2 class="panel-header__title">${title}</h2>
         <p class="panel-header__subtitle">${subtitle}</p>
       </div>
-      <span class="vintage-pill" title="${dateTitle}">
-        <span class="vintage-pill__dot vintage-pill__dot--${freshness}"></span>
-        <span class="vintage-pill__text">Latest · ${relTime}</span>
+      <span class="vintage-pill" title="${vintage.tooltip}">
+        <span class="vintage-pill__dot ${colorClass}"></span>
+        <span class="vintage-pill__text">${vintage.labelText}</span>
       </span>
     </div>
     <div class="panel-placeholder">

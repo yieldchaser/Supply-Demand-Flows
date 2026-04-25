@@ -1,13 +1,12 @@
 /**
  * Health Strip — 3 pills showing source freshness.
  *
- * Dot color logic:
- *   eia_storage (weekly):       fresh <8d, stale 8-15d, critical >15d
- *   eia_supply (monthly):       fresh <35d, stale 35-45d, critical >45d
- *   baker_hughes_weekly:        fresh <8d, stale 8-15d, critical >15d
+ * Dot color logic is driven by classifyVintage() in format.js which uses
+ * per-source publish-lag + cadence rules to compare against the EXPECTED
+ * publish date, not the raw period start.
  */
 
-import { formatRelativeTime, classifyVintage, getCadenceDays } from '../util/format.js';
+import { classifyVintage } from '../util/format.js';
 
 const SOURCE_CONFIG = {
   eia_storage: {
@@ -37,21 +36,26 @@ export function renderHealthStrip(bundle) {
   strip.innerHTML = '';
 
   for (const [sourceKey, config] of Object.entries(SOURCE_CONFIG)) {
-    const vintage = bundle.sourceVintage(sourceKey);
-    const cadence = getCadenceDays(sourceKey);
-    const ageDays = vintage?.ageDays ?? 999;
-    const freshness = classifyVintage(ageDays, cadence);
-    const relTime = vintage ? formatRelativeTime(vintage.latest) : 'unknown';
+    const src = bundle.sources?.[sourceKey];
+    if (!src || !src.latest_period) continue;
+
+    const vintage = classifyVintage(sourceKey, src.latest_period);
+    const colorClass = {
+      fresh: 'vintage-pill__dot--fresh',
+      stale: 'vintage-pill__dot--stale',
+      critical: 'vintage-pill__dot--critical',
+    }[vintage.freshness];
 
     const pill = document.createElement('a');
     pill.className = 'health-pill';
     pill.href = `#${config.panelId}`;
+    pill.title = vintage.tooltip;
     pill.setAttribute('data-source', sourceKey);
 
     pill.innerHTML = `
-      <span class="health-pill__dot vintage-pill__dot--${freshness}"></span>
+      <span class="health-pill__dot ${colorClass}"></span>
       <span class="health-pill__label">${config.label}</span>
-      <span class="health-pill__meta">${relTime}</span>
+      <span class="health-pill__meta">${vintage.labelText}</span>
     `;
 
     strip.appendChild(pill);

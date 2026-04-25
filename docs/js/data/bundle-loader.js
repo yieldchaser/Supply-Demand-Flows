@@ -17,9 +17,8 @@ export async function loadBundle() {
     throw new Error(`Manifest fetch failed: ${manifestResp.status}`);
   }
   const manifest = await manifestResp.json();
-  const bundleUrl = `./data/${manifest.bundle_url}`;
-
-  const bundleResp = await fetch(bundleUrl, { cache: 'force-cache' });
+  const bundleUrl = `./data/${manifest.bundle_url}?v=${manifest.hash}`;
+  const bundleResp = await fetch(bundleUrl, { cache: 'default' });
   if (!bundleResp.ok) {
     throw new Error(`Bundle fetch failed: ${bundleResp.status} at ${bundleUrl}`);
   }
@@ -27,6 +26,7 @@ export async function loadBundle() {
 
   // Enrich with parsed timestamps + helpers
   bundle.generatedAt = new Date(bundle.generated_at);
+  console.info(`[bluetide] Loaded bundle ${manifest.hash}, generated ${manifest.generated_at}`);
   bundle.hash = manifest.hash;
 
   /**
