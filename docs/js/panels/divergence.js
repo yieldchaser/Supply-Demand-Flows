@@ -34,20 +34,21 @@ export function renderDivergencePanel(panelEl, bundle) {
     return;
   }
 
-  /* ── US: current vs 5y avg ───────────────────────────────────── */
-  // Prefer the Lower-48 aggregate series (single series_id for total storage).
-  // EIA storage schema: series_id like 'eia_storage_lower48_bcf' or similar.
-  // Fallback: collect all rows and keep the numerically largest-magnitude series
-  // (that tends to be the national aggregate).
-  let usSeries = _buildUsSeries(usSource.data);
+  // === US: extract storage series and compute current vs 5y avg ===
+  // EIA storage bundle has single series_id 'storage', single region 'NA' (Lower 48 aggregate).
+  // Same pattern used by storage.js — guaranteed to match its KPI display.
+  const usSeries = usSource.data
+    .map(r => ({
+      period: r.period instanceof Date ? r.period : new Date(r.period),
+      value: Number(r.value),
+    }))
+    .sort((a, b) => a.period - b.period);
 
   const usEnvelope = computeWeeklyEnvelope(usSeries, 5);
-  const usLatest   = usSeries.length ? usSeries[usSeries.length - 1] : null;
-  const usWk       = usLatest ? isoWeek(usLatest.period) : null;
-  const usEnv      = usWk ? usEnvelope.get(usWk) : null;
-
-  // us_signal: % deviation from seasonal mean (positive = above avg = loose)
-  const us_signal = (usLatest && usEnv && usEnv.mean > 0)
+  const usLatest = usSeries[usSeries.length - 1];
+  const usWk = isoWeek(usLatest.period);
+  const usEnv = usEnvelope.get(usWk);
+  const us_signal = usEnv && usEnv.mean > 0
     ? ((usLatest.value - usEnv.mean) / usEnv.mean) * 100
     : null;
 
@@ -125,43 +126,6 @@ export function renderDivergencePanel(panelEl, bundle) {
   `;
 }
 
-/* ================================================================== */
-/*  US series builder                                                  */
-/* ================================================================== */
-
-function _buildUsSeries(rows) {
-  // Try to find a national/Lower-48 aggregate series by common series_id patterns.
-  const PREFER_PATTERNS = ['lower_48', 'lower48', 'l48', 'united_states', 'total'];
-
-  // Group by series_id and find the best candidate.
-  const seriesMap = new Map();
-  for (const r of rows) {
-    if (!seriesMap.has(r.series_id)) seriesMap.set(r.series_id, []);
-    seriesMap.get(r.series_id).push(r);
-  }
-
-  // Pick the series_id that matches a preferred pattern, or the one with most rows.
-  let bestKey = null;
-  for (const key of seriesMap.keys()) {
-    const lower = key.toLowerCase();
-    if (PREFER_PATTERNS.some((p) => lower.includes(p))) {
-      bestKey = key;
-      break;
-    }
-  }
-  if (!bestKey) {
-    // Fallback: take the series with the most data points
-    let maxLen = 0;
-    for (const [k, v] of seriesMap) {
-      if (v.length > maxLen) { maxLen = v.length; bestKey = k; }
-    }
-  }
-
-  const raw = bestKey ? seriesMap.get(bestKey) : [];
-  return raw
-    .map((r) => ({ ...r, period: new Date(r.period), value: Number(r.value) }))
-    .sort((a, b) => a.period - b.period);
-}
 
 /* ================================================================== */
 /*  EU aggregate builder (matches eu-storage.js approach exactly)     */
