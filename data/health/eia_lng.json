@@ -1,7 +1,10 @@
 {
   "source": "eia_lng",
-  "status": "failed",
-  "timestamp_utc": "2026-04-30T18:14:54Z",
-  "error": "No data returned from EIA LNG latest-period check",
-  "metadata": null
+  "status": "ok",
+  "timestamp_utc": "2026-04-30T18:25:57Z",
+  "error": null,
+  "metadata": {
+    "latest_period": "2026-02",
+    "rows": 2496
+  }
 }
