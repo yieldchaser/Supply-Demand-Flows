@@ -12,6 +12,7 @@ import {
   renderBasinShare,
   renderBasinExtremes,
 } from './panels/basin-deep.js';
+import { renderEuStoragePanel } from './panels/eu-storage.js';
 
 async function main() {
   const bundle = await loadBundle();
@@ -32,6 +33,9 @@ async function main() {
   renderBasinScatter(document.getElementById('panel-basin-scatter'), bundle);
   renderBasinShare(document.getElementById('panel-basin-share'), bundle);
   renderBasinExtremes(document.getElementById('panel-basin-extremes'), bundle);
+
+  // Section 3: European Storage Context
+  renderEuStoragePanel(document.getElementById('panel-eu-storage'), bundle);
 
   renderFooter(bundle);
 }
