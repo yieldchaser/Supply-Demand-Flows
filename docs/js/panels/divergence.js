@@ -9,6 +9,7 @@
  *   bundle.sources.gie_agsi   — 10 EU countries daily % full
  */
 
+import * as d3 from 'd3';
 import { getSeries, computeWeeklyEnvelope, isoWeek } from '../util/series.js';
 
 /* ─────────────────────────────────────────────── */
@@ -35,14 +36,18 @@ export function renderDivergencePanel(panelEl, bundle) {
   }
 
   // === US: extract storage series and compute current vs 5y avg ===
-  // EIA storage bundle has single series_id 'storage', single region 'NA' (Lower 48 aggregate).
-  // Same pattern used by storage.js — guaranteed to match its KPI display.
-  const usSeries = usSource.data
-    .map(r => ({
-      period: r.period instanceof Date ? r.period : new Date(r.period),
-      value: Number(r.value),
-    }))
-    .sort((a, b) => a.period - b.period);
+  // Extract Lower 48 total per period (max of 8 region rows = the aggregate).
+  // Same workaround as storage.js — see Phase 2 backlog: fix transformer to
+  // emit region-tagged rows so we don't need this trick.
+  const usByPeriod = d3.rollup(
+    usSource.data,
+    (g) => d3.max(g, (r) => Number(r.value)),
+    (r) => r.period
+  );
+  const usSeries = Array.from(usByPeriod, ([period, value]) => ({
+    period: new Date(period),
+    value,
+  })).sort((a, b) => a.period - b.period);
 
   const usEnvelope = computeWeeklyEnvelope(usSeries, 5);
   const usLatest = usSeries[usSeries.length - 1];
