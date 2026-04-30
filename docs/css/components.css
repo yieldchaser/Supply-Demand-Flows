@@ -826,3 +826,146 @@
   width: 100%;
 }
 
+/* ================================================================== */
+/*  Interlude — Transatlantic Storage Divergence                       */
+/* ================================================================== */
+
+.section--interlude {
+  max-width: var(--max-width);
+  margin: var(--space-8) auto 0;
+  padding: 0 var(--content-gutter);
+}
+
+.panel--interlude {
+  padding: var(--space-5) var(--space-6);
+}
+
+.divergence-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-4);
+}
+
+.divergence-card__title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.divergence-card__date {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+}
+
+.divergence-card__body {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: var(--space-6);
+  align-items: center;
+}
+
+/* --- Side panels (US / EU) --- */
+.divergence-side { text-align: center; }
+
+.divergence-side__label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-1);
+}
+
+.divergence-side__value {
+  font-size: var(--fs-2xl);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.divergence-side__value.is-loose { color: var(--color-bullish-supply); }
+.divergence-side__value.is-tight { color: var(--color-bearish-supply); }
+
+.divergence-side__sub {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+/* --- Gauge --- */
+.divergence-gauge {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.divergence-gauge__bar {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    to right,
+    rgba(34, 211, 164, 0.50) 0%,
+    rgba(125, 211, 252, 0.20) 35%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(245, 158, 11, 0.20) 65%,
+    rgba(239, 78, 92, 0.50) 100%
+  );
+  border: 1px solid var(--border-glass);
+}
+
+.divergence-gauge__needle {
+  position: absolute;
+  top: -3px;
+  width: 3px;
+  height: 18px;
+  background: var(--text-primary);
+  border-radius: 1.5px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  transition: left var(--dur-slow) var(--ease-out);
+}
+
+.divergence-gauge__labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--fs-xs);
+}
+
+.divergence-gauge__edge { color: var(--text-tertiary); letter-spacing: 0.04em; }
+
+.divergence-gauge__spread {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+}
+
+/* --- Interpretation bar --- */
+.divergence-card__interpretation {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-glass);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  flex-wrap: wrap;
+}
+
+.divergence-card__icon   { font-size: var(--fs-base); }
+.divergence-card__regime { font-weight: 600; color: var(--text-primary); }
+.divergence-card__detail { color: var(--text-secondary); }
+
+.divergence-card__interpretation--bullish .divergence-card__regime { color: var(--color-bullish-supply); }
+.divergence-card__interpretation--warning .divergence-card__regime { color: var(--color-warning); }
+.divergence-card__interpretation--neutral .divergence-card__regime { color: var(--text-secondary); }
+
+@media (max-width: 768px) {
+  .divergence-card__body { grid-template-columns: 1fr; gap: var(--space-4); }
+  .divergence-gauge { order: 3; }
+}

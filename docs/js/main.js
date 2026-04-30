@@ -13,6 +13,7 @@ import {
   renderBasinExtremes,
 } from './panels/basin-deep.js';
 import { renderEuStoragePanel } from './panels/eu-storage.js';
+import { renderDivergencePanel } from './panels/divergence.js';
 
 async function main() {
   const bundle = await loadBundle();
@@ -27,6 +28,9 @@ async function main() {
   // Baker Hughes panels — live charts
   renderRigsPanel(document.getElementById('panel-rigs'), bundle);
   renderBasinsPanel(document.getElementById('panel-basins'), bundle);
+
+  // Interlude: Transatlantic Storage Divergence (cross-source derived metric)
+  renderDivergencePanel(document.getElementById('panel-divergence'), bundle);
 
   // Section 2: Basin Momentum Deep
   renderBasinTable(document.getElementById('panel-basin-table'), bundle);
