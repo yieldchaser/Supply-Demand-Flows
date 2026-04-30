@@ -103,6 +103,13 @@ export function classifyVintage(sourceKey, latestPeriod) {
       graceDays: 1,
       criticalAfterOverdueDays: 7,
     },
+    gie_agsi: {
+      kind: 'daily',
+      publishLag: 1,           // yesterday's gas day published today
+      cadenceDays: 1,
+      graceDays: 1,
+      criticalAfterOverdueDays: 3,
+    },
   };
 
   const rule = RULES[sourceKey];
@@ -116,7 +123,7 @@ export function classifyVintage(sourceKey, latestPeriod) {
   let latestPublishDate;
   let nextExpectedPublishDate;
 
-  if (rule.kind === 'weekly') {
+  if (rule.kind === 'weekly' || rule.kind === 'daily') {
     const periodDate = new Date(latestPeriod + 'T00:00:00Z');
     latestPublishDate = new Date(periodDate.getTime() + rule.publishLag * 86400000);
     nextExpectedPublishDate = new Date(latestPublishDate.getTime() + rule.cadenceDays * 86400000);
