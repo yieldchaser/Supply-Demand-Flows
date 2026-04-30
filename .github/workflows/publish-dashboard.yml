@@ -7,6 +7,7 @@ on:
       - "EIA Supply (monthly)"
       - "Baker Hughes Rig Count (weekly)"
       - "GIE AGSI+ Storage (daily)"
+      - "EIA LNG Exports (monthly)"
     types:
       - completed
   workflow_dispatch:

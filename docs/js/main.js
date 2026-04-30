@@ -14,6 +14,8 @@ import {
 } from './panels/basin-deep.js';
 import { renderEuStoragePanel } from './panels/eu-storage.js';
 import { renderDivergencePanel } from './panels/divergence.js';
+import { renderLngTotalPanel } from './panels/lng-total.js';
+import { renderLngSharesPanel } from './panels/lng-shares.js';
 
 async function main() {
   const bundle = await loadBundle();
@@ -40,6 +42,10 @@ async function main() {
 
   // Section 3: European Storage Context
   renderEuStoragePanel(document.getElementById('panel-eu-storage'), bundle);
+
+  // Section 4: US LNG Exports Tracker
+  renderLngTotalPanel(document.getElementById('panel-lng-total'), bundle);
+  renderLngSharesPanel(document.getElementById('panel-lng-shares'), bundle);
 
   renderFooter(bundle);
 }
