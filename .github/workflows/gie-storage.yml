@@ -1,0 +1,29 @@
+name: GIE AGSI+ Storage
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Run scraper
+        env:
+          GIE_API_KEY: ${{ secrets.GIE_API_KEY }}
+        run: python -m scrapers.gie_agsi.european_storage
+      - name: Run transformer
+        run: python -m transformers.gie_agsi
+      - name: Commit
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "data: GIE AGSI+ European storage update"
+          file_pattern: "data/raw/gie_agsi/* data/curated/gie_agsi.parquet data/health/*"
