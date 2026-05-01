@@ -1,10 +1,10 @@
 {
   "source": "eia_supply",
   "status": "ok",
-  "timestamp_utc": "2026-04-22T14:40:03Z",
+  "timestamp_utc": "2026-05-01T16:02:05Z",
   "error": null,
   "metadata": {
-    "latest_date": "2026-01",
-    "rows": 438
+    "latest_date": "2026-02",
+    "rows": 444
   }
 }
