@@ -17,7 +17,7 @@ import { getSeries } from '../util/series.js';
 const MONTHS_DISPLAY = 36;
 
 export function renderLngTotalPanel(panelEl, bundle) {
-  const source = bundle.sources?.eia_lng;
+  const source = bundle.sources?.eia_lng_exports;
   if (!source?.data?.length) {
     panelEl.innerHTML = '<div class="panel-error">EIA LNG export data unavailable.</div>';
     return;
@@ -26,7 +26,7 @@ export function renderLngTotalPanel(panelEl, bundle) {
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'US LNG Exports',
     subtitle: 'EIA · total monthly volume · Bcf',
-    sourceKey: 'eia_lng',
+    sourceKey: 'eia_lng_exports',
     latestPeriod: source.latest_period,
   });
 

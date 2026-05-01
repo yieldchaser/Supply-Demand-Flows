@@ -57,7 +57,7 @@ jobs:
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
           git add data/health/eia_lng.json || true
-          git add data/curated/eia_lng.parquet || true
+          git add data/curated/eia_lng_exports.parquet || true
           if ! git diff --cached --quiet; then
             git commit -m "data(lng): EIA LNG exports ${LATEST_PERIOD}"
             for i in {1..5}; do

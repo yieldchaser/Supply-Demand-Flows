@@ -110,7 +110,7 @@ export function classifyVintage(sourceKey, latestPeriod) {
       graceDays: 1,
       criticalAfterOverdueDays: 3,
     },
-    eia_lng: {
+    eia_lng_exports: {
       kind: 'monthly_eia_ngm',
       // EIA LNG export data publishes ~3-5 days into the following month.
       // Uses the same monthly_eia_ngm kind but with a tighter publish lag

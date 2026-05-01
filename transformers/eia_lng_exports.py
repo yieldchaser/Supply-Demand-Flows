@@ -42,7 +42,7 @@ from transformers.errors import TransformError
 log = logging.getLogger(__name__)
 
 RAW_PATH = Path("data/raw/eia_lng/lng_exports.json")
-CURATED_PATH = Path("data/curated/eia_lng.parquet")
+CURATED_PATH = Path("data/curated/eia_lng_exports.parquet")
 
 # ── Regional mappings (ISO-3166 Alpha-3) ─────────────────────────────────────
 REGIONS: dict[str, list[str]] = {
