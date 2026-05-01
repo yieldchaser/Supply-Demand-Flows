@@ -75,7 +75,7 @@ export function renderLngSharesPanel(panelEl, bundle) {
 
   const aligned = periods.map(period => {
     const t = period.getTime();
-    const entry: Record<string, number | Date> = { period };
+    const entry = { period };
     let stackBase = 0;
     for (const reg of shareSeries) {
       const match = reg.rows.find(r => r.period.getTime() === t);
@@ -86,7 +86,7 @@ export function renderLngSharesPanel(panelEl, bundle) {
     // Clamp: if stack > 100 due to rounding, normalise
     if (stackBase > 101) {
       const scale = 100 / stackBase;
-      for (const reg of REGIONS) entry[reg.id] = (entry[reg.id] as number) * scale;
+      for (const reg of REGIONS) entry[reg.id] = Number(entry[reg.id]) * scale;
     }
     return entry;
   });
