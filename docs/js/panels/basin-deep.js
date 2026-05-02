@@ -48,7 +48,8 @@ const BASINS = [
  * Returns null for basins with zero rows so callers can filter(Boolean).
  */
 function computeBasinMetrics(bundle) {
-  const data = bundle.sources.baker_hughes_weekly.data;
+  const data = bundle.sources?.baker_hughes_weekly?.data;
+  if (!data || !Array.isArray(data) || data.length === 0) return [];
 
   return BASINS.map((b) => {
     const total = getSeries(data, `bh_rollup_basin_${b.slug}`);
@@ -127,6 +128,10 @@ function computeBasinMetrics(bundle) {
  * Clicking any column header re-sorts; active column highlighted in Blue Flame.
  */
 export function renderBasinTable(panelEl, bundle) {
+  if (!bundle.sources?.baker_hughes_weekly?.data) {
+    panelEl.innerHTML = '<div class="panel-error"><p>Baker Hughes rig data is currently unavailable.</p></div>';
+    return;
+  }
   const { chartEl } = renderPanelChrome(panelEl, {
     title:        'All Basins',
     subtitle:     'Sortable · click any column header',
@@ -218,6 +223,10 @@ export function renderBasinTable(panelEl, bundle) {
  * Fill opacity encodes gas share; stroke = blue-flame for gas-majority basins.
  */
 export function renderBasinScatter(panelEl, bundle) {
+  if (!bundle.sources?.baker_hughes_weekly?.data) {
+    panelEl.innerHTML = '<div class="panel-error"><p>Baker Hughes rig data is currently unavailable.</p></div>';
+    return;
+  }
   const { chartEl } = renderPanelChrome(panelEl, {
     title:        'Rigs vs 4-Week Momentum',
     subtitle:     'Bubble size = 12-month avg · fill = gas share',
@@ -354,6 +363,10 @@ export function renderBasinScatter(panelEl, bundle) {
  * total gas-rig pool over the past 24 months.
  */
 export function renderBasinShare(panelEl, bundle) {
+  if (!bundle.sources?.baker_hughes_weekly?.data) {
+    panelEl.innerHTML = '<div class="panel-error"><p>Baker Hughes rig data is currently unavailable.</p></div>';
+    return;
+  }
   const { chartEl } = renderPanelChrome(panelEl, {
     title:        'Gas-Rig Share by Basin',
     subtitle:     '24-month evolution · top 6 gas basins',
@@ -498,6 +511,10 @@ export function renderBasinShare(panelEl, bundle) {
  * where the panel element itself is the content container (panel--slim class).
  */
 export function renderBasinExtremes(panelEl, bundle) {
+  if (!bundle.sources?.baker_hughes_weekly?.data) {
+    panelEl.innerHTML = '<div class="panel-error"><p>Baker Hughes rig data is currently unavailable.</p></div>';
+    return;
+  }
   const metrics = computeBasinMetrics(bundle);
   const extremes = metrics.filter((m) => m.extreme);
 
