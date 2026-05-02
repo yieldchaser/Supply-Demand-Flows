@@ -24,6 +24,16 @@ const SOURCE_CONFIG = {
     panelId: 'panel-rigs',
     healthKey: 'baker_hughes_rigs',
   },
+  gie_agsi: {
+    label: 'GIE AGSI+',
+    panelId: 'panel-eu-storage',
+    healthKey: 'gie_agsi',
+  },
+  eia_lng_exports: {
+    label: 'EIA LNG',
+    panelId: 'panel-lng-total',
+    healthKey: 'eia_lng',
+  },
 };
 
 /**
