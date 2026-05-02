@@ -24,11 +24,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-python@v5.3.0
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'

@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   group: publish-dashboard
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-commit:
@@ -33,7 +33,7 @@ jobs:
       # would miss that commit. `ref: main` forces a fresh pull of main's current
       # HEAD including any commits made during the parent run.
       - name: Checkout (fresh main HEAD, not parent workflow SHA)
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 1
@@ -46,7 +46,7 @@ jobs:
           find data/curated -name "*.parquet" -type f | wc -l
 
       - name: Uses setup-python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
