@@ -77,7 +77,7 @@ def build() -> dict:
                 print(f"Error reading {health_path}: {exc}")
 
     # 3. Serialise and Hash
-    bundle_json = json.dumps(bundle, indent=2, ensure_ascii=False, default=_json_default)
+    bundle_json = json.dumps(bundle, separators=(",", ":"), ensure_ascii=False, default=_json_default)
     bundle_hash = hashlib.md5(bundle_json.encode("utf-8")).hexdigest()[:8]
 
     # 4. Write Files
