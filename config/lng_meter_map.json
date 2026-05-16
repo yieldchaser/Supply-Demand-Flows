@@ -1,0 +1,6 @@
+{
+  "_comment": "Maps pipeline location IDs to LNG terminal delivery points. Populated from first live scrape. Keys are lower-case pipeline slugs. Values are arrays of {location_id, location_name, direction} objects.",
+  "gulf_south": {
+    "freeport_lng": []
+  }
+}
