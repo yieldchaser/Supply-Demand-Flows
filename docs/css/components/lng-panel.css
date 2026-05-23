@@ -1,0 +1,212 @@
+/**
+ * LNG Feedgas Observatory Panel Styles
+ */
+
+/* Terminal Selection Chips */
+.lng-observatory-header {
+  margin-bottom: var(--space-4, 16px);
+  padding: 0 var(--space-4, 16px);
+}
+
+.terminal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}
+
+.chip {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--color-text-muted, #9ca3af);
+  cursor: pointer;
+  font-family: var(--font-sans), sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip:hover:not(.chip--disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.chip--active {
+  background: var(--blue-flame, #0ea5e9) !important;
+  border-color: var(--blue-flame, #0ea5e9) !important;
+  color: #fff !important;
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.3);
+}
+
+.chip--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+/* Utilization Progress Bar */
+.utilization-bar-bg {
+  background: rgba(255, 255, 255, 0.08);
+  height: 5px;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 8px;
+  margin-bottom: 6px;
+  width: 100%;
+}
+
+.utilization-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.4s ease-out;
+}
+
+.utilization-gray {
+  background-color: #6b7280 !important;
+  color: #9ca3af !important;
+}
+
+.utilization-green {
+  background-color: var(--color-bullish-supply, #10b981) !important;
+  color: var(--color-bullish-supply, #10b981) !important;
+}
+
+.utilization-amber {
+  background-color: var(--color-warning, #f59e0b) !important;
+  color: var(--color-warning, #f59e0b) !important;
+}
+
+.utilization-red {
+  background-color: var(--color-bearish-supply, #ef4444) !important;
+  color: var(--color-bearish-supply, #ef4444) !important;
+}
+
+.kpi-card__delta--utilization-gray {
+  color: #9ca3af !important;
+  background: rgba(107, 114, 128, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.kpi-card__delta--utilization-green {
+  color: var(--color-bullish-supply, #10b981) !important;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.kpi-card__delta--utilization-amber {
+  color: var(--color-warning, #f59e0b) !important;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.kpi-card__delta--utilization-red {
+  color: var(--color-bearish-supply, #ef4444) !important;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.utilization-context {
+  font-size: 9px;
+  line-height: 1.3;
+  color: var(--color-text-muted, #9ca3af);
+  margin-top: 4px;
+}
+
+/* Capacity Creep Tooltip */
+.capacity-creep-tooltip {
+  cursor: help;
+  color: var(--color-warning, #f59e0b);
+  margin-left: 4px;
+  font-family: var(--font-sans), sans-serif;
+  font-weight: bold;
+}
+
+/* Cycle Revisions Panel */
+.cycle-revisions-panel {
+  margin-top: var(--space-4, 16px);
+  padding-top: var(--space-4, 16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.revisions-title {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fff;
+  margin-bottom: 2px;
+  margin-top: 0;
+}
+
+.revisions-subtitle {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 9px;
+  color: var(--color-text-muted, #9ca3af);
+  margin-bottom: 12px;
+  margin-top: 0;
+}
+
+.revisions-chart-container {
+  width: 100%;
+}
+
+.rev-delta--up {
+  fill: var(--color-bullish-supply, #10b981) !important;
+}
+
+.rev-delta--down {
+  fill: var(--color-bearish-supply, #ef4444) !important;
+}
+
+.rev-delta--neutral {
+  fill: #6b7280 !important;
+}
+
+/* Footnotes */
+.lng-panel-footnote {
+  grid-column: span 12;
+  margin-top: var(--space-3, 12px);
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  background: rgba(255, 255, 255, 0.01);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 0 0 8px 8px;
+  font-family: var(--font-sans), sans-serif;
+  font-size: 9px;
+  color: var(--color-text-muted, #9ca3af);
+  line-height: 1.5;
+}
+
+.lng-panel-footnote p {
+  margin: 2px 0;
+}
+
+.lng-panel-footnote strong {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Page Layout Wrappers */
+.lng-panel-body-wrapper {
+  display: contents;
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+  .lng-panel-footnote {
+    grid-column: span 1;
+  }
+
+  .panel-sidebar {
+    grid-auto-flow: row !important;
+    grid-template-columns: 1fr !important;
+  }
+}

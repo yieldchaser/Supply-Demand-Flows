@@ -17,14 +17,11 @@ import pytest
 
 from scrapers.gie_agsi.european_storage import (
     COUNTRIES,
-    RAW_PATH,
-    SOURCE_NAME,
     _load_api_key,
     _normalise_row,
     _read_prior_state,
     run,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

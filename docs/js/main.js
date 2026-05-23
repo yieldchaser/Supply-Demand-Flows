@@ -16,6 +16,7 @@ import { renderEuStoragePanel } from './panels/eu-storage.js';
 import { renderDivergencePanel } from './panels/divergence.js';
 import { renderLngTotalPanel } from './panels/lng-total.js';
 import { renderLngSharesPanel } from './panels/lng-shares.js';
+import { renderLngFeedgasPanel } from './panels/lng-feedgas.js';
 
 /**
  * Render a single panel inside its own try/catch so that a failure
@@ -74,6 +75,9 @@ async function main() {
   // Section 4: US LNG Exports Tracker
   await safeRender('lng-total',   () => renderLngTotalPanel(document.getElementById('panel-lng-total'), bundle));
   await safeRender('lng-shares',  () => renderLngSharesPanel(document.getElementById('panel-lng-shares'), bundle));
+
+  // Section 5: LNG Feedgas Observatory
+  await safeRender('lng-feedgas', () => renderLngFeedgasPanel(document.getElementById('panel-lng-feedgas'), bundle));
 
   renderFooter(bundle);
 }

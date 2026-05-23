@@ -119,6 +119,13 @@ export function classifyVintage(sourceKey, latestPeriod) {
       graceDays: 5,
       criticalAfterOverdueDays: 30,
     },
+    gulf_south: {
+      kind: 'daily',
+      publishLag: 0,           // today's scheduled quantities are posted today
+      cadenceDays: 1,
+      graceDays: 1,
+      criticalAfterOverdueDays: 2,
+    },
   };
 
   const rule = RULES[sourceKey];

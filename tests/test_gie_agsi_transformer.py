@@ -18,7 +18,6 @@ import pytest
 from transformers.errors import TransformError
 from transformers.gie_agsi import SERIES_DEFINITIONS, transform
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------

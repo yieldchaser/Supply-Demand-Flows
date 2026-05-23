@@ -17,7 +17,6 @@ import pytest
 from transformers.eia_lng_exports import transform
 from transformers.errors import TransformError
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -76,7 +75,7 @@ def test_transform_emits_country_series(tmp_path: Path) -> None:
     raw_path = _write_raw(tmp_path, rows)
     out_path = tmp_path / "out.parquet"
 
-    result = transform(raw_path, out_path)
+    transform(raw_path, out_path)
     df = pd.read_parquet(out_path)
 
     assert "lng_export_nld" in df["series_id"].values

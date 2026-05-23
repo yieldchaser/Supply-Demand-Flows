@@ -13,21 +13,17 @@ import json
 from datetime import date
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pandas as pd
 import pytest
 
 from scrapers.energy_transfer.gulf_south import (
-    CycleCode,
-    RAW_DIR,
-    _raw_path,
     extract_csv_tracker_ids,
     fetch_oac_csv,
     parse_oac_csv,
     run,
 )
-from transformers.errors import TransformError
 from transformers.gulf_south import transform
 
 GAS_DAY = date(2026, 5, 22)
