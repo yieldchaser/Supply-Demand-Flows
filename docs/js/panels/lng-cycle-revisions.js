@@ -34,7 +34,7 @@ export function renderCycleRevisions(container, cycleData) {
   }
 
   // Margins & Dimensions
-  const margin = { top: 12, right: 90, bottom: 20, left: 75 };
+  const margin = { top: 12, right: 90, bottom: 8, left: 75 };
   const rowHeight = 32;
   const height = cycleData.length * rowHeight + margin.top + margin.bottom;
   const width = Math.max((chartDiv.getBoundingClientRect().width || 280), 200);
@@ -61,19 +61,6 @@ export function renderCycleRevisions(container, cycleData) {
   const x = d3.scaleLinear()
     .domain([0, xMax])
     .range([0, chartWidth]);
-
-  // X Axis Gridlines
-  const ticks = x.ticks(4);
-  g.selectAll('.rev-grid')
-    .data(ticks)
-    .enter().append('line')
-    .attr('class', 'rev-grid')
-    .attr('x1', d => x(d))
-    .attr('x2', d => x(d))
-    .attr('y1', 0)
-    .attr('y2', chartHeight)
-    .attr('stroke', 'rgba(255, 255, 255, 0.03)')
-    .attr('stroke-dasharray', '2,2');
 
   // Render bars
   const latestIndex = cycleData.length - 1;
@@ -102,6 +89,7 @@ export function renderCycleRevisions(container, cycleData) {
     .attr('text-anchor', 'end')
     .attr('font-size', '10px')
     .attr('font-family', 'var(--font-mono)')
+    .style('font-feature-settings', '"tnum"')
     .style('fill', 'var(--chart-label)')
     .text(d => d.cycle);
 
@@ -113,33 +101,37 @@ export function renderCycleRevisions(container, cycleData) {
 
     if (i > 0 && cycleData.length > 1) {
       const diff = d.value - cycleData[i - 1].value;
-      const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '■';
-      deltaText = `${arrow} ${Math.abs(diff).toFixed(0)}`;
-      deltaClass = diff > 0 ? 'rev-delta--up' : diff < 0 ? 'rev-delta--down' : 'rev-delta--neutral';
+      if (diff === 0) {
+        deltaText = '—';
+        deltaClass = 'rev-delta--neutral';
+      } else {
+        const arrow = diff > 0 ? '▲' : '▼';
+        deltaText = `${arrow} ${Math.abs(diff).toFixed(0)}`;
+        deltaClass = diff > 0 ? 'rev-delta--up' : 'rev-delta--down';
+      }
     }
 
-    const textGroup = g.append('g')
-      .attr('transform', `translate(${Math.max(x(d.value), 2) + 6}, ${y(d.cycle) + y.bandwidth() / 2})`);
-
-    // Main value text
-    textGroup.append('text')
-      .attr('y', 4)
+    const textNode = g.append('text')
+      .attr('x', Math.max(x(d.value), 2) + 6)
+      .attr('y', y(d.cycle) + y.bandwidth() / 2 + 4)
       .attr('font-size', '10px')
-      .attr('font-weight', i === latestIndex ? 'bold' : 'normal')
       .attr('font-family', 'var(--font-mono)')
-      .style('fill', i === latestIndex ? '#fff' : 'rgba(255, 255, 255, 0.7)')
+      .style('font-feature-settings', '"tnum"')
+      .style('letter-spacing', 'normal')
+      .style('fill', i === latestIndex ? '#fff' : 'rgba(255, 255, 255, 0.7)');
+
+    // Value segment
+    textNode.append('tspan')
+      .style('font-weight', i === latestIndex ? 'bold' : 'normal')
       .text(valText);
 
-    // Delta text if exists
+    // Delta segment
     if (deltaText) {
-      // Find length of value text to offset delta
-      const offset = valText.length * 6 + 10;
-      textGroup.append('text')
-        .attr('x', offset)
-        .attr('y', 4)
+      textNode.append('tspan')
+        .attr('dx', '8px') // Spacing between value and delta
         .attr('class', `rev-delta ${deltaClass}`)
         .attr('font-size', '9px')
-        .attr('font-family', 'var(--font-mono)')
+        .style('font-weight', 'normal')
         .text(deltaText);
     }
   });
@@ -151,16 +143,4 @@ export function renderCycleRevisions(container, cycleData) {
     .attr('y1', chartHeight)
     .attr('y2', chartHeight)
     .attr('stroke', 'rgba(255, 255, 255, 0.1)');
-
-  g.selectAll('.rev-scale-text')
-    .data(ticks)
-    .enter().append('text')
-    .attr('class', 'rev-scale-text')
-    .attr('x', d => x(d))
-    .attr('y', chartHeight + 12)
-    .attr('text-anchor', 'middle')
-    .attr('font-size', '8px')
-    .attr('font-family', 'var(--font-mono)')
-    .style('fill', 'var(--chart-label)')
-    .text(d => d);
 }

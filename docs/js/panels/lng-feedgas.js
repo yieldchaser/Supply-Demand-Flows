@@ -256,7 +256,9 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
   
   // Y scale: determined by capacity, values, and nameplate
   const maxVal = d3.max(dailySeries, (d) => d.value) || 0;
-  const yMax = Math.max(maxVal, nameplate) * 1.15;
+  const yMax = !should_show_envelope(totalDays)
+    ? Math.max(nameplate * 1.1, maxVal * 1.25)
+    : Math.max(maxVal, nameplate) * 1.15;
   const y = d3.scaleLinear().domain([0, yMax]).range([height, 0]);
 
   // Y Gridlines (every 500 MMcf/d)
@@ -289,6 +291,8 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .attr('text-anchor', 'end')
     .attr('font-size', '10px')
     .attr('font-family', 'var(--font-mono)')
+    .style('font-feature-settings', '"tnum"')
+    .style('letter-spacing', '0.02em')
     .style('fill', 'rgba(255,255,255,0.45)')
     .text(`Nameplate ${nameplate.toLocaleString()} MMcf/d`);
 
@@ -298,6 +302,20 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     const currentYearRows = seriesByGasYear.get(currentGasYear) || [];
     
     if (currentYearRows.length > 0) {
+      // Area Fill
+      const areaGen = d3.area()
+        .x((d) => x(d.dayIndex))
+        .y0(height)
+        .y1((d) => y(d.value))
+        .curve(d3.curveLinear);
+
+      g.append('path')
+        .datum(currentYearRows)
+        .attr('d', areaGen)
+        .attr('fill', 'rgba(14, 165, 233, 0.06)')
+        .attr('stroke', 'none');
+
+      // Line
       const lineGen = d3.line()
         .x((d) => x(d.dayIndex))
         .y((d) => y(d.value))
@@ -310,7 +328,7 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
         .attr('stroke-linecap', 'round')
         .style('filter', 'drop-shadow(0 0 6px rgba(125, 211, 252, 0.4))');
 
-      // Points
+      // Regular Points
       g.selectAll('.dot')
         .data(currentYearRows).enter()
         .append('circle')
@@ -320,6 +338,58 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
         .style('fill', 'var(--blue-flame)')
         .style('stroke', '#0c0f16')
         .style('stroke-width', '1.5px');
+
+      // Latest point special glowing callout
+      const latestPoint = currentYearRows[currentYearRows.length - 1];
+      if (latestPoint) {
+        // Pulse ring animation
+        g.append('circle')
+          .attr('cx', x(latestPoint.dayIndex))
+          .attr('cy', y(latestPoint.value))
+          .attr('r', 8)
+          .style('fill', 'var(--blue-flame)')
+          .style('opacity', 0.4)
+          .style('filter', 'blur(2px)')
+          .append('animate')
+          .attr('attributeName', 'r')
+          .attr('values', '6;12;6')
+          .attr('dur', '2.5s')
+          .attr('repeatCount', 'indefinite');
+
+        // Core large dot
+        g.append('circle')
+          .attr('cx', x(latestPoint.dayIndex))
+          .attr('cy', y(latestPoint.value))
+          .attr('r', 6)
+          .style('fill', 'var(--blue-flame)')
+          .style('stroke', '#0c0f16')
+          .style('stroke-width', '2px');
+
+        // Callout text label
+        const callout = g.append('g')
+          .attr('transform', `translate(${x(latestPoint.dayIndex) + 12}, ${y(latestPoint.value) - 10})`);
+
+        callout.append('rect')
+          .attr('x', -4)
+          .attr('y', -11)
+          .attr('width', 74)
+          .attr('height', 15)
+          .attr('rx', 3)
+          .style('fill', 'rgba(15, 23, 42, 0.85)')
+          .style('stroke', 'rgba(125, 211, 252, 0.3)')
+          .style('stroke-width', '0.5px');
+
+        callout.append('text')
+          .attr('x', 2)
+          .attr('y', 0)
+          .attr('font-size', '8.5px')
+          .attr('font-family', 'var(--font-mono)')
+          .style('font-feature-settings', '"tnum"')
+          .style('letter-spacing', '0.02em')
+          .style('fill', '#fff')
+          .style('font-weight', '600')
+          .text(`${latestPoint.value.toFixed(0)} (${latestPoint.cycle.toUpperCase()})`);
+      }
     }
 
     // Add info note to chart subtitle space
@@ -450,6 +520,7 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
       .attr('text-anchor', 'middle')
       .attr('font-size', '10px')
       .attr('font-family', 'var(--font-sans)')
+      .style('letter-spacing', 'normal')
       .style('fill', 'var(--chart-label)')
       .text(m);
   });
@@ -461,6 +532,8 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .attr('text-anchor', 'end')
     .attr('font-size', '10px')
     .attr('font-family', 'var(--font-mono)')
+    .style('font-feature-settings', '"tnum"')
+    .style('letter-spacing', 'normal')
     .style('fill', 'var(--chart-label)')
     .text((d) => `${d}`);
 }
