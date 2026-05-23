@@ -42,9 +42,6 @@ def identify_freeport_meters(locations: list[dict[str, Any]]) -> list[dict[str, 
         # Stratton Ridge (24329) is a known seed, but also check names
         if loc_id == 24329 or "FREEPORT" in name or "STRATTON RIDGE" in name or "FLNG" in name:
             confidence = "high"
-        elif "COASTAL BEND" in name:
-            confidence = "candidate"
-            note = "regional transfer point, may aggregate non-Freeport demand"
 
         if confidence:
             matched_item = {

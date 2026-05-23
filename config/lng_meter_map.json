@@ -9,68 +9,11 @@
         "source": "oac_csv"
       }
     ],
-    "freeport_lng_candidates": [
-      {
-        "loc_id": 23364,
-        "loc_name": "Coastal Bend (Ngpl)",
-        "flow_ind": "D",
-        "confidence": "candidate",
-        "source": "oac_csv",
-        "note": "regional transfer point, may aggregate non-Freeport demand"
-      },
-      {
-        "loc_id": 23368,
-        "loc_name": "Coastal Bend (Tennessee Gas)",
-        "flow_ind": "D",
-        "confidence": "candidate",
-        "source": "oac_csv",
-        "note": "regional transfer point, may aggregate non-Freeport demand"
-      },
-      {
-        "loc_id": 23372,
-        "loc_name": "Coastal Bend (Transco)",
-        "flow_ind": "D",
-        "confidence": "candidate",
-        "source": "oac_csv",
-        "note": "regional transfer point, may aggregate non-Freeport demand"
-      },
-      {
-        "loc_id": 23376,
-        "loc_name": "Coastal Bend (Enterprise)",
-        "flow_ind": "D",
-        "confidence": "candidate",
-        "source": "oac_csv",
-        "note": "regional transfer point, may aggregate non-Freeport demand"
-      },
-      {
-        "loc_id": 23700,
-        "loc_name": "Gulf South Transfer To Coastal Bend",
-        "flow_ind": "D",
-        "confidence": "candidate",
-        "source": "oac_csv",
-        "note": "regional transfer point, may aggregate non-Freeport demand"
-      },
-      {
-        "loc_id": 24100,
-        "loc_name": "Coastal Bend Gulf South Transfer Receipt",
-        "flow_ind": "D",
-        "confidence": "candidate",
-        "source": "oac_csv",
-        "note": "regional transfer point, may aggregate non-Freeport demand"
-      },
-      {
-        "loc_id": 24372,
-        "loc_name": "Coastal Bend Dow Delivery",
-        "flow_ind": "D",
-        "confidence": "candidate",
-        "source": "oac_csv",
-        "note": "regional transfer point, may aggregate non-Freeport demand"
-      }
-    ]
+    "freeport_lng_candidates": []
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-05-23T11:27:12Z",
+    "last_inventory_run": "2026-05-23T11:34:07Z",
     "total_locations_seen": 766,
     "unmatched_high_volume_delivery_meters": [
       {
@@ -116,6 +59,12 @@
         "scheduled_quantity_dth": 357909.0
       },
       {
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 293441.0
+      },
+      {
         "loc_id": 50202,
         "loc_name": "Petal Pipeline Injection/Withdrawal",
         "flow_ind": "D",
@@ -126,12 +75,6 @@
         "loc_name": "Bbt Trans-Union Claiborne Parish",
         "flow_ind": "D",
         "scheduled_quantity_dth": 227541.0
-      },
-      {
-        "loc_id": 21264,
-        "loc_name": "Gulfstream Interconnect",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 224291.0
       }
     ]
   }

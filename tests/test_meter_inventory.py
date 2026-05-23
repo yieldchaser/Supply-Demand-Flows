@@ -27,19 +27,6 @@ def test_stratton_ridge_high_confidence() -> None:
     assert matched_id[0]["loc_id"] == 24329
 
 
-def test_coastal_bend_candidate_not_high() -> None:
-    """Coastal Bend (case-insensitive) matches as candidate, not high confidence."""
-    locs = [
-        {"loc_id": 23700, "loc_name": "Gulf South Transfer To Coastal Bend", "flow_ind": "D"},
-        {"loc_id": 88888, "loc_name": "COASTAL BEND INTERCONNECT", "flow_ind": "D"},
-    ]
-    matched = identify_freeport_meters(locs)
-    assert len(matched) == 2
-    for m in matched:
-        assert m["confidence"] == "candidate"
-        assert "regional transfer point" in m["note"]
-
-
 def test_non_lng_meter_rejected() -> None:
     """Non-LNG or non-delivery meters are not matched."""
     locs = [
@@ -50,6 +37,9 @@ def test_non_lng_meter_rejected() -> None:
         {"loc_id": 11111, "loc_name": "Houston City Gate", "flow_ind": "D"},
         # None/empty names
         {"loc_id": 22222, "loc_name": "", "flow_ind": "D"},
+        # Coastal Bend locations (previously candidate, now rejected)
+        {"loc_id": 23700, "loc_name": "Gulf South Transfer To Coastal Bend", "flow_ind": "D"},
+        {"loc_id": 88888, "loc_name": "COASTAL BEND INTERCONNECT", "flow_ind": "D"},
     ]
     matched = identify_freeport_meters(locs)
     assert len(matched) == 0
