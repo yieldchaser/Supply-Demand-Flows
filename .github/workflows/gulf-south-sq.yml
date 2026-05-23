@@ -14,11 +14,11 @@ on:
   workflow_dispatch:
     inputs:
       cycle:
-        description: 'Cycle code (TIMELY|EVENING|ID1|ID2)'
+        description: 'Cycle code (TIMELY|EVENING|ID1|ID2|ID3)'
         required: false
         default: 'TIMELY'
         type: choice
-        options: [TIMELY, EVENING, ID1, ID2]
+        options: [TIMELY, EVENING, ID1, ID2, ID3]
       gas_day:
         description: 'Gas day (YYYY-MM-DD, default: today)'
         required: false
@@ -60,7 +60,6 @@ jobs:
           else
             # Map UTC cron schedule → cycle code
             HOUR=$(date -u +%H)
-            MINUTE=$(date -u +%M)
             if [ "$HOUR" = "19" ]; then CYCLE="TIMELY"
             elif [ "$HOUR" = "02" ]; then CYCLE="EVENING"
             elif [ "$HOUR" = "17" ]; then CYCLE="ID1"
@@ -83,8 +82,6 @@ jobs:
 
       - name: Run Gulf South SQ scraper
         id: scrape
-        env:
-          GASQUEST_API_TOKEN: ${{ secrets.GASQUEST_API_TOKEN }}
         run: |
           python -m scrapers.energy_transfer.gulf_south \
             ${{ steps.cycle.outputs.cycle }} \
@@ -97,6 +94,10 @@ jobs:
         if: steps.scrape.outputs.status == 'ok'
         run: python -m transformers.gulf_south
 
+      - name: Run meter inventory
+        if: steps.scrape.outputs.status == 'ok'
+        run: python -m scrapers.energy_transfer.meter_inventory ${{ steps.gasday.outputs.gas_day }}
+
       - name: Commit
         if: steps.scrape.outputs.status == 'ok'
         env:
@@ -107,6 +108,7 @@ jobs:
           git config user.email "bot@bluetide.local"
           git add data/health/gulf_south.json || true
           git add data/curated/gulf_south.parquet || true
+          git add config/lng_meter_map.json || true
           if ! git diff --cached --quiet; then
             git commit -m "data(gulf-south): SQ ${CYCLE} ${GAS_DAY}"
             for i in {1..5}; do

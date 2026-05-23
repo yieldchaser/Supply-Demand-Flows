@@ -1,6 +1,138 @@
 {
-  "_comment": "Maps pipeline location IDs to LNG terminal delivery points. Populated from first live scrape. Keys are lower-case pipeline slugs. Values are arrays of {location_id, location_name, direction} objects.",
   "gulf_south": {
-    "freeport_lng": []
+    "freeport_lng": [
+      {
+        "loc_id": 24329,
+        "loc_name": "Stratton Ridge (To Freeport Lng)",
+        "flow_ind": "D",
+        "confidence": "high",
+        "source": "oac_csv"
+      }
+    ],
+    "freeport_lng_candidates": [
+      {
+        "loc_id": 23364,
+        "loc_name": "Coastal Bend (Ngpl)",
+        "flow_ind": "D",
+        "confidence": "candidate",
+        "source": "oac_csv",
+        "note": "regional transfer point, may aggregate non-Freeport demand"
+      },
+      {
+        "loc_id": 23368,
+        "loc_name": "Coastal Bend (Tennessee Gas)",
+        "flow_ind": "D",
+        "confidence": "candidate",
+        "source": "oac_csv",
+        "note": "regional transfer point, may aggregate non-Freeport demand"
+      },
+      {
+        "loc_id": 23372,
+        "loc_name": "Coastal Bend (Transco)",
+        "flow_ind": "D",
+        "confidence": "candidate",
+        "source": "oac_csv",
+        "note": "regional transfer point, may aggregate non-Freeport demand"
+      },
+      {
+        "loc_id": 23376,
+        "loc_name": "Coastal Bend (Enterprise)",
+        "flow_ind": "D",
+        "confidence": "candidate",
+        "source": "oac_csv",
+        "note": "regional transfer point, may aggregate non-Freeport demand"
+      },
+      {
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "flow_ind": "D",
+        "confidence": "candidate",
+        "source": "oac_csv",
+        "note": "regional transfer point, may aggregate non-Freeport demand"
+      },
+      {
+        "loc_id": 24100,
+        "loc_name": "Coastal Bend Gulf South Transfer Receipt",
+        "flow_ind": "D",
+        "confidence": "candidate",
+        "source": "oac_csv",
+        "note": "regional transfer point, may aggregate non-Freeport demand"
+      },
+      {
+        "loc_id": 24372,
+        "loc_name": "Coastal Bend Dow Delivery",
+        "flow_ind": "D",
+        "confidence": "candidate",
+        "source": "oac_csv",
+        "note": "regional transfer point, may aggregate non-Freeport demand"
+      }
+    ]
+  },
+  "_meta": {
+    "schema_version": 1,
+    "last_inventory_run": "2026-05-23T11:27:12Z",
+    "total_locations_seen": 766,
+    "unmatched_high_volume_delivery_meters": [
+      {
+        "loc_id": 23201,
+        "loc_name": "Perryville Transportation Point",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 1666036.0
+      },
+      {
+        "loc_id": 22108,
+        "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 1091287.0
+      },
+      {
+        "loc_id": 3362,
+        "loc_name": "Lonewa (To Texas Gas)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 651245.0
+      },
+      {
+        "loc_id": 23365,
+        "loc_name": "Henry Hub (Sabine)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 436487.0
+      },
+      {
+        "loc_id": 23039,
+        "loc_name": "Perryville Exchange Point",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 414095.0
+      },
+      {
+        "loc_id": 24229,
+        "loc_name": "George Co Seme (Merrill To Fgt)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 363986.0
+      },
+      {
+        "loc_id": 2690,
+        "loc_name": "Holmesville (To Transco)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 357909.0
+      },
+      {
+        "loc_id": 50202,
+        "loc_name": "Petal Pipeline Injection/Withdrawal",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 232673.0
+      },
+      {
+        "loc_id": 26016,
+        "loc_name": "Bbt Trans-Union Claiborne Parish",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 227541.0
+      },
+      {
+        "loc_id": 21264,
+        "loc_name": "Gulfstream Interconnect",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 224291.0
+      }
+    ]
   }
 }
