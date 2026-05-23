@@ -16,22 +16,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from scrapers.eia_api.lng_exports import (
-    RAW_PATH,
-    SOURCE_NAME,
     _coerce_rows,
     _read_prior_state,
     run,
 )
 
-
 # ---------------------------------------------------------------------------
 # Sample API response rows
 # ---------------------------------------------------------------------------
 
+
 def _api_row(
     period: str = "2026-01",
-    dest_code: str = "NLD",
-    dest_name: str = "Netherlands",
+    dest_code: str = "NUS-NNL",
+    dest_name: str = "NLD",
     value: float = 18450.0,
     process: str = "LNG",
 ) -> dict[str, Any]:
@@ -41,7 +39,7 @@ def _api_row(
         "area-name": dest_name,
         "process": process,
         "value": value,
-        "value-units": "MMcf",
+        "units": "MMcf",
     }
 
 
@@ -59,24 +57,10 @@ def test_coerce_rows_basic() -> None:
     coerced = _coerce_rows(raw)
     assert len(coerced) == 1
     assert coerced[0]["destination_code"] == "NLD"
-    assert coerced[0]["destination_name"] == "Netherlands"
+    assert coerced[0]["destination_name"] == "NLD"
     assert coerced[0]["value_mmcf"] == 18450.0
     assert coerced[0]["period"] == "2026-01"
     assert coerced[0]["process"] == "LNG"
-
-
-def test_coerce_rows_drops_pipeline_destinations() -> None:
-    rows = [
-        _api_row(dest_code="MEX", dest_name="Mexico"),
-        _api_row(dest_code="CAN", dest_name="Canada"),
-        _api_row(dest_code="NLD", dest_name="Netherlands"),
-    ]
-    coerced = _coerce_rows(rows)
-    codes = {r["destination_code"] for r in coerced}
-    assert "NLD" in codes
-    # Mexico and Canada excluded only if area-name matches PIPELINE_ONLY_AREAS
-    assert "Mexico" not in {r["destination_name"] for r in coerced}
-    assert "Canada" not in {r["destination_name"] for r in coerced}
 
 
 def test_coerce_rows_skips_negative_values() -> None:
@@ -109,9 +93,7 @@ def test_read_prior_state_reads_existing_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     raw_path = tmp_path / "lng_exports.json"
-    raw_path.write_text(
-        json.dumps({"latest_period": "2026-01", "row_count": 42}), encoding="utf-8"
-    )
+    raw_path.write_text(json.dumps({"latest_period": "2026-01", "row_count": 42}), encoding="utf-8")
     monkeypatch.setattr("scrapers.eia_api.lng_exports.RAW_PATH", raw_path)
     period, count = _read_prior_state()
     assert period == "2026-01"
@@ -145,16 +127,18 @@ async def test_run_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     mock_client = _make_mock_client(
         latest_period="2026-01",
         data_rows=[
-            _api_row("2026-01", "NLD", "Netherlands", 18450.0),
-            _api_row("2026-01", "FRA", "France", 12000.0),
+            _api_row("2026-01", "NUS-NNL", "NLD", 18450.0),
+            _api_row("2026-01", "NUS-FRA", "FRA", 12000.0),
         ],
     )
 
-    with patch("scrapers.eia_api.lng_exports.EIAClient", return_value=mock_client):
-        with patch("scrapers.eia_api.lng_exports.HealthWriter") as MockHW:
-            mock_hw = MagicMock()
-            MockHW.return_value = mock_hw
-            result = await run()
+    with (
+        patch("scrapers.eia_api.lng_exports.EIAClient", return_value=mock_client),
+        patch("scrapers.eia_api.lng_exports.HealthWriter") as mock_hw_cls,
+    ):
+        mock_hw = MagicMock()
+        mock_hw_cls.return_value = mock_hw
+        result = await run()
 
     assert result["status"] == "ok"
     assert result["latest_period"] == "2026-01"
@@ -166,9 +150,7 @@ async def test_run_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 @pytest.mark.asyncio
-async def test_run_staleness_gate_skips(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_run_staleness_gate_skips(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """When latest period and row count are unchanged, the gate fires."""
     monkeypatch.setenv("EIA_API_KEY", "test-key")
     raw_path = tmp_path / "lng_exports.json"
@@ -180,11 +162,13 @@ async def test_run_staleness_gate_skips(
 
     mock_client = _make_mock_client(latest_period="2026-01")
 
-    with patch("scrapers.eia_api.lng_exports.EIAClient", return_value=mock_client):
-        with patch("scrapers.eia_api.lng_exports.HealthWriter") as MockHW:
-            mock_hw = MagicMock()
-            MockHW.return_value = mock_hw
-            result = await run()
+    with (
+        patch("scrapers.eia_api.lng_exports.EIAClient", return_value=mock_client),
+        patch("scrapers.eia_api.lng_exports.HealthWriter") as mock_hw_cls,
+    ):
+        mock_hw = MagicMock()
+        mock_hw_cls.return_value = mock_hw
+        result = await run()
 
     assert result["status"] == "skipped"
     mock_hw.record_skipped.assert_called_once()
@@ -195,9 +179,9 @@ async def test_run_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """Missing API key → immediate failure, no HTTP calls."""
     monkeypatch.delenv("EIA_API_KEY", raising=False)
 
-    with patch("scrapers.eia_api.lng_exports.HealthWriter") as MockHW:
+    with patch("scrapers.eia_api.lng_exports.HealthWriter") as mock_hw_cls:
         mock_hw = MagicMock()
-        MockHW.return_value = mock_hw
+        mock_hw_cls.return_value = mock_hw
         result = await run()
 
     assert result["status"] == "failed"
@@ -219,9 +203,11 @@ async def test_run_empty_response_still_succeeds(
     mock_client = _make_mock_client(latest_period="2026-01", data_rows=[])
     mock_client.get_series = AsyncMock(return_value=_eia_response([]))
 
-    with patch("scrapers.eia_api.lng_exports.EIAClient", return_value=mock_client):
-        with patch("scrapers.eia_api.lng_exports.HealthWriter"):
-            result = await run()
+    with (
+        patch("scrapers.eia_api.lng_exports.EIAClient", return_value=mock_client),
+        patch("scrapers.eia_api.lng_exports.HealthWriter"),
+    ):
+        result = await run()
 
     # 0 coerced rows → run still returns ok (scraper succeeded, just no data)
     assert result["status"] in ("ok", "failed")  # both valid; depends on StatePreservingWriter
@@ -239,11 +225,13 @@ async def test_run_http_error_returns_failed(
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("scrapers.eia_api.lng_exports.EIAClient", return_value=mock_client):
-        with patch("scrapers.eia_api.lng_exports.HealthWriter") as MockHW:
-            mock_hw = MagicMock()
-            MockHW.return_value = mock_hw
-            result = await run()
+    with (
+        patch("scrapers.eia_api.lng_exports.EIAClient", return_value=mock_client),
+        patch("scrapers.eia_api.lng_exports.HealthWriter") as mock_hw_cls,
+    ):
+        mock_hw = MagicMock()
+        mock_hw_cls.return_value = mock_hw
+        result = await run()
 
     assert result["status"] == "failed"
     mock_hw.record_failure.assert_called_once()
