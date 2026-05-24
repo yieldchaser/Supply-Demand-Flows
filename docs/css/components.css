@@ -85,6 +85,8 @@
   box-shadow: var(--shadow-panel);
   position: relative;
   isolation: isolate;
+  overflow-x: hidden; /* prevent internal content overflow on narrow viewports */
+  max-width: 100%;
   transition: box-shadow var(--dur-slow) var(--ease-out),
               border-color var(--dur-slow) var(--ease-out);
 }
@@ -371,21 +373,43 @@
 
 .panel-chart {
   width: 100%;
-  min-height: 360px;
+  max-width: 100%;
+  min-height: 240px;
   position: relative;
+  overflow: hidden; /* prevent SVG from overflowing on narrow viewports */
+}
+
+.panel-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .panel-sidebar {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-4);
   width: 100%;
+  /* Each KPI card: min 180px, grows equally; cycle-revisions spans full row */
+  align-items: stretch;
+}
+
+/* KPI cards grow equally but never narrower than 160px */
+.panel-sidebar > .kpi-card {
+  flex: 1 1 160px;
+  min-width: 0; /* allow shrink without text overflow */
+}
+
+/* Cycle revisions always on its own row */
+.panel-sidebar > .cycle-revisions-panel {
+  flex: 1 1 100%;
+  min-width: 0;
 }
 
 @media (max-width: 640px) {
-  .panel-sidebar {
-    grid-template-columns: 1fr;
+  .panel-sidebar > .kpi-card {
+    flex: 1 1 calc(50% - var(--space-4));
+    min-width: 0;
   }
 }
 

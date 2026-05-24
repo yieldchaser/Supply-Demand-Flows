@@ -220,3 +220,37 @@
     margin-top: 4px;
   }
 }
+
+/* Title must never clip — step down size on narrow viewports */
+@media (max-width: 480px) {
+  .panel {
+    padding: var(--space-4, 16px) !important;
+  }
+
+  .lng-observatory-header {
+    padding: 0 !important;
+  }
+
+  .panel-header__title {
+    font-size: 18px !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    word-break: break-word;
+    line-height: 1.25;
+  }
+
+  .panel-header__subtitle {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    word-break: break-word;
+  }
+
+  /* On very narrow screens let header stack gracefully */
+  .panel-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+}
