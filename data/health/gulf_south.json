@@ -1,7 +1,7 @@
 {
   "source": "gulf_south",
   "status": "failed",
-  "timestamp_utc": "2026-06-02T23:28:06Z",
-  "error": "HttpClientError: HTTP failure for /infopost/infopostdetails: Non-retryable HTTP 403 (status=403, attempts=1, elapsed=0.40s)",
+  "timestamp_utc": "2026-06-03T20:38:21Z",
+  "error": "HttpClientError: HTTP failure for /infopost/infopostdetails: Non-retryable HTTP 403 (status=403, attempts=1, elapsed=0.36s)",
   "metadata": null
 }
