@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-06-03T23:27:27Z",
+    "last_inventory_run": "2026-06-04T23:01:59Z",
     "total_locations_seen": 766,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1715767.0
+        "scheduled_quantity_dth": 1704735.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 972598.0
+        "scheduled_quantity_dth": 1047948.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 654056.0
-      },
-      {
-        "loc_id": 23365,
-        "loc_name": "Henry Hub (Sabine)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 574342.0
+        "scheduled_quantity_dth": 656256.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 529274.0
+        "scheduled_quantity_dth": 570212.0
       },
       {
-        "loc_id": 23700,
-        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "loc_id": 23365,
+        "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 316998.0
+        "scheduled_quantity_dth": 556896.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 301999.0
+        "scheduled_quantity_dth": 325240.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 288425.0
+        "scheduled_quantity_dth": 317058.0
       },
       {
-        "loc_id": 23371,
-        "loc_name": "Bosco (Texas Gas)",
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 235896.0
+        "scheduled_quantity_dth": 313926.0
       },
       {
         "loc_id": 21264,
         "loc_name": "Gulfstream Interconnect",
         "flow_ind": "D",
         "scheduled_quantity_dth": 224558.0
+      },
+      {
+        "loc_id": 22128,
+        "loc_name": "Clarke County (To Destin)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 210628.0
       }
     ]
   }
