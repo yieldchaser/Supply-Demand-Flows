@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-06-14T22:59:42Z",
+    "last_inventory_run": "2026-06-16T23:18:19Z",
     "total_locations_seen": 766,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1655006.0
+        "scheduled_quantity_dth": 1769004.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1092923.0
+        "scheduled_quantity_dth": 1103702.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 574921.0
-      },
-      {
-        "loc_id": 23039,
-        "loc_name": "Perryville Exchange Point",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 560319.0
+        "scheduled_quantity_dth": 599421.0
       },
       {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 558393.0
+        "scheduled_quantity_dth": 537996.0
+      },
+      {
+        "loc_id": 23039,
+        "loc_name": "Perryville Exchange Point",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 509010.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 515864.0
+        "scheduled_quantity_dth": 495466.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 431165.0
+        "scheduled_quantity_dth": 416819.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 300929.0
+        "scheduled_quantity_dth": 329964.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 279837.0
+        "scheduled_quantity_dth": 253297.0
       },
       {
-        "loc_id": 26016,
-        "loc_name": "Bbt Trans-Union Claiborne Parish",
+        "loc_id": 21264,
+        "loc_name": "Gulfstream Interconnect",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 263933.0
+        "scheduled_quantity_dth": 224557.0
       }
     ]
   }
