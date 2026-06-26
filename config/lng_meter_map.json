@@ -13,20 +13,20 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-06-25T23:08:40Z",
+    "last_inventory_run": "2026-06-26T23:00:01Z",
     "total_locations_seen": 766,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1710390.0
+        "scheduled_quantity_dth": 1709225.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1168935.0
+        "scheduled_quantity_dth": 1144136.0
       },
       {
         "loc_id": 3362,
@@ -35,46 +35,46 @@
         "scheduled_quantity_dth": 574921.0
       },
       {
-        "loc_id": 23039,
-        "loc_name": "Perryville Exchange Point",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 512501.0
-      },
-      {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 482494.0
+        "scheduled_quantity_dth": 495003.0
+      },
+      {
+        "loc_id": 23039,
+        "loc_name": "Perryville Exchange Point",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 486804.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 477445.0
+        "scheduled_quantity_dth": 456780.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 385919.0
-      },
-      {
-        "loc_id": 26016,
-        "loc_name": "Bbt Trans-Union Claiborne Parish",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 290561.0
+        "scheduled_quantity_dth": 352968.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 288989.0
+        "scheduled_quantity_dth": 297694.0
+      },
+      {
+        "loc_id": 26016,
+        "loc_name": "Bbt Trans-Union Claiborne Parish",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 282791.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 226218.0
+        "scheduled_quantity_dth": 277314.0
       }
     ]
   }
