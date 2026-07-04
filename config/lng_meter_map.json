@@ -13,20 +13,20 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-07-03T22:56:00Z",
+    "last_inventory_run": "2026-07-04T22:48:44Z",
     "total_locations_seen": 766,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1612116.0
+        "scheduled_quantity_dth": 1639968.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1177766.0
+        "scheduled_quantity_dth": 1164792.0
       },
       {
         "loc_id": 23700,
@@ -35,46 +35,46 @@
         "scheduled_quantity_dth": 607644.0
       },
       {
+        "loc_id": 23039,
+        "loc_name": "Perryville Exchange Point",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 592660.0
+      },
+      {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
         "scheduled_quantity_dth": 574921.0
       },
       {
-        "loc_id": 23039,
-        "loc_name": "Perryville Exchange Point",
+        "loc_id": 23365,
+        "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 570136.0
+        "scheduled_quantity_dth": 487121.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 492286.0
-      },
-      {
-        "loc_id": 23365,
-        "loc_name": "Henry Hub (Sabine)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 482110.0
+        "scheduled_quantity_dth": 471780.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 350386.0
+        "scheduled_quantity_dth": 351695.0
       },
       {
         "loc_id": 26016,
         "loc_name": "Bbt Trans-Union Claiborne Parish",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 296938.0
+        "scheduled_quantity_dth": 293656.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 253330.0
+        "scheduled_quantity_dth": 251562.0
       }
     ]
   }
