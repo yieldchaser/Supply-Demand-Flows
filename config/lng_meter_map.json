@@ -13,20 +13,20 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-07-04T22:48:44Z",
+    "last_inventory_run": "2026-07-05T22:54:11Z",
     "total_locations_seen": 766,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1639968.0
+        "scheduled_quantity_dth": 1632179.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1164792.0
+        "scheduled_quantity_dth": 1176463.0
       },
       {
         "loc_id": 23700,
@@ -38,7 +38,7 @@
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 592660.0
+        "scheduled_quantity_dth": 588931.0
       },
       {
         "loc_id": 3362,
@@ -50,31 +50,31 @@
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 487121.0
+        "scheduled_quantity_dth": 482311.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 471780.0
+        "scheduled_quantity_dth": 462564.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 351695.0
+        "scheduled_quantity_dth": 320609.0
       },
       {
         "loc_id": 26016,
         "loc_name": "Bbt Trans-Union Claiborne Parish",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 293656.0
+        "scheduled_quantity_dth": 296938.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 251562.0
+        "scheduled_quantity_dth": 250619.0
       }
     ]
   }
