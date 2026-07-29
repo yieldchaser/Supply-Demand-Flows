@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-07-28T22:51:56Z",
+    "last_inventory_run": "2026-07-29T22:51:40Z",
     "total_locations_seen": 767,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1549637.0
+        "scheduled_quantity_dth": 1537229.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1095704.0
+        "scheduled_quantity_dth": 1067206.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 523568.0
+        "scheduled_quantity_dth": 532969.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 514838.0
+        "scheduled_quantity_dth": 504530.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 493829.0
-      },
-      {
-        "loc_id": 50201,
-        "loc_name": "Petal Storage Injection/Withdrawal",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 410959.0
+        "scheduled_quantity_dth": 470815.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 372478.0
-      },
-      {
-        "loc_id": 23700,
-        "loc_name": "Gulf South Transfer To Coastal Bend",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 283115.0
+        "scheduled_quantity_dth": 397033.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 271491.0
+        "scheduled_quantity_dth": 289033.0
       },
       {
-        "loc_id": 23373,
-        "loc_name": "Transco (Petal Pipeline)",
+        "loc_id": 24229,
+        "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 252155.0
+        "scheduled_quantity_dth": 281236.0
+      },
+      {
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 274767.0
+      },
+      {
+        "loc_id": 50201,
+        "loc_name": "Petal Storage Injection/Withdrawal",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 250055.0
       }
     ]
   }
