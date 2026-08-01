@@ -1,10 +1,10 @@
 {
   "source": "baker_hughes_rigs",
   "status": "ok",
-  "timestamp_utc": "2026-07-31T20:22:42Z",
+  "timestamp_utc": "2026-08-01T20:11:53Z",
   "error": null,
   "metadata": {
-    "date": "2026-07-31",
+    "date": "2026-08-01",
     "bytes": 7240761,
     "sha256": "af80d323a691487f"
   }
