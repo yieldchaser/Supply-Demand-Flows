@@ -1,10 +1,10 @@
 {
   "source": "eia_lng",
   "status": "ok",
-  "timestamp_utc": "2026-07-05T17:22:32Z",
+  "timestamp_utc": "2026-08-05T17:50:23Z",
   "error": null,
   "metadata": {
-    "latest_period": "2026-04",
-    "rows": 2493
+    "latest_period": "2026-05",
+    "rows": 2470
   }
 }
