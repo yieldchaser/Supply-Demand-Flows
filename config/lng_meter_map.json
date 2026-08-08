@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-08-05T22:50:12Z",
+    "last_inventory_run": "2026-08-08T17:58:50Z",
     "total_locations_seen": 767,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1708566.0
+        "scheduled_quantity_dth": 1776382.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1246974.0
+        "scheduled_quantity_dth": 1103205.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 590502.0
+        "scheduled_quantity_dth": 631157.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 568066.0
+        "scheduled_quantity_dth": 542626.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 500239.0
+        "scheduled_quantity_dth": 507942.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 410127.0
+        "scheduled_quantity_dth": 402242.0
       },
       {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 327228.0
+        "scheduled_quantity_dth": 357755.0
       },
       {
-        "loc_id": 50201,
-        "loc_name": "Petal Storage Injection/Withdrawal",
+        "loc_id": 23371,
+        "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 317251.0
+        "scheduled_quantity_dth": 232279.0
       },
       {
-        "loc_id": 23373,
-        "loc_name": "Transco (Petal Pipeline)",
+        "loc_id": 24229,
+        "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 272124.0
+        "scheduled_quantity_dth": 224648.0
       },
       {
-        "loc_id": 26016,
-        "loc_name": "Bbt Trans-Union Claiborne Parish",
+        "loc_id": 21264,
+        "loc_name": "Gulfstream Interconnect",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 254071.0
+        "scheduled_quantity_dth": 224558.0
       }
     ]
   }
