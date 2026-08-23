@@ -119,6 +119,10 @@ def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
 
         posted_dt = _parse_posted_at(str(row.get("posted_at") or ""))
 
+        # Flow direction (R/D) is part of the series identity for the same
+        # reason as every other EBB source: both legs may exist per cycle.
+        flow = str(row.get("flow_ind") or "").strip().lower() or "u"
+
         series = (
             ("oac", row.get("qty_avail"), "OAC"),
             ("sq", row.get("sched_qty"), "Sched Qty"),
@@ -134,8 +138,8 @@ def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
             out.append(
                 {
                     "source": "cheniere",
-                    "series_id": f"{prefix}_{kind}_{loc}_{cycle_token}",
-                    "series_name": f"{label} {label_txt} {loc_name} ({str(row.get('cycle') or '').strip()})",
+                    "series_id": f"{prefix}_{kind}_{loc}_{flow}_{cycle_token}",
+                    "series_name": f"{label} {label_txt} {loc_name} [{flow.upper()}] ({str(row.get('cycle') or '').strip()})",
                     "period": period,
                     "value": val,
                     "unit": "Dth/d",

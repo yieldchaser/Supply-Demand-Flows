@@ -157,26 +157,54 @@ def test_transformer_emits_all_series_per_pipeline(tmp_path: Path) -> None:
 
     df = pd.read_parquet(out_parquet)
     assert result["rows"] == 6  # 2 pipelines × 3 series
+    flow = "r" if ctpl_parsed["flow_ind"].upper() == "R" else "d"
+    cc_flow = "r" if ccpl_parsed["flow_ind"].upper() == "R" else "d"
     assert set(df["series_id"]) == {
-        "creole_trail_oac_CT109413_id3",
-        "creole_trail_sq_CT109413_id3",
-        "creole_trail_design_CT109413_id3",
-        "corpus_christi_oac_CC100221_id3",
-        "corpus_christi_sq_CC100221_id3",
-        "corpus_christi_design_CC100221_id3",
+        f"creole_trail_oac_CT109413_{flow}_id3",
+        f"creole_trail_sq_CT109413_{flow}_id3",
+        f"creole_trail_design_CT109413_{flow}_id3",
+        f"corpus_christi_oac_CC100221_{cc_flow}_id3",
+        f"corpus_christi_sq_CC100221_{cc_flow}_id3",
+        f"corpus_christi_design_CC100221_{cc_flow}_id3",
     }
     assert df["source"].unique()[0] == "cheniere"
     assert df["unit"].unique()[0] == "Dth/d"
 
     # Scales stay apart — no cross-pipeline normalisation.
-    ctpl_oac = df[df["series_id"] == "creole_trail_oac_CT109413_id3"].iloc[0]
-    ccpl_oac = df[df["series_id"] == "corpus_christi_oac_CC100221_id3"].iloc[0]
+    ctpl_oac = df[df["series_id"] == f"creole_trail_oac_CT109413_{flow}_id3"].iloc[0]
+    ccpl_oac = df[df["series_id"] == f"corpus_christi_oac_CC100221_{cc_flow}_id3"].iloc[0]
     assert float(ctpl_oac["value"]) == 612516.0
     assert float(ccpl_oac["value"]) == 35000.0
 
     # Zero scheduled quantity on CCPL unscheduled posting is data, not absence.
-    ccpl_sq = df[df["series_id"] == "corpus_christi_sq_CC100221_id3"].iloc[0]
+    ccpl_sq = df[df["series_id"] == f"corpus_christi_sq_CC100221_{cc_flow}_id3"].iloc[0]
     assert float(ccpl_sq["value"]) == 0.0
+
+
+def test_transformer_dual_leg_yields_two_rows(tmp_path: Path) -> None:
+    """Same loc posting R and D rows in one cycle → both legs kept."""
+    raw_dir = tmp_path / "raw"
+    out_parquet = tmp_path / "curated.parquet"
+
+    ctpl_parsed = parse_capacity_rows({"report": [_CTPL_ROW]})[0]
+    d_leg = dict(ctpl_parsed)
+    d_leg["flow_ind"] = "D"
+    d_leg["sched_qty"] = "999999.0"
+    _write_raw(raw_dir / "2026-08-22_tsp200.json", TSP_CREOLE_TRAIL,
+               [ctpl_parsed, d_leg], "2026-08-22")
+
+    result = transform(raw_dir=raw_dir, curated_parquet_path=out_parquet)
+    # one loc × 2 flows × 3 kinds = 6 rows — NOT 3 (no leg overwrite).
+    assert result["rows"] == 6
+
+    df = pd.read_parquet(out_parquet)
+    sq_ids = sorted(
+        sid for sid in df["series_id"] if sid.startswith("creole_trail_sq_CT109413_")
+    )
+    assert sq_ids == [
+        "creole_trail_sq_CT109413_d_id3",
+        "creole_trail_sq_CT109413_r_id3",
+    ]
 
 
 def test_transformer_accumulates_without_overwriting(tmp_path: Path) -> None:

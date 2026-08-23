@@ -13,14 +13,13 @@ Schema out (canonical Blue Tide):
     ingested_at : UTC ISO-8601
 
 Deduplication:
-    A location may post BOTH a receipt (R) and a delivery (D) row in the same
-    cycle (Golden Pass Terminal does); the frozen (loc, cycle) series key
-    holds one value per flow direction, so the delivery row wins the slot
-    deterministically — it carries the physical scheduled volume INTO the
-    downstream point.  Within a batch, rows from every raw file are stacked,
-    sorted by (delivery preference, posting time) and deduped on
-    (series_id, period) keeping the preferred/latest.  The batch is then
-    accumulated into the curated history via ``merge_into_curated``
+    The series key carries the flow direction —
+    ``{prefix}_{kind}_{loc}_{flow}_{cycle}`` with flow ∈ r|d — so a location
+    posting BOTH a receipt (R) and a delivery (D) row in the same cycle
+    (Golden Pass Terminal does) yields TWO series, never an overwrite.
+    Within a batch, rows are sorted by posting time and deduped on
+    (series_id, period) keeping the latest.  The batch is then accumulated
+    into the curated history via ``merge_into_curated``
     (shrinkage-guarded, atomic) so re-scrapes update past gas days rather
     than duplicate them.  Overwriting the curated parquet is a hard-fail
     bug; this module must never ``to_parquet`` directly.
@@ -145,13 +144,14 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
             "_posted_at": posted_dt,
             "_flow_ind": str(row.get("flow_ind") or "").strip().upper(),
         }
+        flow_token = str(common["_flow_ind"]).lower() or "u"
 
         tsq_val = _to_float(row.get("tsq"))
         if tsq_val is not None:
             out.append({
                 **common,
-                "series_id": f"{prefix}_sq_{loc}_{cycle_code}",
-                "series_name": f"{_display_name(prefix)} TSQ {loc_name} ({cycle_code.upper()})",
+                "series_id": f"{prefix}_sq_{loc}_{flow_token}_{cycle_code}",
+                "series_name": f"{_display_name(prefix)} TSQ {loc_name} [{flow_token.upper()}] ({cycle_code.upper()})",
                 "value": tsq_val,
                 "unit": "Dth/d",
             })
@@ -160,8 +160,8 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
         if oac_val is not None:
             out.append({
                 **common,
-                "series_id": f"{prefix}_oac_{loc}_{cycle_code}",
-                "series_name": f"{_display_name(prefix)} OAC {loc_name} ({cycle_code.upper()})",
+                "series_id": f"{prefix}_oac_{loc}_{flow_token}_{cycle_code}",
+                "series_name": f"{_display_name(prefix)} OAC {loc_name} [{flow_token.upper()}] ({cycle_code.upper()})",
                 "value": oac_val,
                 "unit": "Dth/d",
             })
@@ -224,19 +224,15 @@ def transform(
 
     df = pd.DataFrame(all_rows)
 
-    # Batch-level dedupe: keep ONE row per (series_id, period).  A location
-    # may post both a receipt (R) and a delivery (D) row in the same cycle
-    # (e.g. Golden Pass Terminal); the delivery row carries the physical
-    # scheduled volume INTO the downstream point and wins the slot.  Ties on
-    # preference resolve to the most recently POSTED version.
-    # merge_into_curated then re-dedupes on ingested_at.
-    df["_pref"] = (df["_flow_ind"] != "D").astype(int)  # 0 = delivery preferred
+    # Batch-level dedupe: keep ONE row per (series_id, period).  The series
+    # key now carries the flow direction ({prefix}_{kind}_{loc}_{flow}_
+    # {cycle}), so R and D legs coexist — no arbitration, no silent
+    # overwrite.  Ties (same leg re-posted) resolve to the most recently
+    # POSTED version.  merge_into_curated then re-dedupes on ingested_at.
     df = (
-        df.sort_values(
-            ["_pref", "_posted_at"], ascending=[True, False], kind="stable"
-        )
+        df.sort_values(["_posted_at"], ascending=[False], kind="stable")
         .drop_duplicates(subset=["series_id", "period"], keep="first")
-        .drop(columns=["_pref", "_posted_at", "_flow_ind"])
+        .drop(columns=["_posted_at", "_flow_ind"])
         .reset_index(drop=True)
     )
 

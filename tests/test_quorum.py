@@ -235,12 +235,55 @@ def test_transformer_generates_both_series(tmp_path: Path) -> None:
     assert df["unit"].unique()[0] == "Dth/d"
     assert df["region"].unique()[0] == "US"
 
-    feedgas = df[df["series_id"] == "gator_express_sq_vgpqd_id3"].iloc[0]
+    feedgas = df[df["series_id"] == "gator_express_sq_vgpqd_d_id3"].iloc[0]
     assert feedgas["value"] == 3810319.0  # RAW Dth — never converted
-    assert feedgas["series_name"] == "Quorum TSQ VENTURE GLOBAL PLAQUEMINES LNG DELIVERY (ID3)"
+    assert feedgas["series_name"] == "Quorum TSQ VENTURE GLOBAL PLAQUEMINES LNG DELIVERY [D] (ID3)"
 
-    oac = df[df["series_id"] == "gator_express_oac_vgpqd_id3"].iloc[0]
+    oac = df[df["series_id"] == "gator_express_oac_vgpqd_d_id3"].iloc[0]
     assert oac["value"] == 129681.0
+
+
+def test_transformer_dual_leg_yields_two_rows(tmp_path: Path) -> None:
+    """A meter posting BOTH R and D in one cycle produces TWO series.
+
+    Regression guard for the 2026-08 dual-leg collision: without the flow
+    token in the series key, one leg silently overwrote the other.
+    """
+    raw_dir = tmp_path / "raw"
+    out_parquet = tmp_path / "quorum.parquet"
+
+    # VGPQD posts R and D rows in the SAME cycle with different quantities.
+    dual_rows = parse_export_csv(
+        "\r\n".join(
+            [
+                _HEADER,
+                _csv_row("8/22/2026 10:05:14 PM", "8/22/2026 10:00:00 PM", "Intraday 3",
+                         "VGPQD", "VENTURE GLOBAL PLAQUEMINES LNG DELIVERY", "MQ", "R",
+                         "3940000", "3940000", "100", "111"),
+                _csv_row("8/22/2026 10:05:14 PM", "8/22/2026 10:00:00 PM", "Intraday 3",
+                         "VGPQD", "VENTURE GLOBAL PLAQUEMINES LNG DELIVERY", "MQ", "D",
+                         "3940000", "3940000", "129681", "3810319"),
+            ]
+        )
+        + "\r\n"
+    )
+    _write_raw(raw_dir / "gator_express" / "2026-08-22_id3.json", dual_rows,
+               prefix="gator_express", cycle="id3", gas_day="2026-08-22")
+
+    result = transform(raw_dir=raw_dir, curated_parquet_path=out_parquet)
+    # 2 legs × 2 kinds (sq+oac) = 4 rows — NOT 2.
+    assert result["rows"] == 4
+
+    df = pd.read_parquet(out_parquet)
+    sq_legs = df[df["series_id"].str.contains("_sq_vgpqd_")]
+    assert sorted(sq_legs["series_id"]) == [
+        "gator_express_sq_vgpqd_d_id3",
+        "gator_express_sq_vgpqd_r_id3",
+    ]
+    r_row = df[df["series_id"] == "gator_express_sq_vgpqd_r_id3"].iloc[0]
+    d_row = df[df["series_id"] == "gator_express_sq_vgpqd_d_id3"].iloc[0]
+    assert r_row["value"] == 111.0
+    assert d_row["value"] == 3810319.0
 
 
 def test_transformer_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
@@ -267,7 +310,7 @@ def test_transformer_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
     transform(raw_dir=raw_dir, curated_parquet_path=out_parquet)
 
     df = pd.read_parquet(out_parquet)
-    sq = df[df["series_id"] == "gator_express_sq_vgpqd_timely"]
+    sq = df[df["series_id"] == "gator_express_sq_vgpqd_d_timely"]
     assert len(sq) == 1
     assert sq.iloc[0]["value"] == 3947246.0  # kept the later posting
 
@@ -307,7 +350,7 @@ def test_transformer_merges_both_pipelines_and_accumulates(tmp_path: Path) -> No
 
     df = pd.read_parquet(out_parquet)
     assert result["pipelines"] == ["gator_express", "trans_cameron"]
-    assert "trans_cameron_sq_vgcpd_id3" in set(df["series_id"])
+    assert "trans_cameron_sq_vgcpd_d_id3" in set(df["series_id"])
     # 5 gator meters × 2 series × 2 days + VGCPD id3 pair (sq + oac) = 22 rows.
     assert len(df) == 22
 

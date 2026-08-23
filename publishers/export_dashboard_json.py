@@ -127,7 +127,9 @@ def _series_matches(series_id: str, allowed: set[str]) -> bool:
     What:
         Loc ids sit at different token positions per source (prefix lengths
         vary), so this matches ``_<loc>_`` anywhere in the lowercased id —
-        unambiguous because loc ids are unique within a source.
+        unambiguous because loc ids are unique within a source. Flow-aware
+        series ids ({kind}_{loc}_{r|d}_{cycle}) match identically; BOTH legs
+        of an allowlisted meter ship, because both are real data.
     """
     padded = f"_{series_id.lower()}_"
     return any(f"_{loc}_" in padded for loc in allowed)

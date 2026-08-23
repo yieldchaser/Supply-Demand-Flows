@@ -65,6 +65,7 @@ sources:
   eia_storage:
     parquet: data/curated/eia_storage.parquet
     health_file: data/health/eia_storage.json
+    skip_checks: [flow_legs]   # series_id is a single aggregate ('storage') — uniqueness is per (name, period)
     staleness:
       warn_days: 9            # weekly Thursday release with multi-day lag
       fail_days: 18
@@ -73,6 +74,7 @@ sources:
   eia_lng_exports:
     parquet: data/curated/eia_lng_exports.parquet
     health_file: data/health/eia_lng.json
+    skip_checks: [flow_legs]   # coarse country ids repeat (id,period) across series_name rows; uniqueness lives on name, not id
     staleness:
       warn_days: 45           # genuine ~2-month publication lag on monthly EIA API
       fail_days: 135          # keeps the *normal* lag pinned at WARN, never FAIL

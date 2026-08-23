@@ -516,6 +516,40 @@ def check_divergence(
     )
 
 
+def check_flow_leg_uniqueness(df: pd.DataFrame) -> CheckResult:
+    """FAIL when any (meter, kind, cycle, flow, period) holds >1 row.
+
+    Why:
+        The 2026-08 dual-leg collision: series keys without a flow-direction
+        token let a meter's R and D rows overwrite each other within one
+        cycle — which leg survived varied day to day. This check pins the
+        post-fix invariant: with the flow token embedded, each
+        (series_id, period) pair must still be UNIQUE. Two rows sharing a
+        series_id and period mean legs collapsed back into one key (or a
+        re-merge duplicated rows).
+
+    What:
+        Exact duplicate detection on (series_id, period). Sources whose ids
+        predate the flow token are skipped via ``skip_checks`` config.
+    """
+    dup_mask = df.duplicated(subset=["series_id", "period"], keep=False)
+    n_dup = int(dup_mask.sum())
+    if n_dup == 0:
+        return _result(
+            "flow_legs",
+            "PASS",
+            "one row per (series_id, period) — no leg collisions",
+            {},
+        )
+    examples = df.loc[dup_mask, "series_id"].drop_duplicates().head(5).tolist()
+    return _result(
+        "flow_legs",
+        "FAIL",
+        f"{n_dup} rows collide on (series_id, period) — flow legs collapsed or rows duplicated",
+        {"rows": n_dup, "examples": examples},
+    )
+
+
 def run_source_checks(
     source_key: str,
     df: pd.DataFrame,
@@ -531,14 +565,27 @@ def run_source_checks(
     skipped, in which case the verdict itself is SKIPPED.
     """
     prior_map: Mapping[str, Any] = prior or {}
+    skipped_names = set(src_cfg.get("skip_checks") or [])
     results: list[CheckResult] = [
         check_schema(df, src_cfg, defaults),
         check_value_sanity(df, src_cfg),
+        check_flow_leg_uniqueness(df),
         check_stagnation(df, src_cfg, now),
         check_gaps(df, src_cfg),
         check_coverage(df, prior_map, src_cfg, defaults),
         check_shrinkage(df, prior_map, src_cfg),
         check_divergence(df, health, prior_map, src_cfg, defaults, now),
+    ]
+
+    # Per-source opt-outs (config ``skip_checks``): mark as SKIPPED so the
+    # report shows them transparently without failing the source.
+    results = [
+        (
+            res
+            if res["check"] not in skipped_names
+            else _result(res["check"], "SKIPPED", "skipped by skip_checks config", {})
+        )
+        for res in results
     ]
 
     worst: Severity = "SKIPPED"
