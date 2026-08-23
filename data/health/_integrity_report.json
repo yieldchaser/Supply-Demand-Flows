@@ -1,0 +1,422 @@
+{
+  "generated_at": "2026-08-23T14:46:02.416591+00:00",
+  "overall": "WARN",
+  "sources": {
+    "gulf_south": {
+      "overall": "PASS",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 192704 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "details": {
+            "rows": 192704
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 192704 row(s) scanned, 269 within 1 band(s), 0 breaches",
+          "details": {
+            "rows": 192704,
+            "banded_scanned": 269
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "PASS",
+          "message": "dataset fresh: newest period 2026-08-22 is 1d old (warn 2d / fail 4d)",
+          "details": {
+            "stale_days": 1
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "PASS",
+          "message": "calendar complete: 90 consecutive day(s) 2026-05-25..2026-08-22",
+          "details": {
+            "days": 90
+          }
+        },
+        {
+          "check": "coverage",
+          "severity": "PASS",
+          "message": "series coverage holds: 2151→2151 distinct series_id (limit 20%)",
+          "details": {
+            "before": 2151,
+            "after": 2151
+          }
+        },
+        {
+          "check": "shrinkage",
+          "severity": "PASS",
+          "message": "history intact: rows 192704→192704 / days 90→90",
+          "details": {
+            "rows_before": 192704,
+            "rows_after": 192704,
+            "days_before": 90,
+            "days_after": 90
+          }
+        },
+        {
+          "check": "divergence",
+          "severity": "PASS",
+          "message": "no divergence: scraper 'ok' 45h ago and dataset consistent (stale 1d, resolved 2026-08-22, warn 2d / fail 4d)",
+          "details": {
+            "stale_days": 1
+          }
+        }
+      ],
+      "stats": {
+        "rows": 192704,
+        "days": 90,
+        "latest": "2026-08-22"
+      }
+    },
+    "gie_agsi": {
+      "overall": "PASS",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 81160 rows, all 8 canonical columns, value numeric, periods parseable, unit check skipped",
+          "details": {
+            "rows": 81160
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 81160 row(s) scanned, 0 within 0 band(s), 0 breaches",
+          "details": {
+            "rows": 81160,
+            "banded_scanned": 0
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "PASS",
+          "message": "dataset fresh: newest period 2026-08-21 is 2d old (warn 3d / fail 6d)",
+          "details": {
+            "stale_days": 2
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "SKIPPED",
+          "message": "no gap_rule configured",
+          "details": {}
+        },
+        {
+          "check": "coverage",
+          "severity": "PASS",
+          "message": "series coverage holds: 40→40 distinct series_id (limit 20%)",
+          "details": {
+            "before": 40,
+            "after": 40
+          }
+        },
+        {
+          "check": "shrinkage",
+          "severity": "PASS",
+          "message": "history intact: rows 81160→81160 / days 2059→2059",
+          "details": {
+            "rows_before": 81160,
+            "rows_after": 81160,
+            "days_before": 2059,
+            "days_after": 2059
+          }
+        },
+        {
+          "check": "divergence",
+          "severity": "PASS",
+          "message": "no divergence: scraper 'ok' 5h ago and dataset consistent (stale 2d, resolved 2026-08-21, warn 3d / fail 6d)",
+          "details": {
+            "stale_days": 2
+          }
+        }
+      ],
+      "stats": {
+        "rows": 81160,
+        "days": 2059,
+        "latest": "2026-08-21"
+      }
+    },
+    "baker_hughes": {
+      "overall": "PASS",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 32649 rows, all 8 canonical columns, value numeric, periods parseable, units all 'rigs'",
+          "details": {
+            "rows": 32649
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 32649 row(s) scanned, 0 within 0 band(s), 0 breaches",
+          "details": {
+            "rows": 32649,
+            "banded_scanned": 0
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "PASS",
+          "message": "dataset fresh: newest period 2026-08-21 is 2d old (warn 9d / fail 18d)",
+          "details": {
+            "stale_days": 2
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "SKIPPED",
+          "message": "no gap_rule configured",
+          "details": {}
+        },
+        {
+          "check": "coverage",
+          "severity": "PASS",
+          "message": "series coverage holds: 631→631 distinct series_id (limit 20%)",
+          "details": {
+            "before": 631,
+            "after": 631
+          }
+        },
+        {
+          "check": "shrinkage",
+          "severity": "PASS",
+          "message": "history intact: rows 32649→32649 / days 138→138",
+          "details": {
+            "rows_before": 32649,
+            "rows_after": 32649,
+            "days_before": 138,
+            "days_after": 138
+          }
+        },
+        {
+          "check": "divergence",
+          "severity": "PASS",
+          "message": "no divergence: scraper 'ok' 19h ago and dataset consistent (stale 2d, resolved 2026-08-21, warn 9d / fail 18d)",
+          "details": {
+            "stale_days": 2
+          }
+        }
+      ],
+      "stats": {
+        "rows": 32649,
+        "days": 138,
+        "latest": "2026-08-21"
+      }
+    },
+    "eia_storage": {
+      "overall": "PASS",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 3600 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Bcf'",
+          "details": {
+            "rows": 3600
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 3600 row(s) scanned, 0 within 0 band(s), 0 breaches",
+          "details": {
+            "rows": 3600,
+            "banded_scanned": 0
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "PASS",
+          "message": "dataset fresh: newest period 2026-08-14 is 9d old (warn 9d / fail 18d)",
+          "details": {
+            "stale_days": 9
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "SKIPPED",
+          "message": "no gap_rule configured",
+          "details": {}
+        },
+        {
+          "check": "coverage",
+          "severity": "PASS",
+          "message": "series coverage holds: 1→1 distinct series_id (limit 20%)",
+          "details": {
+            "before": 1,
+            "after": 1
+          }
+        },
+        {
+          "check": "shrinkage",
+          "severity": "PASS",
+          "message": "history intact: rows 3600→3600 / days 450→450",
+          "details": {
+            "rows_before": 3600,
+            "rows_after": 3600,
+            "days_before": 450,
+            "days_after": 450
+          }
+        },
+        {
+          "check": "divergence",
+          "severity": "PASS",
+          "message": "no divergence: scraper 'ok' 23h ago and dataset consistent (stale 9d, resolved 2026-08-14, warn 9d / fail 18d)",
+          "details": {
+            "stale_days": 9
+          }
+        }
+      ],
+      "stats": {
+        "rows": 3600,
+        "days": 450,
+        "latest": "2026-08-14"
+      }
+    },
+    "eia_lng_exports": {
+      "overall": "WARN",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 2665 rows, all 8 canonical columns, value numeric, periods parseable, unit check skipped",
+          "details": {
+            "rows": 2665
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 2665 row(s) scanned, 0 within 0 band(s), 0 breaches",
+          "details": {
+            "rows": 2665,
+            "banded_scanned": 0
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "WARN",
+          "message": "dataset ageing: newest period 2026-05-01 is 114d old (warn 45d / fail 135d)",
+          "details": {
+            "stale_days": 114
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "SKIPPED",
+          "message": "no gap_rule configured",
+          "details": {}
+        },
+        {
+          "check": "coverage",
+          "severity": "PASS",
+          "message": "series coverage holds: 44→44 distinct series_id (limit 20%)",
+          "details": {
+            "before": 44,
+            "after": 44
+          }
+        },
+        {
+          "check": "shrinkage",
+          "severity": "PASS",
+          "message": "history intact: rows 2665→2665 / days 65→65",
+          "details": {
+            "rows_before": 2665,
+            "rows_after": 2665,
+            "days_before": 65,
+            "days_after": 65
+          }
+        },
+        {
+          "check": "divergence",
+          "severity": "SKIPPED",
+          "message": "health stamp 17.9d old exceeds recency window 3d — it cannot vouch for today's dataset",
+          "details": {
+            "age_days": 17.87
+          }
+        }
+      ],
+      "stats": {
+        "rows": 2665,
+        "days": 65,
+        "latest": "2026-05-01"
+      }
+    },
+    "eia_supply": {
+      "overall": "WARN",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 462 rows, all 8 canonical columns, value numeric, periods parseable, unit check skipped",
+          "details": {
+            "rows": 462
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 462 row(s) scanned, 0 within 0 band(s), 0 breaches",
+          "details": {
+            "rows": 462,
+            "banded_scanned": 0
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "WARN",
+          "message": "dataset ageing: newest period 2026-05 (→2026-05-31) is 84d old (warn 45d / fail 135d)",
+          "details": {
+            "stale_days": 84
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "SKIPPED",
+          "message": "no gap_rule configured",
+          "details": {}
+        },
+        {
+          "check": "coverage",
+          "severity": "PASS",
+          "message": "series coverage holds: 6→6 distinct series_id (limit 20%)",
+          "details": {
+            "before": 6,
+            "after": 6
+          }
+        },
+        {
+          "check": "shrinkage",
+          "severity": "PASS",
+          "message": "history intact: rows 462→462 / days 77→77",
+          "details": {
+            "rows_before": 462,
+            "rows_after": 462,
+            "days_before": 77,
+            "days_after": 77
+          }
+        },
+        {
+          "check": "divergence",
+          "severity": "SKIPPED",
+          "message": "health stamp 21.9d old exceeds recency window 3d — it cannot vouch for today's dataset",
+          "details": {
+            "age_days": 21.95
+          }
+        }
+      ],
+      "stats": {
+        "rows": 462,
+        "days": 77,
+        "latest": "2026-05"
+      }
+    }
+  }
+}

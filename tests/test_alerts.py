@@ -8,7 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from publishers.alerts import AlertError, build_health_prefix, send_alert
+from publishers.alerts import (
+    AlertError,
+    build_health_prefix,
+    format_integrity_findings,
+    send_alert,
+    send_integrity_alert_if_needed,
+)
 
 
 @pytest.fixture
@@ -122,3 +128,123 @@ def test_build_health_prefix_formats_failures(clean_data):
     assert "🚨 <b>SYSTEM HEALTH ALERTS</b> 🚨" in prefix
     assert "EIA" in prefix
     assert "API key expired" in prefix
+
+
+def test_build_health_prefix_ignores_internal_integrity_files(clean_data):
+    """``_*.json`` integrity artifacts must never page anyone."""
+    health_dir = clean_data["health_dir"]
+    (health_dir / "_integrity_state.json").write_text(
+        json.dumps({"status": "failed"}), encoding="utf-8"
+    )
+    (health_dir / "_integrity_report.json").write_text(
+        json.dumps({"overall": "FAIL"}), encoding="utf-8"
+    )
+
+    assert build_health_prefix() == ""
+
+
+def _integrity_report():
+    return {
+        "generated_at": "2026-08-23T06:00:00+00:00",
+        "overall": "FAIL",
+        "sources": {
+            "eia_lng_exports": {
+                "overall": "FAIL",
+                "results": [
+                    {"check": "divergence", "severity": "FAIL", "message": "DIVERGENCE: rot"},
+                    {"check": "gaps", "severity": "SKIPPED", "message": "no gap_rule configured"},
+                ],
+                "stats": {},
+            },
+            "gulf_south": {
+                "overall": "PASS",
+                "results": [
+                    {"check": "schema", "severity": "PASS", "message": "ok"},
+                    {"check": "divergence", "severity": "SKIPPED", "message": "no health payload"},
+                ],
+                "stats": {},
+            },
+        },
+    }
+
+
+def test_format_integrity_findings_lists_only_warn_fail():
+    """Digest rows carry WARN/FAIL checks only; SKIPPED noise stays out."""
+    out = format_integrity_findings(_integrity_report())
+
+    lng_line = next(line for line in out.splitlines() if "eia_lng_exports" in line)
+    assert "divergence" in lng_line
+    assert "gaps" not in lng_line
+    assert "DIVERGENCE: rot" in out  # deciding numbers ride along as detail
+
+    gulf_line = next(line for line in out.splitlines() if "gulf_south" in line)
+    assert gulf_line.rstrip().endswith("-")  # all-clear row shows '-'
+    assert "schema" not in gulf_line and "divergence" not in gulf_line
+
+
+def test_send_integrity_alert_suppressed_on_all_clear(clean_data, tmp_path, monkeypatch):
+    """No WARN/FAIL findings → nothing posted, returns False."""
+    import httpx
+
+    def mock_post(*args, **kwargs):
+        pytest.fail("httpx.post must not fire on an all-clear integrity report")
+
+    monkeypatch.setattr(httpx, "post", mock_post)
+
+    report = _integrity_report()
+    report["overall"] = "PASS"
+    report["sources"]["eia_lng_exports"] = {
+        "overall": "SKIPPED",
+        "results": [{"check": "availability", "severity": "SKIPPED"}],
+        "stats": {},
+    }
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(report), encoding="utf-8")
+
+    assert send_integrity_alert_if_needed(path) is False
+
+
+def test_send_integrity_alert_dispatches_once_per_day(clean_data, tmp_path, monkeypatch):
+    """WARN/FAIL report → digest sent under a date-scoped dedup key."""
+    import httpx
+
+    calls = []
+
+    class MockResponse:
+        status_code = 200
+
+        def json(self):
+            return {"ok": True}
+
+    def fake_post(*args, **kwargs):
+        calls.append(kwargs)
+        return MockResponse()
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake_token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "fake_id")
+
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(_integrity_report()), encoding="utf-8")
+
+    assert send_integrity_alert_if_needed(path) is True
+    assert len(calls) == 1
+    text = calls[0]["json"]["text"]
+    assert "DATASET INTEGRITY DIGEST" in text
+    assert "eia_lng_exports" in text and "DIVERGENCE: rot" in text
+    # Dedup key derives from the report's generated_at date.
+    data = json.loads(clean_data["sent_alerts"].read_text(encoding="utf-8"))
+    assert "integrity_digest_2026-08-23" in data
+
+    # Same-day rerun deduplicates even though findings persist.
+    assert send_integrity_alert_if_needed(path) is False
+    assert len(calls) == 1
+
+
+def test_send_integrity_alert_unreadable_report_raises(clean_data, tmp_path):
+    """Corrupt report surfaces AlertError (caller prints, never guesses)."""
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+
+    with pytest.raises(AlertError):
+        send_integrity_alert_if_needed(bad)

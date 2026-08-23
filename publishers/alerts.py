@@ -28,6 +28,7 @@ import logging
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -50,7 +51,8 @@ def _load_sent_alerts() -> dict[str, str]:
     if not SENT_ALERTS_PATH.exists():
         return {}
     try:
-        return json.loads(SENT_ALERTS_PATH.read_text(encoding="utf-8"))
+        loaded: dict[str, str] = json.loads(SENT_ALERTS_PATH.read_text(encoding="utf-8"))
+        return loaded
     except (json.JSONDecodeError, OSError) as exc:
         logger.warning(f"sent_alerts.json unreadable ({exc}), treating as empty")
         return {}
@@ -82,7 +84,7 @@ def _record_sent(dedup_key: str) -> None:
     _save_sent_alerts(sent)
 
 
-def _post_telegram(token: str, chat_id: str, html_body: str) -> dict:
+def _post_telegram(token: str, chat_id: str, html_body: str) -> dict[str, Any]:
     url = TELEGRAM_API.format(token=token)
     payload = {
         "chat_id": chat_id,
@@ -96,19 +98,21 @@ def _post_telegram(token: str, chat_id: str, html_body: str) -> dict:
         raise AlertError(f"Telegram HTTP error: {exc}") from exc
     if resp.status_code >= 400:
         raise AlertError(f"Telegram API returned {resp.status_code}: {resp.text[:500]}")
-    return resp.json()
+    decoded: dict[str, Any] = resp.json()
+    return decoded
 
 
 def build_health_prefix() -> str:
     """
-    Scan data/health/*.json (excluding .prev). If any source has status='failed'
-    since the last success, return a prefix block. Otherwise empty string.
+    Scan data/health/*.json (excluding .prev and internal ``_*.json``
+    integrity artifacts). If any source has status='failed' since the last
+    success, return a prefix block. Otherwise empty string.
     """
     if not HEALTH_DIR.exists():
         return ""
     failures: list[str] = []
     for health_file in sorted(HEALTH_DIR.glob("*.json")):
-        if ".prev" in health_file.stem:
+        if health_file.stem.startswith("_") or ".prev" in health_file.stem:
             continue
         try:
             data = json.loads(health_file.read_text(encoding="utf-8"))
@@ -166,6 +170,88 @@ def send_health_only_if_failing() -> bool:
         return False
     dedup = f"health_snapshot_{datetime.now(UTC).strftime('%Y-%m-%d-%H')}"
     return send_alert(dedup, prefix, include_health_prefix=False, dedup_ttl=timedelta(hours=1))
+
+
+INTEGRITY_ALERT_SEVERITIES: frozenset[str] = frozenset({"WARN", "FAIL"})
+
+
+def _integrity_finding_results(results: Any) -> list[dict[str, Any]]:
+    """Extract WARN/FAIL results from one report entry; SKIPPED/PASS are noise."""
+    return [
+        res
+        for res in results or []
+        if isinstance(res, dict) and res.get("severity") in INTEGRITY_ALERT_SEVERITIES
+    ]
+
+
+def format_integrity_findings(report: dict[str, Any]) -> str:
+    """
+    Render the Telegram integrity digest: one row per source in report order.
+
+    Mirrors the console table's findings column (validators.run_integrity.
+    render_table): each source lists only its WARN/FAIL checks; sources with
+    none show ``-`` so all-clear rows carry no SKIPPED noise. WARN/FAIL check
+    messages follow their source line — they embed the deciding numbers.
+    """
+    overall = html.escape(str(report.get("overall", "?")))
+    generated_at = html.escape(str(report.get("generated_at", "")))
+    lines = [
+        "<b>DATASET INTEGRITY DIGEST</b>",
+        f"overall <b>{overall}</b> at {generated_at}",
+        "",
+    ]
+    sources = report.get("sources") or {}
+    for key, raw_entry in sources.items():
+        entry = raw_entry if isinstance(raw_entry, dict) else {}
+        name = html.escape(str(key))
+        status = html.escape(str(entry.get("overall", "?")))
+        findings = _integrity_finding_results(entry.get("results"))
+        if findings:
+            checks = ", ".join(str(res.get("check", "?")) for res in findings)
+            detail_lines = [
+                f"  • <i>{html.escape(str(res.get('check', '?')))}</i>: "
+                f"{html.escape(str(res.get('message', ''))[:300])}"
+                for res in findings
+            ]
+        else:
+            checks = "-"
+            detail_lines = []
+        lines.append(f"<b>{name}</b> [{status}] — {html.escape(checks)}")
+        lines.extend(detail_lines)
+    return "\n".join(lines)
+
+
+def send_integrity_alert_if_needed(report_path: Path | str) -> bool:
+    """
+    Dispatch the dataset-integrity digest once per day when WARN/FAIL exist.
+
+    Reads the report written by validators.run_integrity. All-clear (every
+    source PASS/SKIPPED) → False, nothing sent. Otherwise formats via
+    format_integrity_findings and sends under a date-scoped dedup key, so a
+    single day can never page twice. Raises AlertError on an unreadable
+    report so the caller can print the reason instead of guessing.
+    """
+    try:
+        payload = json.loads(Path(report_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AlertError(f"integrity report unreadable: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise AlertError(f"integrity report {report_path} is not a JSON object")
+
+    sources = payload.get("sources") or {}
+    has_findings = any(
+        isinstance(entry, dict) and str(entry.get("overall")) in INTEGRITY_ALERT_SEVERITIES
+        for entry in sources.values()
+    )
+    if not has_findings:
+        logger.info("integrity digest suppressed: no WARN/FAIL findings")
+        return False
+
+    generated_at = str(payload.get("generated_at") or "")
+    day_key = generated_at[:10] or datetime.now(UTC).date().isoformat()
+    dedup_key = f"integrity_digest_{day_key}"
+    body = format_integrity_findings(payload)
+    return send_alert(dedup_key, body, include_health_prefix=False, dedup_ttl=timedelta(days=1))
 
 
 if __name__ == "__main__":

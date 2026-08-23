@@ -1,0 +1,50 @@
+{
+  "gulf_south": {
+    "rows": 192704,
+    "distinct_periods": 90,
+    "distinct_series": 2151,
+    "max_period": "2026-08-22",
+    "checked_at": "2026-08-23T14:46:02.416591+00:00",
+    "consecutive_flat": 2
+  },
+  "gie_agsi": {
+    "rows": 81160,
+    "distinct_periods": 2059,
+    "distinct_series": 40,
+    "max_period": "2026-08-21",
+    "checked_at": "2026-08-23T14:46:02.416591+00:00",
+    "consecutive_flat": 2
+  },
+  "baker_hughes": {
+    "rows": 32649,
+    "distinct_periods": 138,
+    "distinct_series": 631,
+    "max_period": "2026-08-21",
+    "checked_at": "2026-08-23T14:46:02.416591+00:00",
+    "consecutive_flat": 2
+  },
+  "eia_storage": {
+    "rows": 3600,
+    "distinct_periods": 450,
+    "distinct_series": 1,
+    "max_period": "2026-08-14",
+    "checked_at": "2026-08-23T14:46:02.416591+00:00",
+    "consecutive_flat": 2
+  },
+  "eia_lng_exports": {
+    "rows": 2665,
+    "distinct_periods": 65,
+    "distinct_series": 44,
+    "max_period": "2026-05-01",
+    "checked_at": "2026-08-23T14:46:02.416591+00:00",
+    "consecutive_flat": 2
+  },
+  "eia_supply": {
+    "rows": 462,
+    "distinct_periods": 77,
+    "distinct_series": 6,
+    "max_period": "2026-05",
+    "checked_at": "2026-08-23T14:46:02.416591+00:00",
+    "consecutive_flat": 2
+  }
+}

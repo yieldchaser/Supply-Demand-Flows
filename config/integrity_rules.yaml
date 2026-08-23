@@ -1,0 +1,110 @@
+# Dataset-integrity rules - one stanza per curated source.
+#
+# Why this file exists:
+#     A curated parquet once sat frozen at a single gas day for 74
+#     consecutive runs while its scraper health file kept reporting "ok".
+#     These rules let validators/integrity.py audit the *dataset* itself
+#     (schema, values, staleness, gaps, shrinkage) independently of scraper
+#     liveness.
+#
+# Conventions:
+#     * paths are repo-relative
+#     * staleness thresholds compare (today - newest period) in days;
+#       both arms use strict > semantics (exactly warn_days stays PASS)
+#     * copy a commented placeholder block when a new source's scraper lands
+
+defaults:
+  # check_divergence keys its stale-period arm off each source's OWN
+  # staleness.fail_days (not warn_days): fail-level staleness under an "ok"
+  # health stamp = degradation; warn-level lag is normal publication delay.
+  # Lag-sensitive sources must set fail_days ABOVE their worst legitimate
+  # lag (eia_lng_exports / eia_supply pin 135d against a real ~114d lag).
+  # Canonical column contract enforced by check_schema on every frame.
+  schema_columns: [source, series_id, series_name, period, value, unit, region, ingested_at]
+  # Max allowed % drop in distinct series_id vs the prior stored baseline;
+  # a bigger drop means upstream silently stopped publishing series.
+  coverage_drop_fail_pct: 20
+  # A health stamp older than this cannot vouch for the dataset in the
+  # divergence meta-check (scraper may have died after its last write).
+  health_recency_days: 3
+
+sources:
+  gulf_south:
+    parquet: data/curated/gulf_south.parquet
+    health_file: data/health/gulf_south.json
+    staleness:
+      warn_days: 2            # intraday feed; one quiet day is worth a look
+      fail_days: 4            # past a long weekend without postings = broken
+    gap_rule: calendar_daily  # every gas day between oldest/newest must exist
+    unit_expected: Dth/d      # unit column may contain exactly this value only
+    negative_values_fail: true  # scheduled quantities can never be negative
+    mode: accumulation        # rows only ever grow; enables flat-run divergence arm
+    bands:
+      - label: freeport_lng_feedgas
+        series_glob: "gulf_south_sq_24329_*"  # Freeport LNG feedgas meters
+        min: 0.0              # inclusive floor - zero flow is legitimate, never flagged
+        max: 2860000.0        # ~nameplate headroom; above this = unit/data error
+
+  gie_agsi:
+    parquet: data/curated/gie_agsi.parquet
+    health_file: data/health/gie_agsi.json
+    staleness:
+      warn_days: 3            # AGSI publishes T-1; weekend lag is normal
+      fail_days: 6
+    unit_expected: null       # rows mix TWh/GWh/% so schema skips the unit check
+    # no gap_rule: country publication offsets make single-day holes legitimate
+
+  baker_hughes:
+    parquet: data/curated/baker_hughes_weekly.parquet
+    health_file: data/health/baker_hughes_rigs.json
+    staleness:
+      warn_days: 9            # weekly release; tolerate one skipped week
+      fail_days: 18
+    unit_expected: rigs       # rig counts are unitless integers labelled "rigs"
+
+  eia_storage:
+    parquet: data/curated/eia_storage.parquet
+    health_file: data/health/eia_storage.json
+    staleness:
+      warn_days: 9            # weekly Thursday release with multi-day lag
+      fail_days: 18
+    unit_expected: Bcf        # weekly lower-48 stocks in Bcf
+
+  eia_lng_exports:
+    parquet: data/curated/eia_lng_exports.parquet
+    health_file: data/health/eia_lng.json
+    staleness:
+      warn_days: 45           # genuine ~2-month publication lag on monthly EIA API
+      fail_days: 135          # keeps the *normal* lag pinned at WARN, never FAIL
+    month_end_normalize: true  # monthly periods compare as last-day-of-month
+    # no unit_expected: export volumes arrive in mixed units by series
+
+  eia_supply:
+    parquet: data/curated/eia_supply.parquet
+    health_file: data/health/eia_supply.json
+    staleness:
+      warn_days: 45           # same monthly cadence as eia_lng_exports
+      fail_days: 135
+    month_end_normalize: true  # snap bare months to month-end before ageing
+    period_format: "%Y-%m"   # periods arrive as bare months, e.g. "2026-07"
+
+  # ---- placeholders - uncomment when the scraper lands -------------------
+  # gasnom:
+  #   parquet: data/curated/gasnom.parquet
+  #   health_file: data/health/gasnom.json
+  #   staleness: {warn_days: 2, fail_days: 4}  # daily EBB, staleness warn 2 fail 4
+  #
+  # quorum:
+  #   parquet: data/curated/quorum.parquet
+  #   health_file: data/health/quorum.json
+  #   staleness: {warn_days: 2, fail_days: 4}  # daily EBB, staleness warn 2 fail 4
+  #
+  # bhe:
+  #   parquet: data/curated/bhe.parquet
+  #   health_file: data/health/bhe.json
+  #   staleness: {warn_days: 2, fail_days: 4}  # daily EBB, staleness warn 2 fail 4
+  #
+  # cheniere:
+  #   parquet: data/curated/cheniere.parquet
+  #   health_file: data/health/cheniere.json
+  #   staleness: {warn_days: 2, fail_days: 4}  # daily EBB, staleness warn 2 fail 4
