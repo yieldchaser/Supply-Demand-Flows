@@ -13,38 +13,38 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-08-23T17:20:42Z",
+    "last_inventory_run": "2026-08-23T19:44:56Z",
     "total_locations_seen": 767,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1759192.0
+        "scheduled_quantity_dth": 1723765.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1156842.0
+        "scheduled_quantity_dth": 1099872.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 643346.0
-      },
-      {
-        "loc_id": 23365,
-        "loc_name": "Henry Hub (Sabine)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 530252.0
+        "scheduled_quantity_dth": 671245.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 516805.0
+        "scheduled_quantity_dth": 562170.0
+      },
+      {
+        "loc_id": 23365,
+        "loc_name": "Henry Hub (Sabine)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 528365.0
       },
       {
         "loc_id": 23700,
@@ -56,25 +56,25 @@
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 313284.0
-      },
-      {
-        "loc_id": 23371,
-        "loc_name": "Bosco (Texas Gas)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 253417.0
+        "scheduled_quantity_dth": 378789.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 229045.0
+        "scheduled_quantity_dth": 273040.0
       },
       {
-        "loc_id": 21264,
-        "loc_name": "Gulfstream Interconnect",
+        "loc_id": 23371,
+        "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 224558.0
+        "scheduled_quantity_dth": 252174.0
+      },
+      {
+        "loc_id": 23026,
+        "loc_name": "Expansion Payback To Gulf South",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 229927.0
       }
     ]
   }
