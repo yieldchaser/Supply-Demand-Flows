@@ -214,12 +214,15 @@ def run(  # noqa: PLR0912 — linear control flow mirrors gulf_south.run
 
         # Unposted gas day: header cells come back blank.
         if not latest_cycle_desc and not rows:
-            health.record_success(metadata={
-                "slug": slug,
-                "gas_day": target_day.isoformat(),
-                "outcome": "no_posting_for_gas_day",
-                "row_count": 0,
-            })
+            health.record_no_op(
+                reason=f"no posting for {target_day} (blank header)",
+                metadata={
+                    "slug": slug,
+                    "gas_day": target_day.isoformat(),
+                    "outcome": "no_posting_for_gas_day",
+                    "row_count": 0,
+                },
+            )
             return {"status": "empty", "slug": slug, "gas_day": target_day.isoformat(), "rows": 0}
 
         if cycle and latest_cycle_code != cycle.strip().lower():

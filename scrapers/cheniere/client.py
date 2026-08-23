@@ -250,14 +250,19 @@ async def run(
                 processed_count += 1
 
         status = "ok" if processed_count else "skipped"
-        health.record_success(
-            metadata={
-                "processed_count": processed_count,
-                "skipped_count": skipped_count,
-                "per_tsp_rows": per_tsp_rows,
-                "gas_day": target_day.isoformat(),
-            }
-        )
+        run_metadata = {
+            "processed_count": processed_count,
+            "skipped_count": skipped_count,
+            "per_tsp_rows": per_tsp_rows,
+            "gas_day": target_day.isoformat(),
+        }
+        if processed_count:
+            health.record_success(metadata=run_metadata)
+        else:
+            health.record_no_op(
+                reason="no postings matched the requested gas day",
+                metadata=run_metadata,
+            )
         return {
             "status": status,
             "processed_count": processed_count,

@@ -342,13 +342,18 @@ async def run(
                 processed_count += 1
 
         status = "ok" if processed_count else "skipped"
-        health.record_success(
-            metadata={
-                "processed_count": processed_count,
-                "skipped_count": skipped_count,
-                "failed_count": failed_count,
-            }
-        )
+        run_metadata = {
+            "processed_count": processed_count,
+            "skipped_count": skipped_count,
+            "failed_count": failed_count,
+        }
+        if processed_count:
+            health.record_success(metadata=run_metadata)
+        else:
+            health.record_no_op(
+                reason="no postings matched the requested window",
+                metadata=run_metadata,
+            )
         return {
             "status": status,
             "processed_count": processed_count,

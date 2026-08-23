@@ -286,8 +286,9 @@ class QuorumIPWSScraper:
                 self.tsp_no,
                 target_day,
             )
-            health.record_success(
-                metadata={"gas_day": target_day.isoformat(), "processed_count": 0, "rows": 0}
+            health.record_no_op(
+                reason=f"no postings for {target_day} (header-only CSV)",
+                metadata={"gas_day": target_day.isoformat(), "rows": 0},
             )
             return {"status": "skipped", "processed_count": 0, "cycles": {}}
 

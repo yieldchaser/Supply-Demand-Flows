@@ -217,14 +217,19 @@ async def run(
             if processed_count == 0 and skipped_count > 0 or processed_count == 0:
                 status = "skipped"
 
-            health.record_success(
-                metadata={
-                    "processed_count": processed_count,
-                    "skipped_count": skipped_count,
-                    "filter_gas_day": filter_day_str,
-                    "filter_cycle": cycle,
-                }
-            )
+            run_metadata = {
+                "processed_count": processed_count,
+                "skipped_count": skipped_count,
+                "filter_gas_day": filter_day_str,
+                "filter_cycle": cycle,
+            }
+            if processed_count:
+                health.record_success(metadata=run_metadata)
+            else:
+                health.record_no_op(
+                    reason="no new postings matched the listing filters",
+                    metadata=run_metadata,
+                )
             return {
                 "status": status,
                 "processed_count": processed_count,
