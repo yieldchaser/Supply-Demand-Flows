@@ -157,3 +157,79 @@ async def test_context_manager_closes_client() -> None:
 
     # After exiting, the underlying client should be closed.
     assert client._client.is_closed
+
+
+@pytest.mark.asyncio
+async def test_403_retried_with_retryable_override() -> None:
+    """403 twice then success — with retryable_status_codes={403}, succeeds."""
+    call_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            return httpx.Response(403)
+        return httpx.Response(200, json={"ok": True})
+
+    async with _make_client(
+        httpx.MockTransport(handler),
+        max_retries=3,
+        retryable_status_codes=frozenset({403}),
+        backoff_delays=(0.0, 0.0, 0.0),  # injected small delays — no real sleeping
+    ) as client:
+        result = await client.get_json("https://example.com/waf")
+
+    assert result == {"ok": True}
+    assert call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_403_not_retried_by_default() -> None:
+    """Without the override, a 403 raises immediately on the first attempt."""
+    call_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        return httpx.Response(403)
+
+    client = _make_client(httpx.MockTransport(handler), max_retries=3)
+    async with client:
+        with pytest.raises(HttpClientError) as exc_info:
+            await client.get_json("https://example.com/waf")
+
+    assert call_count == 1  # no retries
+    assert exc_info.value.status == 403
+    assert exc_info.value.attempts == 1
+
+
+@pytest.mark.asyncio
+async def test_backoff_delays_honored(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """backoff_delays replaces exponential backoff with literal durations."""
+    recorded: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        recorded.append(delay)
+
+    monkeypatch.setattr("scrapers.base.http_client.asyncio.sleep", fake_sleep)
+
+    call_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 3:
+            return httpx.Response(500)
+        return httpx.Response(200, json={"ok": True})
+
+    async with _make_client(
+        httpx.MockTransport(handler),
+        max_retries=3,
+        backoff_delays=(5.0, 15.0, 45.0),
+    ) as client:
+        result = await client.get_json("https://example.com/backoff")
+
+    assert result == {"ok": True}
+    assert recorded == [5.0, 15.0, 45.0]

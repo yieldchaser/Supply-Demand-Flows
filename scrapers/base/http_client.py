@@ -17,6 +17,11 @@ Failure modes:
     * Retries on: ``TimeoutException``, ``NetworkError``, HTTP 429/500/502/
       503/504.
     * Does **not** retry 4xx (except 429) — those are caller bugs.
+    * Callers may opt specific additional statuses (e.g. a WAF's transient
+      403s) into retries via ``retryable_status_codes``.
+    * Retry sleep durations default to deterministic exponential backoff
+      (``delay = base * 2^(attempt-1)``); callers may supply literal
+      per-attempt durations via ``backoff_delays`` instead.
     * After retries are exhausted, raises ``HttpClientError`` carrying the
       URL, final status, attempt count, and elapsed time.
 """
@@ -53,6 +58,14 @@ class HttpClient:
         ``HttpClientError`` on exhausted retries.  ``httpx`` exceptions for
         non-retryable errors (e.g. ``ConnectError`` to a permanently-down
         host is retried, but a 404 is not).
+
+        Optional overrides (both default to ``None`` = stock behaviour):
+        * ``retryable_status_codes``: extra HTTP statuses treated as
+          retryable *in addition to* the built-in {429, 500, 502, 503, 504}
+          — for sources whose WAFs emit transient 403s.
+        * ``backoff_delays``: literal sleep durations per retry attempt
+          (index ``attempt - 1``; the last value repeats if retries exceed
+          the tuple length), replacing the computed exponential formula.
     """
 
     def __init__(
@@ -65,12 +78,18 @@ class HttpClient:
         backoff_base_seconds: float = 1.0,
         rate_limit_per_second: float | None = None,
         user_agent: str = _DEFAULT_USER_AGENT,
+        retryable_status_codes: frozenset[int] | None = None,
+        backoff_delays: tuple[float, ...] | None = None,
     ) -> None:
         headers = dict(default_headers or {})
         headers.setdefault("User-Agent", user_agent)
 
         self._max_retries = max_retries
         self._backoff_base = backoff_base_seconds
+        self._backoff_delays = backoff_delays
+        self._retryable_status_codes: frozenset[int] = _RETRYABLE_STATUS_CODES | (
+            retryable_status_codes or frozenset()
+        )
         self._rate_limit_gap: float | None = (
             1.0 / rate_limit_per_second if rate_limit_per_second else None
         )
@@ -228,8 +247,9 @@ class HttpClient:
                 if response.is_success:
                     return response
 
-                # Non-retryable 4xx (except 429).
-                if 400 <= last_status < 500 and last_status != 429:
+                # Non-retryable 4xx (except 429 and any statuses the caller
+                # explicitly opted into retrying, e.g. transient WAF 403s).
+                if 400 <= last_status < 500 and last_status not in self._retryable_status_codes:
                     raise HttpClientError(
                         url=url,
                         status=last_status,
@@ -239,7 +259,7 @@ class HttpClient:
                     )
 
                 # Retryable status?
-                if last_status in _RETRYABLE_STATUS_CODES:
+                if last_status in self._retryable_status_codes:
                     last_reason = f"HTTP {last_status}"
                 else:
                     # Unexpected ≥500 not in our set — still fail fast.
@@ -265,8 +285,11 @@ class HttpClient:
                     reason=last_reason,
                 )
 
-            # Deterministic exponential backoff: 1, 2, 4, 8 …
-            delay = self._backoff_base * (2 ** (attempts - 1))
+            # Backoff: caller-supplied literal delays, else exponential.
+            if self._backoff_delays is not None:
+                delay = self._backoff_delays[min(attempts - 1, len(self._backoff_delays) - 1)]
+            else:
+                delay = self._backoff_base * (2 ** (attempts - 1))
             log.warning(
                 "Retry %d/%d for %s — %s — sleeping %.1fs",
                 attempts,

@@ -2,6 +2,10 @@
 
 Uses the public, tokenless Operational Capacity (OAC) reporting endpoint
 to fetch scheduled quantities and capacity details.
+
+Retry semantics: the BWP reporting WAF intermittently serves transient
+403s to datacenter IPs (CI runners), so this scraper opts 403 into the
+retryable status set with literal backoff delays of 5s/15s/45s.
 """
 
 from __future__ import annotations
@@ -150,6 +154,8 @@ async def run(
             max_retries=3,
             backoff_base_seconds=1.0,
             rate_limit_per_second=2.0,
+            retryable_status_codes=frozenset({403}),
+            backoff_delays=(5.0, 15.0, 45.0),
         ) as client:
             postings = await fetch_postings_list(client, page_size=20)
             if not postings:
