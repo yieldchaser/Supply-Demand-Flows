@@ -9,6 +9,16 @@ import { LNG_NAMEPLATE_MMCFD, LNG_METERS, dth_to_mmcf, get_utilization_level, ca
 import { renderCycleRevisions } from './lng-cycle-revisions.js';
 
 /**
+ * Platform limitation: Boardwalk's public OAC publishes Scheduled Quantities
+ * as CSV for intraday cycles only (ID1/ID2/ID3) — TIMELY/EVENING never appear
+ * as CSV postings. The cycle-revisions panel renders only the cycles that
+ * actually exist rather than implying five publication slots.
+ *
+ * @type {string}
+ */
+const PLATFORM_CYCLE_NOTE = 'Gulf South (Boardwalk OAC) posts ID1/ID2/ID3 only — TIMELY/EVENING are not published as CSV on this platform.';
+
+/**
  * Render the LNG feedgas panel.
  *
  * @param {HTMLElement} panelEl - the element to render the panel inside
@@ -192,7 +202,7 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = 'freeport_ln
     }))
     .sort((a, b) => a.priority - b.priority);
 
-  renderCycleRevisions(revisionsContainer, todayCyclesData);
+  renderCycleRevisions(revisionsContainer, todayCyclesData, { platformNote: PLATFORM_CYCLE_NOTE });
   
   // Render Footnote
   const footerContainer = document.createElement('div');
@@ -393,6 +403,9 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     }
 
     // Add info note to chart subtitle space
+    // (drawn here in the thin-data branch; the >=30-day branch draws it too,
+    // because the 2-year envelope stays unavailable until two prior gas
+    // years of history exist)
     svg.append('text')
       .attr('x', margin.left)
       .attr('y', 12)
@@ -477,6 +490,19 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     // Current Year Line (solid blue flame)
     const currentYearRows = seriesByGasYear.get(currentGasYear) || [];
     if (currentYearRows.length > 0) {
+      // Area fill grounds the line across the full gas-year range
+      const curArea = d3.area()
+        .x((d) => x(d.dayIndex))
+        .y0(height)
+        .y1((d) => y(d.value))
+        .curve(d3.curveMonotoneX);
+
+      g.append('path')
+        .datum(currentYearRows)
+        .attr('d', curArea)
+        .attr('fill', 'rgba(14, 165, 233, 0.06)')
+        .attr('stroke', 'none');
+
       const curLine = d3.line()
         .x((d) => x(d.dayIndex))
         .y((d) => y(d.value))
@@ -489,6 +515,17 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
         .attr('stroke-linecap', 'round')
         .style('filter', 'drop-shadow(0 0 6px rgba(125, 211, 252, 0.4))');
     }
+
+    // Add info note to chart subtitle space — kept from the thin-data state
+    // because the 2-year envelope only becomes available once two prior gas
+    // years of history have accumulated.
+    svg.append('text')
+      .attr('x', margin.left)
+      .attr('y', 12)
+      .attr('font-size', '10px')
+      .style('fill', 'rgba(255,255,255,0.4)')
+      .style('font-style', 'italic')
+      .text('Historical envelope builds as data accumulates.');
   }
 
   // Dotted Latest-Cycle Line (if we have dotted rows)

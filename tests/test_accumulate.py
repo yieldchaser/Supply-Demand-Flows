@@ -16,6 +16,7 @@ import pytest
 
 from transformers.base.accumulate import (
     AccumulationShrinkError,
+    SchemaDriftError,
     merge_into_curated,
 )
 
@@ -182,3 +183,64 @@ def test_custom_key_cols(tmp_path: Path) -> None:
     assert b1.iloc[0]["value"] == 111.0
     b2 = merged[merged["a"] == "a1"][merged["b"] == "b2"]
     assert b2.iloc[0]["value"] == 2.0
+
+
+def test_schema_drift_raises_and_leaves_file_untouched(tmp_path: Path) -> None:
+    """An incoming frame whose columns differ from history raises SchemaDriftError."""
+    curated = tmp_path / "drift.parquet"
+    merge_into_curated(_frame([_row("s1", "2026-08-20", 10.0, _T1)]), curated)
+
+    # Same rows, but the scraper emitted "quantity" instead of "value".
+    drifted = _frame([_row("s1", "2026-08-21", 11.0, _T2)]).rename(columns={"value": "quantity"})
+    with pytest.raises(SchemaDriftError, match=r"unexpected \['quantity'\], missing \['value'\]"):
+        merge_into_curated(drifted, curated)
+
+    on_disk = pd.read_parquet(curated)
+    assert len(on_disk) == 1
+    assert list(on_disk.columns) == _COLUMNS
+
+
+def test_schema_drift_extra_column_raises(tmp_path: Path) -> None:
+    """An extra unexpected column is drift too — not a silent concat."""
+    curated = tmp_path / "extra.parquet"
+    merge_into_curated(_frame([_row("s1", "2026-08-20", 10.0, _T1)]), curated)
+
+    extra = _frame([_row("s1", "2026-08-21", 11.0, _T2)])
+    extra["bonus"] = 1.0
+    with pytest.raises(SchemaDriftError, match=r"unexpected \['bonus'\], missing \[\]"):
+        merge_into_curated(extra, curated)
+    assert len(pd.read_parquet(curated)) == 1
+
+
+def test_mixed_offset_ingested_at_dedupes_chronologically(tmp_path: Path) -> None:
+    """Dedup compares parsed instants, not raw strings, across UTC offsets."""
+    curated = tmp_path / "offsets.parquet"
+
+    # Existing: 18:30 UTC. Incoming stamp is lexically LARGER ("20" > "18")
+    # but chronologically EARLIER (20:00+05:30 == 14:30 UTC). The stale
+    # lexicographic comparison would have kept the incoming row.
+    merge_into_curated(
+        _frame([_row("X", "2026-08-21", 100.0, "2026-08-21T18:30:00+00:00")]),
+        curated,
+    )
+    merged = merge_into_curated(
+        _frame([_row("X", "2026-08-21", 200.0, "2026-08-21T20:00:00+05:30")]),
+        curated,
+    )
+    assert len(merged) == 1
+    assert merged.iloc[0]["value"] == 100.0
+
+    # Reverse direction: existing 18:30+05:30 (== 13:00 UTC); incoming
+    # 14:00+00:00 is lexically SMALLER ("14" < "18") but chronologically
+    # LATER, so it must win.
+    curated2 = tmp_path / "offsets2.parquet"
+    merge_into_curated(
+        _frame([_row("Y", "2026-08-21", 100.0, "2026-08-21T18:30:00+05:30")]),
+        curated2,
+    )
+    merged2 = merge_into_curated(
+        _frame([_row("Y", "2026-08-21", 200.0, "2026-08-21T14:00:00+00:00")]),
+        curated2,
+    )
+    assert len(merged2) == 1
+    assert merged2.iloc[0]["value"] == 200.0
