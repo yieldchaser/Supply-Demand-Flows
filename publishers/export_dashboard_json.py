@@ -20,6 +20,13 @@ CURATED_DIR = Path("data/curated")
 HEALTH_DIR = Path("data/health")
 DOCS_DATA_DIR = Path("docs/data")
 
+#: Per-source cap on rows emitted into the bundle (most recent N periods).
+#: The bundle is a *visualisation* feed, not an archive — curated parquets
+#: stay the complete history.  With five backfilled sources the uncapped
+#: bundle reached 115 MB and GitHub rejects pushes over the 100 MB hard
+#: limit (GH001), so every source is tailed to its most recent rows.
+MAX_ROWS_PER_SOURCE = 120_000
+
 
 def _json_default(obj: object) -> str:
     """
@@ -55,6 +62,14 @@ def build() -> dict:
                 # Sort by period for easier frontend consumption
                 if "period" in df.columns:
                     df = df.sort_values("period")
+                # Tail to the most recent rows — visualisation feed, not archive.
+                if len(df) > MAX_ROWS_PER_SOURCE:
+                    dropped = len(df) - MAX_ROWS_PER_SOURCE
+                    print(
+                        f"{source_key}: capping {len(df)} -> {MAX_ROWS_PER_SOURCE} rows "
+                        f"(dropped {dropped} oldest)"
+                    )
+                    df = df.tail(MAX_ROWS_PER_SOURCE)
 
                 bundle["sources"][source_key] = {
                     "latest_period": df["period"].max() if "period" in df.columns else None,
