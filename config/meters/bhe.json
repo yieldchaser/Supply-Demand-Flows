@@ -1,0 +1,27 @@
+{
+  "source": "bhe",
+  "pipeline": "Eastern Gas Transmission and Storage (BHE GT&S)",
+  "note": "Cove Point LNG feedgas is visible on EGTS, not on Cove Point's own EBB. Zeros are legitimate - Cove Point is small (~750 MMcf/d) and cargo-driven.",
+  "bhe": {
+    "cove_point_lng": [
+      {
+        "loc_id": 40704,
+        "loc_name": "EGTS - LOUDOUN",
+        "flow_ind": "R",
+        "interconnect": "COVE POINT LNG LP",
+        "confidence": "high"
+      }
+    ]
+  },
+  "_meta": {
+    "schema_version": 1,
+    "filter_rule": "Interconnect Party Name == 'COVE POINT LNG LP' AND Flow Ind == 'R'",
+    "anchor_verified": {
+      "gas_day": "2026-05-16",
+      "cycle": "Intraday 3",
+      "operating_capacity_dth": 741280,
+      "total_scheduled_quantity_dth": 0,
+      "notice_id": 1011665
+    }
+  }
+}

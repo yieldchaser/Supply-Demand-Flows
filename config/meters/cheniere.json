@@ -1,0 +1,41 @@
+{
+  "source": "cheniere",
+  "note": "Cheniere does not post Scheduled Quantities; OAC (qty_AVAIL) is the primary signal and sched_QTY is captured as a secondary series. Do not normalize CTPL (~650,000 Dth/d design) together with CCPL (~35,000+ Dth/d design).",
+  "cheniere": {
+    "creole_trail_sabine_pass": {
+      "tsp_no": 200,
+      "tsp_name": "CHENIERE CREOLE TRAIL PIPELINE, L.P.",
+      "series_prefix": "creole_trail",
+      "design_oper_cap_dth_range": [650000, 900000],
+      "meters": [
+        {
+          "loc_id": "CT200111",
+          "loc_name": "CT200111-CREOLE TRAIL-SPLIQ-D",
+          "flow_ind": "D",
+          "confidence": "high",
+          "role": "LNG terminal delivery interconnect"
+        }
+      ]
+    },
+    "corpus_christi": {
+      "tsp_no": 400,
+      "tsp_name": "CHENIERE CORPUS CHRISTI PIPELINE, L.P.",
+      "series_prefix": "corpus_christi",
+      "design_oper_cap_dth_range": [35000, 2750000],
+      "meters": [
+        {
+          "loc_id": "CC100221",
+          "loc_name": "CC100221-CORPUS CHRISTI-CCLIQ-R",
+          "flow_ind": "R",
+          "confidence": "high",
+          "role": "LNG terminal receipt interconnect"
+        }
+      ]
+    }
+  },
+  "_meta": {
+    "schema_version": 1,
+    "history_floor": "2026-05-25",
+    "origin_header_required": "https://lngconnection.cheniere.com"
+  }
+}
