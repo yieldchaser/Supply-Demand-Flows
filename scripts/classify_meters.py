@@ -455,14 +455,21 @@ NAME_RULES: tuple[tuple[str, str, str], ...] = (
 
 
 def parse_series_id(sid: str) -> tuple[str | None, str | None, str | None]:
-    """Split '{prefix}_{kind}_{loc}_{cycle}' -> (prefix, loc, kind).
+    """Split a canonical series id into (prefix, loc, kind).
+
+    What:
+        Handles BOTH key generations:
+          legacy:  '{prefix}_{kind}_{loc}_{cycle}'
+          current: '{prefix}_{kind}_{loc}_{flow}_{cycle}'  (flow ∈ r|d|u,
+                   the 2026-08 dual-leg fix). The flow token is consumed so
+                   callers always receive the same (prefix, loc, kind).
 
     Failure modes:
         Returns (None, None, None) for non-canonical ids (callers skip them).
     """
     m = re.fullmatch(
         rf"(?P<prefix>[a-z_0-9]+?)_(?P<kind>{'|'.join(SERIES_KINDS)})_"
-        rf"(?P<loc>.+?)_(?P<cycle>{'|'.join(CYCLE_TOKENS)})",
+        rf"(?P<loc>.+?)(?:_(?P<flow>r|d|u))?_(?P<cycle>{'|'.join(CYCLE_TOKENS)})",
         sid,
     )
     if not m:
