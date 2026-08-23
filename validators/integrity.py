@@ -74,6 +74,17 @@ def _result(
     return {"check": check, "severity": severity, "message": message, "details": details or {}}
 
 
+def _collision_check(
+    df: pd.DataFrame,
+    src_cfg: Mapping[str, Any],
+    defaults: Mapping[str, Any],
+) -> CheckResult:
+    """Thin adapter over :mod:`validators.collision` (kept import-lazy to avoid a cycle)."""
+    from validators.collision import check_collision
+
+    return check_collision(df, src_cfg, defaults)
+
+
 def normalize_period(p: str, cfg: Mapping[str, Any]) -> date:
     """Resolve a raw period string to a concrete calendar date.
 
@@ -570,6 +581,7 @@ def run_source_checks(
         check_schema(df, src_cfg, defaults),
         check_value_sanity(df, src_cfg),
         check_flow_leg_uniqueness(df),
+        _collision_check(df, src_cfg, defaults),
         check_stagnation(df, src_cfg, now),
         check_gaps(df, src_cfg),
         check_coverage(df, prior_map, src_cfg, defaults),

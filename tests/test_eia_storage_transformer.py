@@ -144,7 +144,6 @@ def test_series_slug_stability(
     tmp_path: Path, series: str, expected_slug: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """series_id slugs are stable and collision-free per region."""
-    from transformers import eia_storage as mod
 
     # exercise through the public transform path for one row of each series
     raw_path = tmp_path / f"raw_{expected_slug}.json"

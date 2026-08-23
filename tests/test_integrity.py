@@ -456,6 +456,7 @@ class TestShippedRules:
             "eia_storage",
             "eia_lng_exports",
             "eia_supply",
+            # EBB daily sources enabled 2026-08-23 (commit 271d8f0)
             "gasnom",
             "quorum",
             "bhe",
@@ -488,6 +489,11 @@ class TestShippedRules:
             assert source["mode"] == "accumulation"
         # quorum must NOT enforce calendar gaps: the tenant has retention holes.
         assert "gap_rule" not in rules["sources"]["quorum"]
+
+    def test_future_scrapers_stay_out(self, rules: dict[str, Any]) -> None:
+        # gasnom/quorum/bhe/cheniere graduated from placeholder to active in
+        # commit 271d8f0; the remaining unshipped scrapers must stay out.
+        assert not {"cenagas", "cove_point_direct", "egp"} & set(rules["sources"])
 
 
 # ------------------------------------------------------------ render_table
