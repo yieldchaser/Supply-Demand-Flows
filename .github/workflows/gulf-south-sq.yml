@@ -83,9 +83,13 @@ jobs:
       - name: Run Gulf South SQ scraper
         id: scrape
         run: |
+          # No cycle/gas_day args: the posting listing is authoritative and
+          # its extracted "gas_day" is the POSTING date, not the Eff Gas
+          # Day, so wall-clock guesses silently matched nothing (feed
+          # stalled 2026-08-21..23 with health 'ok'). With no filters the
+          # scraper syncs every missing (cycle, day) on the listing; the
+          # raw-file staleness gate makes repeats free.
           python -m scrapers.energy_transfer.gulf_south \
-            ${{ steps.cycle.outputs.cycle }} \
-            ${{ steps.gasday.outputs.gas_day }} \
           | tee /tmp/scraper_output.json
           STATUS=$(python -c "import json; print(json.load(open('/tmp/scraper_output.json'))['status'])")
           echo "status=$STATUS" >> $GITHUB_OUTPUT
