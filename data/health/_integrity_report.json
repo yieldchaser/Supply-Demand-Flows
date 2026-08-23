@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-23T16:22:07.132194+00:00",
+  "generated_at": "2026-08-23T17:23:16.260876+00:00",
   "overall": "FAIL",
   "sources": {
     "gulf_south": {
@@ -61,12 +61,12 @@
         {
           "check": "divergence",
           "severity": "FAIL",
-          "message": "DIVERGENCE: scraper 'ok' 46h ago but dataset degraded — accumulation row count flat 3 consecutive runs at 192704 rows",
+          "message": "DIVERGENCE: scraper 'ok' 0h ago but dataset degraded — accumulation row count flat 6 consecutive runs at 192704 rows",
           "details": {
             "reasons": [
-              "accumulation row count flat 3 consecutive runs at 192704 rows"
+              "accumulation row count flat 6 consecutive runs at 192704 rows"
             ],
-            "health_age_hours": 46.4
+            "health_age_hours": 0.0
           }
         }
       ],
@@ -133,7 +133,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 7h ago and dataset consistent (stale 2d, resolved 2026-08-21, warn 3d / fail 6d)",
+          "message": "no divergence: scraper 'ok' 8h ago and dataset consistent (stale 2d, resolved 2026-08-21, warn 3d / fail 6d)",
           "details": {
             "stale_days": 2
           }
@@ -202,9 +202,9 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence signal: health already reports 'failed' — plain stagnation covers the outage",
+          "message": "no divergence: scraper 'ok' 22h ago and dataset consistent (stale 2d, resolved 2026-08-21, warn 9d / fail 18d)",
           "details": {
-            "status": "failed"
+            "stale_days": 2
           }
         }
       ],
@@ -271,7 +271,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 9d, resolved 2026-08-14, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 26h ago and dataset consistent (stale 9d, resolved 2026-08-14, warn 9d / fail 18d)",
           "details": {
             "stale_days": 9
           }
@@ -339,10 +339,10 @@
         },
         {
           "check": "divergence",
-          "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 114d, resolved 2026-05-01, warn 45d / fail 135d)",
+          "severity": "SKIPPED",
+          "message": "health stamp 18.0d old exceeds recency window 3d — it cannot vouch for today's dataset",
           "details": {
-            "stale_days": 114
+            "age_days": 17.98
           }
         }
       ],
@@ -408,10 +408,10 @@
         },
         {
           "check": "divergence",
-          "severity": "PASS",
-          "message": "no divergence signal: health already reports 'failed' — plain stagnation covers the outage",
+          "severity": "SKIPPED",
+          "message": "health stamp 22.1d old exceeds recency window 3d — it cannot vouch for today's dataset",
           "details": {
-            "status": "failed"
+            "age_days": 22.05
           }
         }
       ],
@@ -422,7 +422,7 @@
       }
     },
     "gasnom": {
-      "overall": "PASS",
+      "overall": "FAIL",
       "results": [
         {
           "check": "schema",
@@ -457,22 +457,33 @@
         },
         {
           "check": "coverage",
-          "severity": "SKIPPED",
-          "message": "no prior state — first run for this source",
-          "details": {}
+          "severity": "PASS",
+          "message": "series coverage holds: 610→610 distinct series_id (limit 20%)",
+          "details": {
+            "before": 610,
+            "after": 610
+          }
         },
         {
           "check": "shrinkage",
-          "severity": "SKIPPED",
-          "message": "no prior state — first run for this source",
-          "details": {}
+          "severity": "PASS",
+          "message": "history intact: rows 53360→53360 / days 90→90",
+          "details": {
+            "rows_before": 53360,
+            "rows_after": 53360,
+            "days_before": 90,
+            "days_after": 90
+          }
         },
         {
           "check": "divergence",
-          "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 1d, resolved 2026-08-22, warn 2d / fail 4d)",
+          "severity": "FAIL",
+          "message": "DIVERGENCE: scraper 'ok' 3h ago but dataset degraded — accumulation row count flat 3 consecutive runs at 53360 rows",
           "details": {
-            "stale_days": 1
+            "reasons": [
+              "accumulation row count flat 3 consecutive runs at 53360 rows"
+            ],
+            "health_age_hours": 2.5
           }
         }
       ],
@@ -483,7 +494,7 @@
       }
     },
     "quorum": {
-      "overall": "PASS",
+      "overall": "FAIL",
       "results": [
         {
           "check": "schema",
@@ -518,22 +529,33 @@
         },
         {
           "check": "coverage",
-          "severity": "SKIPPED",
-          "message": "no prior state — first run for this source",
-          "details": {}
+          "severity": "PASS",
+          "message": "series coverage holds: 110→110 distinct series_id (limit 20%)",
+          "details": {
+            "before": 110,
+            "after": 110
+          }
         },
         {
           "check": "shrinkage",
-          "severity": "SKIPPED",
-          "message": "no prior state — first run for this source",
-          "details": {}
+          "severity": "PASS",
+          "message": "history intact: rows 116858→116858 / days 1985→1985",
+          "details": {
+            "rows_before": 116858,
+            "rows_after": 116858,
+            "days_before": 1985,
+            "days_after": 1985
+          }
         },
         {
           "check": "divergence",
-          "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 2h ago and dataset consistent (stale 0d, resolved 2026-08-23, warn 2d / fail 4d)",
+          "severity": "FAIL",
+          "message": "DIVERGENCE: scraper 'ok' 3h ago but dataset degraded — accumulation row count flat 3 consecutive runs at 116858 rows",
           "details": {
-            "stale_days": 0
+            "reasons": [
+              "accumulation row count flat 3 consecutive runs at 116858 rows"
+            ],
+            "health_age_hours": 3.3
           }
         }
       ],
@@ -579,15 +601,23 @@
         },
         {
           "check": "coverage",
-          "severity": "SKIPPED",
-          "message": "no prior state — first run for this source",
-          "details": {}
+          "severity": "PASS",
+          "message": "series coverage holds: 15→15 distinct series_id (limit 20%)",
+          "details": {
+            "before": 15,
+            "after": 15
+          }
         },
         {
           "check": "shrinkage",
-          "severity": "SKIPPED",
-          "message": "no prior state — first run for this source",
-          "details": {}
+          "severity": "PASS",
+          "message": "history intact: rows 2505→2505 / days 601→601",
+          "details": {
+            "rows_before": 2505,
+            "rows_after": 2505,
+            "days_before": 601,
+            "days_after": 601
+          }
         },
         {
           "check": "divergence",
@@ -638,15 +668,23 @@
         },
         {
           "check": "coverage",
-          "severity": "SKIPPED",
-          "message": "no prior state — first run for this source",
-          "details": {}
+          "severity": "PASS",
+          "message": "series coverage holds: 132→132 distinct series_id (limit 20%)",
+          "details": {
+            "before": 132,
+            "after": 132
+          }
         },
         {
           "check": "shrinkage",
-          "severity": "SKIPPED",
-          "message": "no prior state — first run for this source",
-          "details": {}
+          "severity": "PASS",
+          "message": "history intact: rows 6072→6072 / days 92→92",
+          "details": {
+            "rows_before": 6072,
+            "rows_after": 6072,
+            "days_before": 92,
+            "days_after": 92
+          }
         },
         {
           "check": "divergence",

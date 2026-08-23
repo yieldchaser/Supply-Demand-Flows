@@ -11,6 +11,7 @@ Each detector:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
@@ -166,8 +167,15 @@ def detect_rig_reversal(threshold_rigs: int = 20) -> dict[str, str] | None:
 
 def run_all_detectors() -> list[dict[str, str]]:
     """Run all detectors, return list of events that fired."""
+    # Explicit Callable annotation: without it mypy infers the list element
+    # type as plain `object` (mixed inferred callable types) and flags the
+    # call site with "Cannot call function of unknown type" under --strict.
+    detectors: list[Callable[[], dict[str, str] | None]] = [
+        detect_storage_print,
+        detect_rig_reversal,
+    ]
     events: list[dict[str, str]] = []
-    for detector in [detect_storage_print, detect_rig_reversal]:
+    for detector in detectors:
         try:
             result = detector()
             if result:
