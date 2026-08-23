@@ -1,0 +1,43 @@
+### gulf_south (boardwalk)
+
+- raw rows parsed: 205,387 across 269 cycle files
+- dimensions in source: loc, cycle, flow_ind, loc_purp_desc, loc_qti_desc, meas_basis, IT flags
+- series_id encodes: loc + cycle + metric-kind. **DROPPED: flow_ind** (and loc_purp which mirrors it)
+- distinct (series_id, period) keys: 369,674
+- keys with >1 raw row mapping in: **24,924**
+- of those, keys where the colliding values DIFFER (silent overwrite): **15,991**
+- worst offenders:
+  - `gulf_south_sq_23337_id1` @ 2026-05-25: 2 distinct values [0.0, 25551.0]
+  - `gulf_south_oac_23337_id1` @ 2026-05-25: 2 distinct values [3000.0, 54449.0]
+  - `gulf_south_sq_23350_id1` @ 2026-05-25: 2 distinct values [4900.0, 12012.0]
+  - `gulf_south_oac_23350_id1` @ 2026-05-25: 2 distinct values [406428.0, 413540.0]
+  - `gulf_south_sq_23351_id1` @ 2026-05-25: 2 distinct values [0.0, 75578.0]
+- affected meters (locs with collisions): 50
+
+### quorum
+
+- rows: 116,858 | distinct series_id: 110 | window 2021-03-15 → 2026-08-23
+- sample names: ['Quorum OAC ANR/TCPL MERMENTAU RIVER (ID2)', 'Quorum OAC ANR/TCPL MERMENTAU RIVER (ID3)', 'Quorum OAC BRL/TCPL MERMENTAU RIVER (ID2)']
+- dims note: series_id = {pipe_prefix}_{kind}_{loc}_{cycle}; source OAC rows keyed by loc+cycle+flow_ind — flow_ind/purpose not visible in curated names
+- duplicate (series_id, period) keys in curated: **0** (dedup already collapsed whatever collided upstream)
+
+### gasnom
+
+- rows: 53,360 | distinct series_id: 610 | window 2026-05-25 → 2026-08-22
+- sample names: ['Cameron Interstate Pipeline OAC Florida Gas Transmission (EVENING)', 'Cameron Interstate Pipeline OAC Florida Gas Transmission (ID1)', 'Cameron Interstate Pipeline OAC Florida Gas Transmission (ID2)']
+- dims note: same template as quorum ({pipe}_{kind}_{loc}_{cycle}); Golden Pass/Cameron interconnects
+- duplicate (series_id, period) keys in curated: **0** (dedup already collapsed whatever collided upstream)
+
+### bhe
+
+- rows: 2,508 | distinct series_id: 15 | window 2024-12-31 → 2026-08-23
+- sample names: ['EGTS OAC EGTS - LOUDOUN (ID3)', 'EGTS Operating Capacity EGTS - LOUDOUN (ID3)', 'EGTS OAC EGTS - LOUDOUN (ID3)']
+- dims note: egts_{sq|oac|opcap}_{loc}_{cycle}; EGTS CSV carries flow_ind + Interconnect Party Name — filter selects Cove Point R-leg only by construction, but opcap/sq of OTHER shippers at 40704 are dropped silently
+- duplicate (series_id, period) keys in curated: **0** (dedup already collapsed whatever collided upstream)
+
+### cheniere
+
+- rows: 6,072 | distinct series_id: 132 | window 2026-05-24 → 2026-08-23
+- sample names: ['Corpus Christi Design CC100221-CORPUS CHRISTI-CCLIQ-R (Intraday 3)', 'Corpus Christi Design CC108011-TAFT RECEIPT-R (Intraday 3)', 'Corpus Christi Design CC121033-TGP-SINTON-R (Intraday 3)']
+- dims note: {creole_trail|corpus_christi}_{oac|sq|design}_{loc}_{cycle}; API returns one row per loc/cycle/flow_ind — flow_ind folded into loc suffix (…-R), so no collision observed
+- duplicate (series_id, period) keys in curated: **0** (dedup already collapsed whatever collided upstream)

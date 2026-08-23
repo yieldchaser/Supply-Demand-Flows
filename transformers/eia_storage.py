@@ -24,6 +24,7 @@ import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -63,7 +64,7 @@ _FALLBACK_DUOAREA: dict[str, str] = {
 }
 
 
-def _region_for(row: dict) -> str | None:
+def _region_for(row: dict[str, Any]) -> str | None:
     """Resolve the region label from `series`, falling back to `duoarea`+process.
 
     Why:
@@ -94,7 +95,7 @@ def _series_slug(region: str) -> str:
     return f"storage_{slug}"
 
 
-def transform(raw_json_path: Path, curated_parquet_path: Path) -> dict:
+def transform(raw_json_path: Path, curated_parquet_path: Path) -> dict[str, Any]:
     """Transform EIA storage raw JSON to curated long-format Parquet.
 
     What:
