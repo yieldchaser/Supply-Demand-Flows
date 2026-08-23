@@ -1,0 +1,111 @@
+{
+  "gator_express": {
+    "tenant": "VGPPB1IPWS",
+    "tsp_no": 2,
+    "series_prefix": "gator_express",
+    "terminal": "Plaquemines LNG",
+    "nameplate_design_capacity_dth": 3940000,
+    "meters": [
+      {
+        "loc_id": "VGPQD",
+        "loc_name": "VENTURE GLOBAL PLAQUEMINES LNG DELIVERY",
+        "loc_purp": "MQ",
+        "flow_ind": "D",
+        "role": "lng_feedgas",
+        "confidence": "high",
+        "design_capacity_dth": 3940000,
+        "note": "THE feedgas signal — delivery into Plaquemines LNG. Upstream receipts (TGP/TETCO/CGT) supply the lateral, not the terminal; PAYBACKGXP is system balancing and is excluded from feedgas math."
+      },
+      {
+        "loc_id": "TGP",
+        "loc_name": "TGP/GXP GATOR EXPRESS",
+        "loc_purp": "M2",
+        "flow_ind": "R",
+        "role": "upstream_receipt",
+        "confidence": "medium",
+        "note": "Supply INTO the lateral from Tennessee Gas Pipeline — not terminal feed."
+      },
+      {
+        "loc_id": "TETCO",
+        "loc_name": "TETCO/GXP GATOR EXPRESS",
+        "loc_purp": "M2",
+        "flow_ind": "R",
+        "role": "upstream_receipt",
+        "confidence": "medium",
+        "note": "Supply INTO the lateral from Texas Eastern — not terminal feed."
+      },
+      {
+        "loc_id": "CGT",
+        "loc_name": "CGT/GXP GATOR EXPRESS",
+        "loc_purp": "M2",
+        "flow_ind": "R",
+        "role": "upstream_receipt",
+        "confidence": "medium",
+        "note": "Supply INTO the lateral from Columbia Gulf — not terminal feed."
+      },
+      {
+        "loc_id": "PAYBACKGXP",
+        "loc_name": "SYSTEM BALANCING",
+        "loc_purp": "M2",
+        "flow_ind": "R",
+        "role": "system_balancing",
+        "confidence": "excluded",
+        "note": "Payback/balancing meter — exclude from feedgas analytics."
+      }
+    ]
+  },
+  "trans_cameron": {
+    "tenant": "VGPPB1IPWS",
+    "tsp_no": 10,
+    "series_prefix": "trans_cameron",
+    "terminal": "Calcasieu Pass LNG",
+    "nameplate_design_capacity_dth": 2125000,
+    "meters": [
+      {
+        "loc_id": "VGCPD",
+        "loc_name": "VENTURE GLOBAL CALCASIEU PASS DELIVERY",
+        "loc_purp": "MQ",
+        "flow_ind": "D",
+        "role": "lng_feedgas",
+        "confidence": "high",
+        "design_capacity_dth": 2125000,
+        "note": "Feedgas signal for Calcasieu Pass. Same discipline as VGPQD: upstream receipts (ANR/BRL/TTC) are lateral supply, not terminal feed."
+      },
+      {
+        "loc_id": "ANR",
+        "loc_name": "ANR/TCPL MERMENTAU RIVER",
+        "loc_purp": "M2",
+        "flow_ind": "R",
+        "role": "upstream_receipt",
+        "confidence": "medium",
+        "note": "Supply INTO the lateral from ANR — not terminal feed."
+      },
+      {
+        "loc_id": "BRL",
+        "loc_name": "BRL/TCPL MERMENTAU RIVER",
+        "loc_purp": "M2",
+        "flow_ind": "R",
+        "role": "upstream_receipt",
+        "confidence": "medium",
+        "note": "Supply INTO the lateral from Bridgerline — not terminal feed."
+      },
+      {
+        "loc_id": "TTC",
+        "loc_name": "TTC/TCPL OAK GROVE CAMERON PARISH LA",
+        "loc_purp": "M2",
+        "flow_ind": "R",
+        "role": "upstream_receipt",
+        "confidence": "medium",
+        "note": "Supply INTO the lateral from Tennessee (TCPL interconnect) — not terminal feed."
+      }
+    ]
+  },
+  "_meta": {
+    "schema_version": 1,
+    "created_at": "2026-08-23T00:00:00Z",
+    "source_endpoint": "https://web-prd.myquorumcloud.com/VGPPB1IPWS/OpAvailPosting/ExportToCSV?CycleId=&GasDay=YYYY-MM-DD&LocId=&TspNo={N}",
+    "dead_tenant_warning": "VGPPA1IPWS returns HTTP 503 — never use it.",
+    "naming_discipline": "Only Loc Purp=MQ + Flow Ind=D meters are terminal feedgas; M2/R meters are upstream receipts; PAYBACK* is system balancing.",
+    "total_locations_seen": 9
+  }
+}
