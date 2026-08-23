@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-23T14:46:02.416591+00:00",
-  "overall": "WARN",
+  "generated_at": "2026-08-23T16:22:07.132194+00:00",
+  "overall": "FAIL",
   "sources": {
     "gulf_south": {
-      "overall": "PASS",
+      "overall": "FAIL",
       "results": [
         {
           "check": "schema",
@@ -60,10 +60,13 @@
         },
         {
           "check": "divergence",
-          "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 45h ago and dataset consistent (stale 1d, resolved 2026-08-22, warn 2d / fail 4d)",
+          "severity": "FAIL",
+          "message": "DIVERGENCE: scraper 'ok' 46h ago but dataset degraded — accumulation row count flat 3 consecutive runs at 192704 rows",
           "details": {
-            "stale_days": 1
+            "reasons": [
+              "accumulation row count flat 3 consecutive runs at 192704 rows"
+            ],
+            "health_age_hours": 46.4
           }
         }
       ],
@@ -130,7 +133,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 5h ago and dataset consistent (stale 2d, resolved 2026-08-21, warn 3d / fail 6d)",
+          "message": "no divergence: scraper 'ok' 7h ago and dataset consistent (stale 2d, resolved 2026-08-21, warn 3d / fail 6d)",
           "details": {
             "stale_days": 2
           }
@@ -199,9 +202,9 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 19h ago and dataset consistent (stale 2d, resolved 2026-08-21, warn 9d / fail 18d)",
+          "message": "no divergence signal: health already reports 'failed' — plain stagnation covers the outage",
           "details": {
-            "stale_days": 2
+            "status": "failed"
           }
         }
       ],
@@ -268,7 +271,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 23h ago and dataset consistent (stale 9d, resolved 2026-08-14, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 9d, resolved 2026-08-14, warn 9d / fail 18d)",
           "details": {
             "stale_days": 9
           }
@@ -336,10 +339,10 @@
         },
         {
           "check": "divergence",
-          "severity": "SKIPPED",
-          "message": "health stamp 17.9d old exceeds recency window 3d — it cannot vouch for today's dataset",
+          "severity": "PASS",
+          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 114d, resolved 2026-05-01, warn 45d / fail 135d)",
           "details": {
-            "age_days": 17.87
+            "stale_days": 114
           }
         }
       ],
@@ -405,10 +408,10 @@
         },
         {
           "check": "divergence",
-          "severity": "SKIPPED",
-          "message": "health stamp 21.9d old exceeds recency window 3d — it cannot vouch for today's dataset",
+          "severity": "PASS",
+          "message": "no divergence signal: health already reports 'failed' — plain stagnation covers the outage",
           "details": {
-            "age_days": 21.95
+            "status": "failed"
           }
         }
       ],
@@ -416,6 +419,246 @@
         "rows": 462,
         "days": 77,
         "latest": "2026-05"
+      }
+    },
+    "gasnom": {
+      "overall": "PASS",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 53360 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "details": {
+            "rows": 53360
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 53360 row(s) scanned, 0 within 0 band(s), 0 breaches",
+          "details": {
+            "rows": 53360,
+            "banded_scanned": 0
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "PASS",
+          "message": "dataset fresh: newest period 2026-08-22 is 1d old (warn 2d / fail 4d)",
+          "details": {
+            "stale_days": 1
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "SKIPPED",
+          "message": "no gap_rule configured",
+          "details": {}
+        },
+        {
+          "check": "coverage",
+          "severity": "SKIPPED",
+          "message": "no prior state — first run for this source",
+          "details": {}
+        },
+        {
+          "check": "shrinkage",
+          "severity": "SKIPPED",
+          "message": "no prior state — first run for this source",
+          "details": {}
+        },
+        {
+          "check": "divergence",
+          "severity": "PASS",
+          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 1d, resolved 2026-08-22, warn 2d / fail 4d)",
+          "details": {
+            "stale_days": 1
+          }
+        }
+      ],
+      "stats": {
+        "rows": 53360,
+        "days": 90,
+        "latest": "2026-08-22"
+      }
+    },
+    "quorum": {
+      "overall": "PASS",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 116858 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "details": {
+            "rows": 116858
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 116858 row(s) scanned, 116858 within 1 band(s), 0 breaches",
+          "details": {
+            "rows": 116858,
+            "banded_scanned": 116858
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "PASS",
+          "message": "dataset fresh: newest period 2026-08-23 is 0d old (warn 2d / fail 4d)",
+          "details": {
+            "stale_days": 0
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "SKIPPED",
+          "message": "no gap_rule configured",
+          "details": {}
+        },
+        {
+          "check": "coverage",
+          "severity": "SKIPPED",
+          "message": "no prior state — first run for this source",
+          "details": {}
+        },
+        {
+          "check": "shrinkage",
+          "severity": "SKIPPED",
+          "message": "no prior state — first run for this source",
+          "details": {}
+        },
+        {
+          "check": "divergence",
+          "severity": "PASS",
+          "message": "no divergence: scraper 'ok' 2h ago and dataset consistent (stale 0d, resolved 2026-08-23, warn 2d / fail 4d)",
+          "details": {
+            "stale_days": 0
+          }
+        }
+      ],
+      "stats": {
+        "rows": 116858,
+        "days": 1985,
+        "latest": "2026-08-23"
+      }
+    },
+    "bhe": {
+      "overall": "PASS",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 2505 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "details": {
+            "rows": 2505
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 2505 row(s) scanned, 2505 within 1 band(s), 0 breaches",
+          "details": {
+            "rows": 2505,
+            "banded_scanned": 2505
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "PASS",
+          "message": "dataset fresh: newest period 2026-08-23 is 0d old (warn 2d / fail 4d)",
+          "details": {
+            "stale_days": 0
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "SKIPPED",
+          "message": "no gap_rule configured",
+          "details": {}
+        },
+        {
+          "check": "coverage",
+          "severity": "SKIPPED",
+          "message": "no prior state — first run for this source",
+          "details": {}
+        },
+        {
+          "check": "shrinkage",
+          "severity": "SKIPPED",
+          "message": "no prior state — first run for this source",
+          "details": {}
+        },
+        {
+          "check": "divergence",
+          "severity": "SKIPPED",
+          "message": "no health payload available",
+          "details": {}
+        }
+      ],
+      "stats": {
+        "rows": 2505,
+        "days": 601,
+        "latest": "2026-08-23"
+      }
+    },
+    "cheniere": {
+      "overall": "PASS",
+      "results": [
+        {
+          "check": "schema",
+          "severity": "PASS",
+          "message": "schema ok: 6072 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "details": {
+            "rows": 6072
+          }
+        },
+        {
+          "check": "value_sanity",
+          "severity": "PASS",
+          "message": "value sanity ok: 6072 row(s) scanned, 6072 within 1 band(s), 0 breaches",
+          "details": {
+            "rows": 6072,
+            "banded_scanned": 6072
+          }
+        },
+        {
+          "check": "stagnation",
+          "severity": "PASS",
+          "message": "dataset fresh: newest period 2026-08-23 is 0d old (warn 2d / fail 4d)",
+          "details": {
+            "stale_days": 0
+          }
+        },
+        {
+          "check": "gaps",
+          "severity": "SKIPPED",
+          "message": "no gap_rule configured",
+          "details": {}
+        },
+        {
+          "check": "coverage",
+          "severity": "SKIPPED",
+          "message": "no prior state — first run for this source",
+          "details": {}
+        },
+        {
+          "check": "shrinkage",
+          "severity": "SKIPPED",
+          "message": "no prior state — first run for this source",
+          "details": {}
+        },
+        {
+          "check": "divergence",
+          "severity": "SKIPPED",
+          "message": "no health payload available",
+          "details": {}
+        }
+      ],
+      "stats": {
+        "rows": 6072,
+        "days": 92,
+        "latest": "2026-08-23"
       }
     }
   }

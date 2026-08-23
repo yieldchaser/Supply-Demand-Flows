@@ -88,23 +88,59 @@ sources:
     month_end_normalize: true  # snap bare months to month-end before ageing
     period_format: "%Y-%m"   # periods arrive as bare months, e.g. "2026-07"
 
-  # ---- placeholders - uncomment when the scraper lands -------------------
-  # gasnom:
-  #   parquet: data/curated/gasnom.parquet
-  #   health_file: data/health/gasnom.json
-  #   staleness: {warn_days: 2, fail_days: 4}  # daily EBB, staleness warn 2 fail 4
-  #
-  # quorum:
-  #   parquet: data/curated/quorum.parquet
-  #   health_file: data/health/quorum.json
-  #   staleness: {warn_days: 2, fail_days: 4}  # daily EBB, staleness warn 2 fail 4
-  #
-  # bhe:
-  #   parquet: data/curated/bhe.parquet
-  #   health_file: data/health/bhe.json
-  #   staleness: {warn_days: 2, fail_days: 4}  # daily EBB, staleness warn 2 fail 4
-  #
-  # cheniere:
-  #   parquet: data/curated/cheniere.parquet
-  #   health_file: data/health/cheniere.json
-  #   staleness: {warn_days: 2, fail_days: 4}  # daily EBB, staleness warn 2 fail 4
+  # ---- EBB daily sources (scrapers landed 2026-08-23 integration) --------
+
+  gasnom:
+    parquet: data/curated/gasnom.parquet
+    # GasNom writes one health file per pipeline; Golden Pass vouches for
+    # the dataset (largest, most complete pipe of the four).
+    health_file: data/health/gasnom_goldenpass.json
+    staleness: {warn_days: 2, fail_days: 4}  # daily EBB
+    unit_expected: Dth/d
+    mode: accumulation
+
+  quorum:
+    parquet: data/curated/quorum.parquet
+    health_file: data/health/quorum.json
+    staleness: {warn_days: 2, fail_days: 4}  # daily EBB
+    unit_expected: Dth/d
+    mode: accumulation
+    # NO gap_rule: the tenant has retention HOLES (e.g. 2025-03-27 serves
+    # empty for both TSPs while older days return data) — single-day gaps
+    # are upstream reality, not ingestion failures.
+    # negative_values_fail stays unset: operator posts genuine negative TSQ
+    # adjustments (BRL -5,000 on 2023-02-23).
+    bands:
+      - label: vg_feedgas_and_receipts
+        series_glob: "*"       # all quorum series (sq + oac, both pipes)
+        min: -100000.0         # headroom for payback adjustments below zero
+        max: 6000000.0         # above observed max 4,392,777 (design 3.94M)
+
+  bhe:
+    parquet: data/curated/bhe.parquet
+    health_file: data/health/bhe.json   # created by CI on first scheduled run
+    staleness: {warn_days: 2, fail_days: 4}  # daily EBB
+    unit_expected: Dth/d
+    mode: accumulation
+    # Zeros are LEGITIMATE here: Cove Point flow is cargo-driven, so flat
+    # zero days are real operating state, never flagged.
+    bands:
+      - label: cove_point_capacity
+        series_glob: "*"
+        min: 0.0              # inclusive floor — zero flow is legitimate
+        max: 1000000.0        # above observed max 741,280
+
+  cheniere:
+    parquet: data/curated/cheniere.parquet
+    health_file: data/health/cheniere.json  # created by CI on first run
+    staleness: {warn_days: 2, fail_days: 4}  # daily EBB
+    unit_expected: Dth/d
+    mode: accumulation
+    # Cheniere posts CAPACITY (OAC), not scheduled flow — bands sized to
+    # nameplate-style magnitudes, not nomination volumes.
+    # negative_values_fail stays unset: observed min -94,704 is operator-posted.
+    bands:
+      - label: creole_trail_corpus_christi_oac
+        series_glob: "*"
+        min: -200000.0        # payback/recycle adjustments below zero
+        max: 4000000.0        # above observed max 2,750,000
