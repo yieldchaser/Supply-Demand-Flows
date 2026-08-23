@@ -1,0 +1,15 @@
+{
+  "source": "gasnom_portarthurpipeline",
+  "status": "ok",
+  "timestamp_utc": "2026-08-23T14:53:15Z",
+  "error": null,
+  "metadata": {
+    "slug": "portarthurpipeline",
+    "fetched_files": 241,
+    "skipped_existing": 1,
+    "range": [
+      "2026-06-08",
+      "2026-08-22"
+    ]
+  }
+}

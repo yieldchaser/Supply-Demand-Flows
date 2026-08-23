@@ -1,0 +1,111 @@
+name: BHE GT&S Cove Point (4× daily)
+
+on:
+  schedule:
+    # All times UTC. EGTS posts OAC per NAESB cycle (Eastern Time):
+    #   Timely:  ~2:00 PM ET → 19:00 UTC (+1h buffer)
+    - cron: '0 20 * * *'
+    #   Evening: ~9:00 PM ET → 02:00 UTC (+30m buffer)
+    - cron: '30 3 * * *'
+    #   Intraday 1: ~1:30 PM ET next day → 18:30 UTC
+    - cron: '30 18 * * *'
+    #   Intraday 3 (final): ~9:40 PM ET next day → 02:40 UTC (+1h buffer)
+    - cron: '40 3 * * *'
+  workflow_dispatch:
+    inputs:
+      begin_date:
+        description: 'Begin date (YYYY-MM-DD, optional — omit for today)'
+        required: false
+        type: string
+      end_date:
+        description: 'End date (YYYY-MM-DD, optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bhe-${{ github.event.schedule || 'dispatch' }}
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    name: Fetch and commit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Determine gas day window
+        id: window
+        run: |
+          BEGIN="${{ inputs.begin_date }}"
+          END="${{ inputs.end_date }}"
+          if [ -z "$BEGIN" ]; then BEGIN=$(date -u -d 'yesterday' +%Y-%m-%d); fi
+          if [ -z "$END" ]; then END=$(date -u +%Y-%m-%d); fi
+          echo "begin_date=$BEGIN" >> $GITHUB_OUTPUT
+          echo "end_date=$END" >> $GITHUB_OUTPUT
+          echo "Window: $BEGIN → $END"
+
+      - name: Run BHE GT&S scraper
+        id: scrape
+        run: |
+          python -m scrapers.bhe.client \
+            ${{ steps.window.outputs.begin_date }} \
+            ${{ steps.window.outputs.end_date }} \
+          | tee /tmp/scraper_output.json
+          STATUS=$(python -c "import json; print(json.load(open('/tmp/scraper_output.json'))['status'])")
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+
+      - name: Transform raw → curated
+        if: steps.scrape.outputs.status == 'ok'
+        run: python -m transformers.bhe
+
+      - name: Commit
+        if: steps.scrape.outputs.status == 'ok'
+        env:
+          BEGIN: ${{ steps.window.outputs.begin_date }}
+          END: ${{ steps.window.outputs.end_date }}
+        run: |
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          git add data/health/bhe.json || true
+          git add data/curated/bhe.parquet || true
+          if ! git diff --cached --quiet; then
+            git commit -m "data(bhe): Cove Point via EGTS ${BEGIN}..${END}"
+            for i in {1..5}; do
+              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
+            done
+          fi
+
+      - name: Report skip
+        if: steps.scrape.outputs.status == 'skipped'
+        run: echo "Staleness gate held — already have ${BEGIN}..${END}"
+
+      - name: Report failure
+        if: steps.scrape.outputs.status == 'failed' || failure()
+        run: |
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          git add data/health/bhe.json || true
+          if ! git diff --cached --quiet; then
+            git commit -m "data(bhe): health update (failure recorded)"
+            for i in {1..5}; do
+              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
+            done
+          fi
+          exit 1
