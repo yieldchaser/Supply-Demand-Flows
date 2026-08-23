@@ -62,6 +62,16 @@ Supply-Demand-Flows/
 └── tests/              # Pytest suite for ingestion and transformation pipelines
 ```
 
+## Parallel-Agent Workflow Policy
+
+Multiple AI agents work in this repository. **Each agent MUST use its own
+clone or `git worktree` — never a single shared working tree.** On
+2026-08-23 two agents sharing one checkout switched branches under each
+other mid-run: commits landed on the wrong branch, background jobs died
+when files vanished from disk, and integration required SHA-level forensic
+reconciliation. Separate clones/worktrees make this class of incident
+structurally impossible.
+
 ## Ecosystem
 Blue Tide is part of a broader intelligence suite:
 - **Blue Meridian**: Strategic regional analysis
