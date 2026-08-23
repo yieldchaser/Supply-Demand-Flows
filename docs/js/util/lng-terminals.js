@@ -47,6 +47,7 @@ export const LNG_TERMINALS = {
     source: 'gulf_south',
     seriesPrefix: 'gulf_south',
     loc: '24329',
+    flow: 'd',
     locName: 'Stratton Ridge (To Freeport Lng)',
     nameplate: 2100,
     signal: 'sq',
@@ -64,6 +65,7 @@ export const LNG_TERMINALS = {
     source: 'quorum',
     seriesPrefix: 'gator_express',
     loc: 'vgpqd',
+    flow: 'd',
     locName: 'Venture Global Plaquemines LNG Delivery (VGPQD)',
     nameplate: 3400,
     signal: 'sq',
@@ -81,6 +83,7 @@ export const LNG_TERMINALS = {
     source: 'quorum',
     seriesPrefix: 'trans_cameron',
     loc: 'vgcpd',
+    flow: 'd',
     locName: 'Venture Global Calcasieu Pass Delivery (VGCPD)',
     nameplate: 1300,
     signal: 'sq',
@@ -98,6 +101,7 @@ export const LNG_TERMINALS = {
     source: 'gasnom',
     seriesPrefix: 'golden_pass',
     loc: '1097217',
+    flow: 'd',   // D leg = real ramp (R leg is 0 across all 90 days)
     locName: 'Golden Pass Terminal (delivery meter)',
     nameplate: 2600,
     signal: 'sq',
@@ -115,6 +119,7 @@ export const LNG_TERMINALS = {
     source: 'gasnom',
     seriesPrefix: 'cameron_interstate',
     loc: '772300',
+    flow: 'd',
     locName: 'Cameron LNG (Del)',
     nameplate: 2000,
     signal: 'sq',
@@ -132,6 +137,7 @@ export const LNG_TERMINALS = {
     source: 'bhe',
     seriesPrefix: 'egts',
     loc: '40704',
+    flow: 'd',   // D leg carries cargo volumes; R leg ~0 (config legacy said R — corrected)
     locName: 'EGTS – Loudoun (Cove Point LNG LP interconnect)',
     nameplate: 750,
     signal: 'sq',
@@ -140,7 +146,7 @@ export const LNG_TERMINALS = {
     platformNote:
       'Cove Point (BHE GT&S EBB) posts all five NAESB cycles. Zeros are legitimate — cargo-driven facility.',
     methodLine:
-      'TSQ at EGTS–Loudoun (loc 40704, receipt from Cove Point LNG LP) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Zeros = no cargo activity',
+      'TSQ at EGTS–Loudoun (loc 40704, Cove Point LNG LP interconnect, delivery leg) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Zeros = no cargo activity',
   },
 
   sabine_pass: {
@@ -149,6 +155,7 @@ export const LNG_TERMINALS = {
     source: 'cheniere',
     seriesPrefix: 'creole_trail',
     loc: 'CT200111',
+    flow: 'd',
     locName: 'Creole Trail – SPLIQ delivery interconnect',
     nameplate: 4500,
     signal: 'oac-proxy',
@@ -166,7 +173,8 @@ export const LNG_TERMINALS = {
     source: 'cheniere',
     seriesPrefix: 'corpus_christi',
     loc: 'CC100221',
-    locName: 'Corpus Christi – CCLIQ receipt interconnect',
+    flow: 'd',
+    locName: 'Corpus Christi – CCLIQ delivery interconnect (CC200221 class)',
     nameplate: 2400,
     signal: 'oac-proxy',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
@@ -216,27 +224,31 @@ export const FLEET_PROXY_EXCLUSIONS = ['sabine_pass', 'corpus_christi'];
  *
  * @param {LngTerminal} t
  * @returns {{sqPrefix: string|null, kindPrefixes: Object<string, string>|null}}
- *   sqPrefix  — prefix for direct-SQ terminals ("{prefix}_sq_{loc}_")
+ *   sqPrefix  — prefix for direct-SQ terminals ("{prefix}_sq_{loc}_{flow}_")
  *   kindPrefixes — map of kind -> prefix for oac-proxy terminals
  */
 export function terminalSeriesPrefixes(t) {
   if (!t.source || !t.seriesPrefix || !t.loc) return { sqPrefix: null, kindPrefixes: null };
-  // Series layout is "{prefix}_{kind}_{loc}_{cycle}" (e.g.
-  // gator_express_sq_vgpqd_id3, creole_trail_design_CT200111_timely).
+  // Series layout (post dual-leg fix) is
+  //   "{prefix}_{kind}_{loc}_{flow}_{cycle}"  with flow ∈ r|d
+  // e.g. gator_express_sq_vgpqd_d_id3, creole_trail_design_CT200111_r_timely.
   // Loc tokens are lowercased in curated ids (CT200111 -> ct200111).
+  // The registry's `flow` field selects WHICH leg is the feedgas signal:
+  // delivery-side meters read 'd', receipt-side meters 'r'.
   const loc = String(t.loc).toLowerCase();
+  const flow = t.flow || 'd';
   if (t.signal === 'oac-proxy') {
     return {
       sqPrefix: null,
       kindPrefixes: {
-        sq: `${t.seriesPrefix}_sq_${loc}_`,
-        oac: `${t.seriesPrefix}_oac_${loc}_`,
-        design: `${t.seriesPrefix}_design_${loc}_`,
-        opcap: `${t.seriesPrefix}_opcap_${loc}_`,
+        sq: `${t.seriesPrefix}_sq_${loc}_${flow}_`,
+        oac: `${t.seriesPrefix}_oac_${loc}_${flow}_`,
+        design: `${t.seriesPrefix}_design_${loc}_${flow}_`,
+        opcap: `${t.seriesPrefix}_opcap_${loc}_${flow}_`,
       },
     };
   }
-  return { sqPrefix: `${t.seriesPrefix}_sq_${loc}_`, kindPrefixes: null };
+  return { sqPrefix: `${t.seriesPrefix}_sq_${loc}_${flow}_`, kindPrefixes: null };
 }
 
 /**
