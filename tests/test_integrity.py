@@ -456,6 +456,11 @@ class TestShippedRules:
             "eia_storage",
             "eia_lng_exports",
             "eia_supply",
+            "gasnom",
+            "quorum",
+            "bhe",
+            "cheniere",
+            "enbridge",
         }
 
     def test_gulf_south_rules(self, rules: dict[str, Any]) -> None:
@@ -476,7 +481,23 @@ class TestShippedRules:
         assert rules["sources"]["eia_supply"]["period_format"] == "%Y-%m"
 
     def test_placeholders_stay_commented_out(self, rules: dict[str, Any]) -> None:
-        assert not {"gasnom", "quorum", "bhe", "cheniere"} & set(rules["sources"])
+        # gasnom/quorum/bhe/cheniere were promoted to active stanzas in
+        # 271d8f0 (and enbridge in the TETCO integration); the remaining
+        # shipped-but-disabled placeholders must stay out of `sources`.
+        active = set(rules["sources"])
+        assert active == {
+            "gulf_south",
+            "gie_agsi",
+            "baker_hughes",
+            "eia_storage",
+            "eia_lng_exports",
+            "eia_supply",
+            "gasnom",
+            "quorum",
+            "bhe",
+            "cheniere",
+            "enbridge",
+        }
 
 
 # ------------------------------------------------------------ render_table
