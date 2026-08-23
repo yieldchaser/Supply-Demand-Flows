@@ -13,18 +13,23 @@ Schema out (canonical Blue Tide):
     ingested_at : UTC ISO-8601
 
 Deduplication:
-    Within a batch, rows from every raw file are stacked, sorted by the
-    posting timestamp and deduped on (series_id, period) keeping the latest.
-    The batch is then accumulated into the curated history via
-    ``merge_into_curated`` (shrinkage-guarded, atomic) so re-scrapes update
-    past gas days rather than duplicate them.  Overwriting the curated
-    parquet is a hard-fail bug; this module must never ``to_parquet`` directly.
+    A location may post BOTH a receipt (R) and a delivery (D) row in the same
+    cycle (Golden Pass Terminal does); the frozen (loc, cycle) series key
+    holds one value per flow direction, so the delivery row wins the slot
+    deterministically — it carries the physical scheduled volume INTO the
+    downstream point.  Within a batch, rows from every raw file are stacked,
+    sorted by (delivery preference, posting time) and deduped on
+    (series_id, period) keeping the preferred/latest.  The batch is then
+    accumulated into the curated history via ``merge_into_curated``
+    (shrinkage-guarded, atomic) so re-scrapes update past gas days rather
+    than duplicate them.  Overwriting the curated parquet is a hard-fail
+    bug; this module must never ``to_parquet`` directly.
 """
 
 from __future__ import annotations
 
-import contextlib
 import logging
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -53,13 +58,17 @@ def _parse_posting_time(raw: str) -> datetime:
         earliest and lose dedup contests instead of winning them.
     """
     text = (raw or "").strip()
+    # Trailing timezone labels ("CT", "CST", …) are display hints, not data —
+    # the site's clock is Central regardless; strip them before parsing.
+    text = re.sub(r"\s+[A-Z]{2,4}$", "", text)
     if not text:
         return datetime.min.replace(tzinfo=UTC)
     for fmt in (
         "%m/%d/%Y %I:%M:%S %p",
+        "%m/%d/%Y %I:%M %p",
         "%m/%d/%Y %H:%M:%S",
-        "%B %d, %Y %I:%M %p",
         "%B %d, %Y %I:%M:%S %p",
+        "%B %d, %Y %I:%M %p",
     ):
         try:
             return datetime.strptime(text, fmt).replace(tzinfo=UTC)
@@ -69,6 +78,29 @@ def _parse_posting_time(raw: str) -> datetime:
         return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return datetime.min.replace(tzinfo=UTC)
+
+
+def _to_float(raw: Any) -> float | None:
+    """Normalize a quantity string to float WITHOUT any unit conversion.
+
+    Why:
+        The HTML view renders quantities with thousands separators
+        ("185,339", "2,609,561") while the bulk TSV is plain ("185339");
+        both must parse to the same raw number.  Commas are formatting,
+        not data — stripping them never changes the value.
+
+    Failure modes:
+        Returns ``None`` for blank/non-numeric input; callers skip the row.
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip().replace(",", "")
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
 
 
 def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
@@ -111,29 +143,28 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
             "region": "US",
             "ingested_at": ingested_at,
             "_posted_at": posted_dt,
+            "_flow_ind": str(row.get("flow_ind") or "").strip().upper(),
         }
 
-        tsq_raw = row.get("tsq")
-        if tsq_raw not in (None, ""):
-            with contextlib.suppress(TypeError, ValueError):
-                out.append({
-                    **common,
-                    "series_id": f"{prefix}_sq_{loc}_{cycle_code}",
-                    "series_name": f"{_display_name(prefix)} TSQ {loc_name} ({cycle_code.upper()})",
-                    "value": float(tsq_raw),
-                    "unit": "Dth/d",
-                })
+        tsq_val = _to_float(row.get("tsq"))
+        if tsq_val is not None:
+            out.append({
+                **common,
+                "series_id": f"{prefix}_sq_{loc}_{cycle_code}",
+                "series_name": f"{_display_name(prefix)} TSQ {loc_name} ({cycle_code.upper()})",
+                "value": tsq_val,
+                "unit": "Dth/d",
+            })
 
-        oac_raw = row.get("oac")
-        if oac_raw not in (None, ""):
-            with contextlib.suppress(TypeError, ValueError):
-                out.append({
-                    **common,
-                    "series_id": f"{prefix}_oac_{loc}_{cycle_code}",
-                    "series_name": f"{_display_name(prefix)} OAC {loc_name} ({cycle_code.upper()})",
-                    "value": float(oac_raw),
-                    "unit": "Dth/d",
-                })
+        oac_val = _to_float(row.get("oac"))
+        if oac_val is not None:
+            out.append({
+                **common,
+                "series_id": f"{prefix}_oac_{loc}_{cycle_code}",
+                "series_name": f"{_display_name(prefix)} OAC {loc_name} ({cycle_code.upper()})",
+                "value": oac_val,
+                "unit": "Dth/d",
+            })
 
     return out
 
@@ -193,12 +224,19 @@ def transform(
 
     df = pd.DataFrame(all_rows)
 
-    # Batch-level dedupe: keep the most recently POSTED version of each
-    # (series_id, period); merge_into_curated then re-dedupes on ingested_at.
+    # Batch-level dedupe: keep ONE row per (series_id, period).  A location
+    # may post both a receipt (R) and a delivery (D) row in the same cycle
+    # (e.g. Golden Pass Terminal); the delivery row carries the physical
+    # scheduled volume INTO the downstream point and wins the slot.  Ties on
+    # preference resolve to the most recently POSTED version.
+    # merge_into_curated then re-dedupes on ingested_at.
+    df["_pref"] = (df["_flow_ind"] != "D").astype(int)  # 0 = delivery preferred
     df = (
-        df.sort_values("_posted_at", kind="stable")
-        .drop_duplicates(subset=["series_id", "period"], keep="last")
-        .drop(columns=["_posted_at"])
+        df.sort_values(
+            ["_pref", "_posted_at"], ascending=[True, False], kind="stable"
+        )
+        .drop_duplicates(subset=["series_id", "period"], keep="first")
+        .drop(columns=["_pref", "_posted_at", "_flow_ind"])
         .reset_index(drop=True)
     )
 

@@ -527,18 +527,19 @@ def test_transformer_multi_pipeline_prefixes(tmp_path: Path) -> None:
 
 
 def test_transformer_batch_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
-    """Duplicate (series_id, period): latest Posting_Date/Time wins."""
+    """Duplicate (series_id, period): delivery rows win, then latest posting."""
     raw_dir = tmp_path / "raw"
     curated = tmp_path / "curated.parquet"
 
-    earlier_row = dict(_TERMINAL_D_ROW, tsq="100000")
-    later_row = dict(_TERMINAL_D_ROW, tsq="587431")
+    receipt_row = dict(_TERMINAL_D_ROW, flow_ind="R", tsq="100000")
+    earlier_delivery = dict(_TERMINAL_D_ROW, tsq="111111")
+    later_delivery = dict(_TERMINAL_D_ROW, tsq="587431")
     _write_raw(
         raw_dir / "a_evening.json",
         {
             "cycle": "evening",
-            "posted_at": "",
-            "data": [earlier_row],
+            "posted_at": "August 22, 2026 08:05:00 PM CT",
+            "data": [receipt_row, earlier_delivery],
         },
     )
     _write_raw(
@@ -546,7 +547,7 @@ def test_transformer_batch_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
         {
             "cycle": "evening",
             "posted_at": "August 22, 2026 09:31:03 PM CT",
-            "data": [later_row],
+            "data": [later_delivery],
         },
     )
 
@@ -554,7 +555,34 @@ def test_transformer_batch_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
     df = pd.read_parquet(curated)
     ev = df[df["series_id"] == "golden_pass_sq_1097217_evening"]
     assert len(ev) == 1
+    # Delivery beats the same-day receipt; latest posting wins between D rows.
     assert float(ev.iloc[0]["value"]) == 587431.0
+
+
+def test_transformer_receipt_only_location_keeps_receipt(tmp_path: Path) -> None:
+    """Locations with no D row (e.g. Cameron LNG Rec) keep their R value."""
+    raw_dir = tmp_path / "raw"
+    curated = tmp_path / "curated.parquet"
+    _write_raw(
+        raw_dir / "cameron_rec.json",
+        {
+            "source_slug": "cameron",
+            "series_prefix": "cameron_interstate",
+            "terminal": "cameron_lng",
+            "tsp_name": "Cameron Interstate Pipeline LLC",
+            "data": [
+                dict(_TERMINAL_D_ROW,
+                     loc_name="Cameron LNG (Rec)", loc="772296",
+                     flow_ind="R", tsq="0", oac="1500000"),
+            ],
+        },
+    )
+    transform(raw_dir=raw_dir, curated_parquet_path=curated)
+    df = pd.read_parquet(curated)
+    rec_sq = df[df["series_id"] == "cameron_interstate_sq_772296_timely"].iloc[0]
+    assert float(rec_sq["value"]) == 0.0
+    rec_oac = df[df["series_id"] == "cameron_interstate_oac_772296_timely"].iloc[0]
+    assert float(rec_oac["value"]) == 1500000.0
 
 
 def test_transformer_accumulates_without_overwrite(tmp_path: Path) -> None:

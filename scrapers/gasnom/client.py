@@ -46,7 +46,10 @@ GASNOM_BASE_URL = "https://www.gasnom.com"
 _USER_AGENT = "BlueTide/0.1 (+https://github.com/yieldchaser/Supply-Demand-Flows)"
 _TIMEOUT_SECONDS = 30.0
 
-_INCAPSULA_MARKERS: tuple[str, ...] = ("Incapsula incident ID", "_Incapsula_Resource")
+# ONLY this string indicates an actual challenge page.  Note that every
+# legitimate gasnom.com page embeds a /_Incapsula_Resource <script> tag, so
+# that substring must NOT be treated as a challenge signal.
+_INCAPSULA_MARKERS: tuple[str, ...] = ("Incapsula incident ID",)
 
 
 class GasnomWafError(HttpClientError):
