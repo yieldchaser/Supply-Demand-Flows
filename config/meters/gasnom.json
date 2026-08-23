@@ -1,0 +1,85 @@
+{
+  "gasnom": {
+    "_meta_note": "Seed meters for GASNom-hosted LNG pipelines. 'high' = name unambiguously names the LNG terminal (no regional/interconnect/industrial lookalikes). 'candidate' = plausible feedgas signal requiring live confirmation before use in terminal-level metrics.",
+    "goldenpass": {
+      "series_prefix": "golden_pass",
+      "terminal": "golden_pass_lng",
+      "nameplate_dth": 2600,
+      "high": [
+        {
+          "loc_id": 1097217,
+          "loc_name": "Terminal",
+          "flow_ind": "D",
+          "note": "LNG feedgas signal — CONFIRMED from live inventory 2026-08-23; D-side TSQ carries the scheduled volume (R-side TSQ is 0 across the full 90-day window). Design cap 2,600,910 Dth/d."
+        }
+      ],
+      "candidates": []
+    },
+    "cameron": {
+      "series_prefix": "cameron_interstate",
+      "terminal": "cameron_lng",
+      "nameplate_dth": 2000,
+      "high": [
+        {
+          "loc_id": 772300,
+          "loc_name": "Cameron LNG (Del)",
+          "flow_ind": "D",
+          "note": "CONFIRMED from live inventory 2026-08-23: delivery-meter TSQ ~1.45-1.48M Dth/d at the LNG complex."
+        }
+      ],
+      "candidates": [
+        {
+          "loc_id": 772297,
+          "loc_name": "CLNG - OSC",
+          "flow_ind": "D",
+          "note": "Constant ~93,000 Dth/d — likely an operational support/oscillation service meter, not primary feedgas."
+        }
+      ]
+    },
+    "SABINE": {
+      "series_prefix": "sabine_pipe_line",
+      "terminal": "sabine_pass_lng",
+      "nameplate_dth": 4500,
+      "high": [],
+      "candidates": [
+        {
+          "loc_id": 278925,
+          "loc_name": "TransCameron Pipeline",
+          "flow_ind": "D",
+          "note": "Only physically-plausible Cheniere/Sabine Pass link in Sabine Pipe Line's inventory (interconnect toward the TransCameron system serving the LNG complex). Flat ~500,000 Dth/d every cycle — treat as secondary feed indicator only until a direct CHENIERE-named meter appears. NO location name matches SABINE or CHENIERE in the full 90-day inventory (verified 2026-08-23); do not promote to high without one."
+        }
+      ],
+      "excluded": [
+        {
+          "pattern": "Acadian|Centana|Columbia Gulf|Enlink|Florida - Kaplan|Gulf South|HPL|Jefferson Island|KM |KMLA|KMTP|LRC/Bridgeline|Louisiana Gas System|Mayne and Mertz|NGPL|Petrofina|SONAT|Sea Robin|Tejas|Texas Gas|Trunkline|Westlake",
+          "reason": "Regional/interconnect/industrial names — no relation to the LNG terminal (Coastal Bend lesson)."
+        }
+      ]
+    },
+    "portarthurpipeline": {
+      "series_prefix": "port_arthur_pipeline",
+      "terminal": "port_arthur_lng",
+      "nameplate_dth": 1900,
+      "high": [],
+      "candidates": [
+        {
+          "loc_id": 449300,
+          "loc_name": "PAPL PALNG",
+          "flow_ind": "D",
+          "note": "Port Arthur LNG project-dedicated meter posted since gas day 2026-06-08. TSQ is 0 in every captured cycle (terminal not operational until 2027) but OAC ~2,400,000 Dth/d is already published. Empty-TSQ path must not crash; keep as candidate until nonzero flow."
+        }
+      ]
+    }
+  },
+  "_meta": {
+    "schema_version": 1,
+    "source_site": "gasnom.com (ESG-Latitude ColdFusion template)",
+    "last_inventory_run": "2026-08-23T00:00:00Z",
+    "total_locations_seen": {
+      "goldenpass": 21,
+      "cameron": 44,
+      "SABINE": 42,
+      "portarthurpipeline": 5
+    }
+  }
+}
