@@ -156,6 +156,16 @@
   margin-top: 0;
 }
 
+/* Platform limitation note (e.g. Boardwalk OAC posts ID cycles only) */
+.revisions-platform-note {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 9px;
+  line-height: 1.4;
+  font-style: italic;
+  color: var(--text-tertiary, #6b7280);
+  margin: -6px 0 10px;
+}
+
 .revisions-chart-container {
   width: 100%;
 }
@@ -221,36 +231,31 @@
   }
 }
 
-/* Title must never clip — step down size on narrow viewports */
+/* Title must never clip — let it wrap and step the size down on narrow
+   viewports. Specificity (.panel descendant) beats the base rules without
+   needing !important, so no stronger declaration can re-enable clipping. */
 @media (max-width: 480px) {
   .panel {
-    padding: var(--space-4, 16px) !important;
+    padding: var(--space-4, 16px);
   }
 
   .lng-observatory-header {
-    padding: 0 !important;
+    padding: 0;
   }
 
-  .panel-header__title {
-    font-size: 18px !important;
-    white-space: normal !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
-    word-break: break-word;
+  .panel .panel-header__title {
+    font-size: 18px;
     line-height: 1.25;
+    white-space: normal; /* wrap to two lines instead of truncating */
+    overflow-wrap: break-word;
+    overflow: visible;
+    text-overflow: clip;
   }
 
-  .panel-header__subtitle {
-    white-space: normal !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
-    word-break: break-word;
-  }
-
-  /* On very narrow screens let header stack gracefully */
-  .panel-header {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 6px !important;
+  .panel .panel-header__subtitle {
+    white-space: normal;
+    overflow-wrap: break-word;
+    overflow: visible;
+    text-overflow: clip;
   }
 }

@@ -10,8 +10,9 @@ import * as d3 from 'd3';
  *
  * @param {HTMLElement} container - container element
  * @param {Array<{cycle: string, value: number}>} cycleData - list of cycle items sorted chronologically
+ * @param {{platformNote?: string}} [opts] - optional rendering options
  */
-export function renderCycleRevisions(container, cycleData) {
+export function renderCycleRevisions(container, cycleData, opts = {}) {
   container.innerHTML = '';
 
   const header = document.createElement('h3');
@@ -23,6 +24,15 @@ export function renderCycleRevisions(container, cycleData) {
   sub.className = 'revisions-subtitle';
   sub.innerText = "Today's gas day flow adjustments across publication windows";
   container.appendChild(sub);
+
+  // Platform limitation note (optional): some EBB platforms only publish a
+  // subset of cycles as CSV — render what exists instead of implying 5 slots.
+  if (opts.platformNote) {
+    const note = document.createElement('p');
+    note.className = 'revisions-platform-note';
+    note.innerText = opts.platformNote;
+    container.appendChild(note);
+  }
 
   const chartDiv = document.createElement('div');
   chartDiv.className = 'revisions-chart-container';
