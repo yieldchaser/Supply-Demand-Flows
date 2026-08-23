@@ -212,23 +212,53 @@ def test_transformer_emits_series_and_preserves_zero(tmp_path: Path) -> None:
     result = transform(raw_dir=raw_dir, curated_parquet_path=out_parquet)
 
     df = pd.read_parquet(out_parquet)
-    # Only the R-direction Cove Point row passes the filter → 3 series.
-    assert result["rows"] == 3
+    # Both Cove Point legs pass the filter now → 2 legs × 3 kinds = 6 series.
+    assert result["rows"] == 6
     assert set(df["series_id"]) == {
-        "egts_sq_40704_id3",
-        "egts_oac_40704_id3",
-        "egts_opcap_40704_id3",
+        "egts_sq_40704_r_id3",
+        "egts_oac_40704_r_id3",
+        "egts_opcap_40704_r_id3",
+        "egts_sq_40704_d_id3",
+        "egts_oac_40704_d_id3",
+        "egts_opcap_40704_d_id3",
     }
     assert df["source"].unique()[0] == "bhe"
     assert df["unit"].unique()[0] == "Dth/d"
 
-    sq = df[df["series_id"] == "egts_sq_40704_id3"].iloc[0]
+    sq = df[df["series_id"] == "egts_sq_40704_r_id3"].iloc[0]
     assert float(sq["value"]) == 0.0  # zero is data
     assert sq["period"] == "2026-05-16"
 
-    oac = df[df["series_id"] == "egts_oac_40704_id3"].iloc[0]
+    oac = df[df["series_id"] == "egts_oac_40704_r_id3"].iloc[0]
     assert float(oac["value"]) == 741280.0
-    assert oac["series_name"] == "EGTS OAC EGTS - LOUDOUN (ID3)"
+    assert oac["series_name"] == "EGTS OAC EGTS - LOUDOUN [R] (ID3)"
+
+    d_sq = df[df["series_id"] == "egts_sq_40704_d_id3"].iloc[0]
+    assert float(d_sq["value"]) > 0.0  # D leg carries its own volume
+
+
+def test_transformer_dual_leg_yields_two_rows(tmp_path: Path) -> None:
+    """R and D rows in one cycle each get their own series (no overwrite)."""
+    raw_dir = tmp_path / "raw"
+    out_parquet = tmp_path / "curated.parquet"
+
+    rows = [{k: v for k, v in r.items()} for r in parse_oac_csv(_SAMPLE_CSV)]
+    # Flip the D row's quantity so legs differ; both already exist in fixture.
+    for r in rows:
+        if r["Flow Ind"] == "D" and r["Loc"] == "40704":
+            r["Total Scheduled Quantity"] = "142000"
+    _write_raw(raw_dir / "2026-05-16_ID3_1011665.json", rows)
+
+    result = transform(raw_dir=raw_dir, curated_parquet_path=out_parquet)
+    assert result["rows"] == 6
+
+    df = pd.read_parquet(out_parquet)
+    sq_by_flow = {
+        sid: float(df[df["series_id"] == sid]["value"].iloc[0])
+        for sid in ("egts_sq_40704_r_id3", "egts_sq_40704_d_id3")
+    }
+    assert sq_by_flow["egts_sq_40704_r_id3"] == 0.0
+    assert sq_by_flow["egts_sq_40704_d_id3"] == 142000.0
 
 
 def test_transformer_accumulates_without_overwriting(tmp_path: Path) -> None:
@@ -241,7 +271,7 @@ def test_transformer_accumulates_without_overwriting(tmp_path: Path) -> None:
     transform(raw_dir=raw_dir, curated_parquet_path=out_parquet)
 
     first = pd.read_parquet(out_parquet)
-    assert len(first) == 3
+    assert len(first) == 6
 
     # A second posting for a different cycle joins history; nothing shrinks.
     rows_timely = [
@@ -257,8 +287,8 @@ def test_transformer_accumulates_without_overwriting(tmp_path: Path) -> None:
     transform(raw_dir=raw_dir, curated_parquet_path=out_parquet)
 
     merged = pd.read_parquet(out_parquet)
-    assert len(merged) == 6  # 3 ID3 + 3 TIMELY
-    timelier_sq = merged[merged["series_id"] == "egts_sq_40704_timely"].iloc[0]
+    assert len(merged) == 12  # (3 ID3 + 3 TIMELY) × 2 legs
+    timelier_sq = merged[merged["series_id"] == "egts_sq_40704_r_timely"].iloc[0]
     assert float(timelier_sq["value"]) == 650000.0
     assert len(pd.read_parquet(out_parquet)) >= len(first)
 

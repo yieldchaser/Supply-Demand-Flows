@@ -111,6 +111,18 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
         post_time_raw = row.get("Post Date/Time") or posted_at_raw
         posted_dt = _parse_posting_time(post_time_raw)
 
+        # Flow direction (R/D) is part of the series identity: a meter may
+        # post BOTH legs in one cycle with different quantities.
+        flow = (
+            str(
+                row.get("Flow Ind")
+                or row.get("flow_ind")
+                or row.get("flowInd")
+                or ""
+            ).strip().lower()
+            or "u"
+        )
+
         # 1. Total Scheduled Quantity (TSQ) series
         if sq_raw is not None:
             try:
@@ -118,8 +130,8 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
                 out.append(
                     {
                         "source": "boardwalk",
-                        "series_id": f"gulf_south_sq_{loc_id}_{cycle.lower()}",
-                        "series_name": f"Gulf South TSQ {loc_name} ({cycle})",
+                        "series_id": f"gulf_south_sq_{loc_id}_{flow}_{cycle.lower()}",
+                        "series_name": f"Gulf South TSQ {loc_name} [{flow.upper()}] ({cycle})",
                         "period": period_str,
                         "value": sq_val,
                         "unit": "Dth/d",
@@ -138,8 +150,8 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
                 out.append(
                     {
                         "source": "boardwalk",
-                        "series_id": f"gulf_south_oac_{loc_id}_{cycle.lower()}",
-                        "series_name": f"Gulf South OAC {loc_name} ({cycle})",
+                        "series_id": f"gulf_south_oac_{loc_id}_{flow}_{cycle.lower()}",
+                        "series_name": f"Gulf South OAC {loc_name} [{flow.upper()}] ({cycle})",
                         "period": period_str,
                         "value": oac_val,
                         "unit": "Dth/d",

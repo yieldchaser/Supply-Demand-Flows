@@ -81,6 +81,9 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
     for row in raw_rows:
         loc_id = row.get("Loc")
         loc_name = row.get("Loc Name") or str(loc_id)
+        # Flow direction (R/D) is part of the series identity: a meter may
+        # post BOTH legs in one cycle and each carries its own quantity.
+        flow = str(row.get("Flow Ind") or "").strip().lower() or "u"
 
         sq_raw = row.get("Total Scheduled Quantity")
         oac_raw = row.get("Operationally Available Capacity")
@@ -96,14 +99,15 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
                 out.append(
                     {
                         "source": "quorum",
-                        "series_id": f"{prefix}_sq_{loc_id.lower()}_{cycle}",
-                        "series_name": f"Quorum TSQ {loc_name} ({cycle.upper()})",
+                        "series_id": f"{prefix}_sq_{loc_id.lower()}_{flow}_{cycle}",
+                        "series_name": f"Quorum TSQ {loc_name} [{flow.upper()}] ({cycle.upper()})",
                         "period": str(gas_day),
                         "value": sq_val,
                         "unit": "Dth/d",
                         "region": "US",
                         "ingested_at": ingested_at,
                         "_posted_at": posted_dt,  # temporary for dedup sorting
+                        "_flow": flow,
                     }
                 )
             except (TypeError, ValueError):
@@ -116,14 +120,15 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
                 out.append(
                     {
                         "source": "quorum",
-                        "series_id": f"{prefix}_oac_{loc_id.lower()}_{cycle}",
-                        "series_name": f"Quorum OAC {loc_name} ({cycle.upper()})",
+                        "series_id": f"{prefix}_oac_{loc_id.lower()}_{flow}_{cycle}",
+                        "series_name": f"Quorum OAC {loc_name} [{flow.upper()}] ({cycle.upper()})",
                         "period": str(gas_day),
                         "value": oac_val,
                         "unit": "Dth/d",
                         "region": "US",
                         "ingested_at": ingested_at,
                         "_posted_at": posted_dt,
+                        "_flow": flow,
                     }
                 )
             except (TypeError, ValueError):
@@ -180,7 +185,7 @@ def transform(
     df = (
         df.sort_values("_posted_at")
         .drop_duplicates(subset=["series_id", "period"], keep="last")
-        .drop(columns=["_posted_at"])
+        .drop(columns=["_posted_at", "_flow"], errors="ignore")
         .reset_index(drop=True)
     )
 

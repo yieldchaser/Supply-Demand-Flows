@@ -36,13 +36,16 @@ import pandas as pd
 
 from scrapers.bhe.client import (
     COL_CYCLE,
+    COL_FLOW_IND,
     COL_GAS_DAY,
+    COL_INTERCONNECT,
     COL_LOC,
     COL_LOC_NAME,
     COL_OAC,
     COL_OP_CAP,
     COL_TSQ,
-    is_cove_point_row,
+    COVE_POINT_INTERCONNECT,
+    COVE_POINT_LOC,
 )
 from transformers.base.accumulate import merge_into_curated
 from transformers.errors import TransformError
@@ -103,7 +106,14 @@ def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
 
     out: list[dict[str, Any]] = []
     for row in raw_rows:
-        if not isinstance(row, dict) or not is_cove_point_row({k: str(v or "") for k, v in row.items()}):
+        if not isinstance(row, dict):
+            continue
+        clean_row = {k: str(v or "") for k, v in row.items()}
+        # Cove Point meter = Loc 40704 + Interconnect "COVE POINT LNG LP",
+        # EITHER flow leg (both are real postings of the same meter).
+        if clean_row.get(COL_INTERCONNECT, "").strip().upper() != COVE_POINT_INTERCONNECT:
+            continue
+        if str(row.get(COL_LOC) or "").strip() != str(COVE_POINT_LOC):
             continue
 
         loc_id = str(row.get(COL_LOC) or "").strip()
@@ -118,6 +128,13 @@ def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
         # subject-derived cycle token covers legacy single-posting days.
         cycle = _cycle_token(csv_cycle) or cycle_token
 
+        # Flow direction (R/D) is part of the series identity. Cove Point's
+        # meter posts BOTH legs with different quantities (R≈0, D=the
+        # scheduled volume); keeping only the configured leg silently
+        # dropped the other and made the surviving value depend on which
+        # leg happened to be seen.
+        flow = str(row.get(COL_FLOW_IND) or "").strip().lower() or "u"
+
         posted_dt = _parse_posted_at(posted_at_raw)
 
         for kind, col, label in (
@@ -131,8 +148,8 @@ def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
             out.append(
                 {
                     "source": "bhe",
-                    "series_id": f"{SERIES_PREFIX}_{kind}_{loc_id}_{cycle}",
-                    "series_name": f"EGTS {label} {loc_name} ({cycle.upper()})",
+                    "series_id": f"{SERIES_PREFIX}_{kind}_{loc_id}_{flow}_{cycle}",
+                    "series_name": f"EGTS {label} {loc_name} [{flow.upper()}] ({cycle.upper()})",
                     "period": period,
                     "value": val,
                     "unit": "Dth/d",

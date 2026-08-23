@@ -179,13 +179,46 @@ def test_transformer_generates_both_series(tmp_path: Path) -> None:
     assert df["unit"].unique()[0] == "Dth/d"
 
     # Assert values
-    stratton_sq = df[df["series_id"] == "gulf_south_sq_24329_timely"].iloc[0]
+    stratton_sq = df[df["series_id"] == "gulf_south_sq_24329_d_timely"].iloc[0]
     assert stratton_sq["value"] == 920149.0
-    assert stratton_sq["series_name"] == "Gulf South TSQ Stratton Ridge (To Freeport Lng) (TIMELY)"
+    assert stratton_sq["series_name"] == "Gulf South TSQ Stratton Ridge (To Freeport Lng) [D] (TIMELY)"
 
-    stratton_oac = df[df["series_id"] == "gulf_south_oac_24329_timely"].iloc[0]
+    stratton_oac = df[df["series_id"] == "gulf_south_oac_24329_d_timely"].iloc[0]
     assert stratton_oac["value"] == 858980.0
-    assert stratton_oac["series_name"] == "Gulf South OAC Stratton Ridge (To Freeport Lng) (TIMELY)"
+    assert stratton_oac["series_name"] == "Gulf South OAC Stratton Ridge (To Freeport Lng) [D] (TIMELY)"
+
+
+def test_transformer_dual_leg_yields_two_rows(tmp_path: Path) -> None:
+    """A meter posting BOTH R and D in one cycle produces TWO series.
+
+    Regression guard for the 2026-08 dual-leg collision: the leg that
+    survived used to depend on which row happened to be seen last.
+    """
+    raw_dir = tmp_path / "raw"
+    out_parquet = tmp_path / "curated.parquet"
+
+    rows = parse_oac_csv(_SAMPLE_CSV)
+    # Duplicate Stratton Ridge with the opposite leg + different quantity.
+    r_leg = dict(rows[0])
+    r_leg["Flow Ind"] = "R"
+    r_leg["Total Scheduled Quantity"] = "11111"
+    _write_raw(raw_dir / "2026-05-22_TIMELY.json", [*rows, r_leg], cycle="TIMELY")
+
+    result = transform(raw_dir=raw_dir, curated_parquet_path=out_parquet)
+    # 2 locations × 2 legs × 2 kinds (sq + oac) for loc 24329's two rows +
+    # single-leg loc 10128 → the R duplicate of Stratton survives as its own
+    # series instead of overwriting the D leg. Fixture: loc1 D (2 series),
+    # loc2 D (2), plus our R leg (2) = 6 rows.
+    assert result["rows"] == 6
+
+    df = pd.read_parquet(out_parquet)
+    stratton_sq = sorted(df[df["series_id"].str.contains("_sq_24329_")]["series_id"])
+    assert stratton_sq == [
+        "gulf_south_sq_24329_d_timely",
+        "gulf_south_sq_24329_r_timely",
+    ]
+    r_row = df[df["series_id"] == "gulf_south_sq_24329_r_timely"].iloc[0]
+    assert r_row["value"] == 11111.0
 
 
 def test_transformer_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
@@ -230,5 +263,5 @@ def test_transformer_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
     # Deduplicated to 1 TSQ and 1 OAC series
     assert len(df) == 2
 
-    sq_row = df[df["series_id"] == "gulf_south_sq_24329_timely"].iloc[0]
+    sq_row = df[df["series_id"] == "gulf_south_sq_24329_d_timely"].iloc[0]
     assert sq_row["value"] == 920000.0  # Kept v2 (920k) over v1 (500k)

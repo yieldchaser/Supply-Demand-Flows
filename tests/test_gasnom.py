@@ -483,11 +483,11 @@ def test_transformer_emits_both_series_raw_dth(tmp_path: Path) -> None:
     assert set(df["unit"].unique()) == {"Dth/d"}
     assert set(df["region"].unique()) == {"US"}
 
-    sq = df[df["series_id"] == "golden_pass_sq_1097217_timely"].iloc[0]
+    sq = df[df["series_id"] == "golden_pass_sq_1097217_d_timely"].iloc[0]
     assert sq["value"] == 587431.0  # RAW — no MMcf conversion anywhere
     assert sq["period"] == "2026-08-22"
 
-    oac = df[df["series_id"] == "golden_pass_oac_1097217_timely"].iloc[0]
+    oac = df[df["series_id"] == "golden_pass_oac_1097217_d_timely"].iloc[0]
     assert oac["value"] == 2013479.0
 
 
@@ -522,16 +522,15 @@ def test_transformer_multi_pipeline_prefixes(tmp_path: Path) -> None:
         sid.rsplit("_sq_", 1)[0].rsplit("_oac_", 1)[0] for sid in df["series_id"]
     }
     assert prefixes == {"golden_pass", "sabine_pipe_line"}
-    sabine_sq = df[df["series_id"] == "sabine_pipe_line_sq_278925_timely"].iloc[0]
+    sabine_sq = df[df["series_id"] == "sabine_pipe_line_sq_278925_d_timely"].iloc[0]
     assert sabine_sq["value"] == 500000.0
 
 
 def test_transformer_batch_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
-    """Duplicate (series_id, period): delivery rows win, then latest posting."""
+    """Duplicate (series_id, period): latest posting wins WITHIN a leg."""
     raw_dir = tmp_path / "raw"
     curated = tmp_path / "curated.parquet"
 
-    receipt_row = dict(_TERMINAL_D_ROW, flow_ind="R", tsq="100000")
     earlier_delivery = dict(_TERMINAL_D_ROW, tsq="111111")
     later_delivery = dict(_TERMINAL_D_ROW, tsq="587431")
     _write_raw(
@@ -539,7 +538,7 @@ def test_transformer_batch_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
         {
             "cycle": "evening",
             "posted_at": "August 22, 2026 08:05:00 PM CT",
-            "data": [receipt_row, earlier_delivery],
+            "data": [earlier_delivery],
         },
     )
     _write_raw(
@@ -553,10 +552,34 @@ def test_transformer_batch_dedupe_keeps_latest_posting(tmp_path: Path) -> None:
 
     transform(raw_dir=raw_dir, curated_parquet_path=curated)
     df = pd.read_parquet(curated)
-    ev = df[df["series_id"] == "golden_pass_sq_1097217_evening"]
+    ev = df[df["series_id"] == "golden_pass_sq_1097217_d_evening"]
     assert len(ev) == 1
-    # Delivery beats the same-day receipt; latest posting wins between D rows.
     assert float(ev.iloc[0]["value"]) == 587431.0
+
+
+def test_transformer_dual_leg_yields_two_rows(tmp_path: Path) -> None:
+    """R and D rows in one cycle each get their own series — no arbitration."""
+    raw_dir = tmp_path / "raw"
+    curated = tmp_path / "curated.parquet"
+
+    receipt_row = dict(_TERMINAL_D_ROW, flow_ind="R", tsq="100000", oac="2100000")
+    delivery_row = dict(_TERMINAL_D_ROW, tsq="587431")
+    _write_raw(
+        raw_dir / "gp_evening.json",
+        {
+            "cycle": "evening",
+            "posted_at": "August 22, 2026 08:05:00 PM CT",
+            "data": [receipt_row, delivery_row],
+        },
+    )
+
+    transform(raw_dir=raw_dir, curated_parquet_path=curated)
+    df = pd.read_parquet(curated)
+
+    r_sq = df[df["series_id"] == "golden_pass_sq_1097217_r_evening"].iloc[0]
+    d_sq = df[df["series_id"] == "golden_pass_sq_1097217_d_evening"].iloc[0]
+    assert float(r_sq["value"]) == 100000.0
+    assert float(d_sq["value"]) == 587431.0
 
 
 def test_transformer_receipt_only_location_keeps_receipt(tmp_path: Path) -> None:
@@ -579,9 +602,9 @@ def test_transformer_receipt_only_location_keeps_receipt(tmp_path: Path) -> None
     )
     transform(raw_dir=raw_dir, curated_parquet_path=curated)
     df = pd.read_parquet(curated)
-    rec_sq = df[df["series_id"] == "cameron_interstate_sq_772296_timely"].iloc[0]
+    rec_sq = df[df["series_id"] == "cameron_interstate_sq_772296_r_timely"].iloc[0]
     assert float(rec_sq["value"]) == 0.0
-    rec_oac = df[df["series_id"] == "cameron_interstate_oac_772296_timely"].iloc[0]
+    rec_oac = df[df["series_id"] == "cameron_interstate_oac_772296_r_timely"].iloc[0]
     assert float(rec_oac["value"]) == 1500000.0
 
 
@@ -619,7 +642,7 @@ def test_transformer_reingest_same_day_updates_not_duplicates(tmp_path: Path) ->
     transform(raw_dir=raw_dir, curated_parquet_path=curated)
     df = pd.read_parquet(curated)
     assert len(df) == n_first  # no duplicates
-    sq = df[df["series_id"] == "golden_pass_sq_1097217_timely"].iloc[0]
+    sq = df[df["series_id"] == "golden_pass_sq_1097217_d_timely"].iloc[0]
     assert float(sq["value"]) == 600000.0
 
 
