@@ -456,6 +456,10 @@ class TestShippedRules:
             "eia_storage",
             "eia_lng_exports",
             "eia_supply",
+            "gasnom",
+            "quorum",
+            "bhe",
+            "cheniere",
         }
 
     def test_gulf_south_rules(self, rules: dict[str, Any]) -> None:
@@ -475,8 +479,15 @@ class TestShippedRules:
             assert source["month_end_normalize"] is True
         assert rules["sources"]["eia_supply"]["period_format"] == "%Y-%m"
 
-    def test_placeholders_stay_commented_out(self, rules: dict[str, Any]) -> None:
-        assert not {"gasnom", "quorum", "bhe", "cheniere"} & set(rules["sources"])
+    def test_ebb_sources_use_daily_thresholds(self, rules: dict[str, Any]) -> None:
+        """All four EBB daily sources activated 2026-08-23 share EBB thresholds."""
+        for key in ("gasnom", "quorum", "bhe", "cheniere"):
+            source = rules["sources"][key]
+            assert source["staleness"] == {"warn_days": 2, "fail_days": 4}
+            assert source["unit_expected"] == "Dth/d"
+            assert source["mode"] == "accumulation"
+        # quorum must NOT enforce calendar gaps: the tenant has retention holes.
+        assert "gap_rule" not in rules["sources"]["quorum"]
 
 
 # ------------------------------------------------------------ render_table
