@@ -121,6 +121,11 @@ def test_resolve_cycle_tokens() -> None:
     assert resolve_cycle_token("INTRDY_2026-08-22_0901") == "id0900"
     assert resolve_cycle_token("INTRDYC_2026-08-21_2135", "2136") == "id2100"
     assert resolve_cycle_token("INTRADAY 2", "") == "intraday"
+    # Legacy 2023-era overnight cycles + their corrections.
+    assert resolve_cycle_token("LATE") == "late"
+    assert resolve_cycle_token("LATEC") == "latec"
+    # Lossless-by-construction fallback for future descriptors.
+    assert resolve_cycle_token("SOMENEW_2027-01-01_1200") == "somenew"
     assert resolve_cycle_token("") is None
 
 

@@ -116,15 +116,18 @@ def resolve_cycle_token(cycle_desc: str, post_time_hhmm: str | None = None) -> s
 
     What:
         ``TIMELY*``→timely, ``EVENING*``→evening, ``LATE*``→late (a legacy
-        2023-era overnight cycle), and every remaining intraday flavor
-        (``INTRADAY*``/``INTRDY*``/``INTRDYC*`` — TETCO posts OAC roughly
-        hourly, with ``C``-suffixed correction re-posts) → ``id{HH}00``,
-        bucketed to the posting hour so ids are stable across days despite
-        minute-level post-time jitter (a 04:01 re-post revises the 04:00
-        snapshot; dedup-on-posted-at keeps the newer).
+        2023-era overnight cycle; ``LATEC`` = its correction re-post →
+        ``latec``), and every remaining intraday flavor (``INTRADAY*``/
+        ``INTRDY*``/``INTRDYC*`` — TETCO posts OAC roughly hourly, with
+        ``C``-suffixed correction re-posts) → ``id{HH}00``, bucketed to the
+        posting hour so ids are stable across days despite minute-level
+        post-time jitter (a 04:01 re-post revises the 04:00 snapshot;
+        dedup-on-posted-at keeps the newer). Any future unknown descriptor
+        lowercases to its own token instead of being dropped — the mapper
+        is lossless by construction.
 
     Failure modes:
-        Unknown shapes return ``None`` so callers skip the row/file loudly.
+        Empty descriptors return ``None`` so callers skip the row/file.
     """
     c = cycle_desc.strip().upper()
     if not c:
@@ -136,6 +139,8 @@ def resolve_cycle_token(cycle_desc: str, post_time_hhmm: str | None = None) -> s
         return "evening"
     if head == "LATE":
         return "late"
+    if head == "LATEC":
+        return "latec"
     if head.startswith(("INTRADAY", "INTRDY")):
         digits = "".join(ch for ch in (post_time_hhmm or "") if ch.isdigit())[:4]
         if len(digits) < 4:
@@ -146,7 +151,8 @@ def resolve_cycle_token(cycle_desc: str, post_time_hhmm: str | None = None) -> s
         if len(digits) == 4 and digits.isdigit():
             return f"id{digits[:2]}00"
         return "intraday"
-    return None
+    # Lossless fallback: any future descriptor becomes its own stable token.
+    return c.split("_", 1)[0].split(" ", 1)[0].lower()
 
 
 def parse_csv_filename(name: str) -> tuple[str, str] | None:
