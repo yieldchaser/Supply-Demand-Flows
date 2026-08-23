@@ -60,6 +60,12 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 
+# pandas ships no inline types and pandas-stubs is not pinned as a dev dep;
+# treat it as Any so strict mypy stays usable on transformer modules.
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
