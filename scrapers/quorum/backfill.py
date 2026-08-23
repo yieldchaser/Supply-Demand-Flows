@@ -58,6 +58,12 @@ STATE_FILENAME = "_backfill_state.json"
 CHECKPOINT_EVERY_DAYS = 20
 REQUEST_GAP_SECONDS = 1.0
 
+#: Consecutive empty (header-only) days before declaring the data floor.
+#: The tenant has retention HOLES (e.g. 2025-03-27 serves empty while older
+#: days still return data), so stopping at the first empty day is wrong;
+#: a real floor is confirmed only by a long empty streak.
+EMPTY_STREAK_FLOOR_DAYS = 90
+
 #: Conservative default window when --since is not given.
 DEFAULT_SINCE_DAYS = 400
 
@@ -73,6 +79,8 @@ class BackfillConfig:
     request_gap_seconds: float = REQUEST_GAP_SECONDS
     retry_delays: tuple[float, ...] = BACKOFF_DELAYS_SECONDS
     pipelines: tuple[QuorumTenant, ...] = (GATOR_EXPRESS, TRANSCAMERON)
+    #: Consecutive empty days before declaring the floor (injectable for tests).
+    empty_streak_floor_days: int = EMPTY_STREAK_FLOOR_DAYS
     state_path: Path | None = None
 
     def __post_init__(self) -> None:
@@ -260,6 +268,7 @@ class QuorumBackfill:
         raw_dir = self.config.raw_dir / prefix
         stop_day = self.config.since
         day = start_day
+        empty_streak = 0
 
         while day >= stop_day:
             # Staleness gate: decide BEFORE any download.
@@ -267,6 +276,7 @@ class QuorumBackfill:
             fully_captured = have == 5 or (prefix, day.isoformat()) in self._curated_keys
             if fully_captured:
                 log.info("[%s] %s already captured — skipping.", prefix, day)
+                empty_streak = 0
             else:
                 try:
                     rows = await self._fetch_day_rows(pipeline, day)
@@ -280,18 +290,32 @@ class QuorumBackfill:
                     self._mark(prefix, error=True)
                 else:
                     if not rows:
-                        log.info("[%s] %s header-only — data floor reached.", prefix, day)
-                        self.floors[prefix] = (
-                            min(self.floors.get(prefix, day.isoformat()), day.isoformat())
-                            if prefix in self.floors
-                            else day.isoformat()
-                        )
-                        self.stop_reason[prefix] = f"floor {day.isoformat()} (empty day)"
-                        self.next_days[prefix] = day.isoformat()
-                        return
-                    written = await self._write_cycle_files(pipeline, day, rows)
-                    log.info("[%s] %s → %d file(s), %d rows.", prefix, day, written, len(rows))
-                    self._mark(prefix, fetched_delta=written)
+                        empty_streak += 1
+                        log.debug("[%s] %s header-only (streak %d).", prefix, day, empty_streak)
+                        if empty_streak >= self.config.empty_streak_floor_days:
+                            floor_day = day + timedelta(days=empty_streak - 1)
+                            log.info(
+                                "[%s] %d consecutive empty days ending %s — data floor.",
+                                prefix,
+                                empty_streak,
+                                day.isoformat(),
+                            )
+                            self.floors[prefix] = (
+                                min(self.floors.get(prefix, floor_day.isoformat()),
+                                    floor_day.isoformat())
+                                if prefix in self.floors
+                                else floor_day.isoformat()
+                            )
+                            self.stop_reason[prefix] = (
+                                f"floor {floor_day.isoformat()} after "
+                                f"{empty_streak} empty days"
+                            )
+                            return
+                    else:
+                        empty_streak = 0
+                        written = await self._write_cycle_files(pipeline, day, rows)
+                        log.info("[%s] %s → %d file(s), %d rows.", prefix, day, written, len(rows))
+                        self._mark(prefix, fetched_delta=written)
 
             # Advance the cursor and checkpoint before moving on.
             day -= timedelta(days=1)

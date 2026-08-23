@@ -328,6 +328,8 @@ async def test_backfill_walks_to_floor_and_checkpoints(tmp_path: Path) -> None:
         request_gap_seconds=0.0,
         state_path=tmp_path / "state.json",
         pipelines=(GATOR_EXPRESS,),
+        # One empty day = floor in this fixture (no retention holes).
+        empty_streak_floor_days=1,
     )
     responses = {
         date(2026, 8, 22): _gator_csv("Intraday 3"),
@@ -355,6 +357,50 @@ async def test_backfill_walks_to_floor_and_checkpoints(tmp_path: Path) -> None:
     state = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
     assert state["completed"] is True
     assert state["floors"]["gator_express"] == "2026-08-20"
+
+
+@pytest.mark.asyncio
+async def test_backfill_punches_through_hole_before_floor(tmp_path: Path) -> None:
+    """A short empty streak is a retention hole, not the floor.
+
+    What:
+        2025-03-26/27 are empty but 2025-03-25 has data — the walk must
+        continue below the hole and only stop once the streak limit holds.
+    """
+    config = BackfillConfig(
+        since=date(2026, 3, 20),
+        raw_dir=tmp_path / "raw",
+        curated_path=tmp_path / "quorum.parquet",
+        request_gap_seconds=0.0,
+        state_path=tmp_path / "state.json",
+        pipelines=(GATOR_EXPRESS,),
+        # Hole is 2 wide (03-26/27); limit 3 means the walk must survive it
+        # and only declare a floor after 3 consecutive empties below.
+        empty_streak_floor_days=3,
+    )
+    responses = {
+        date(2026, 3, 25): _gator_csv(),
+    }
+
+    async def fake_fetch(self: Any, pipeline: Any, day: date) -> list[dict[str, str]]:
+        return parse_export_csv(responses.get(day, ""))
+
+    client = AsyncMock()
+    bf = QuorumBackfill(config=config, client=client)
+    frozen_now = datetime(2026, 3, 27, tzinfo=UTC)
+    with (
+        patch.object(QuorumBackfill, "_fetch_day_rows", new=fake_fetch),
+        patch("scrapers.quorum.backfill.datetime") as mock_dt,
+    ):
+        mock_dt.now.return_value = frozen_now
+        summary = await bf.run(fresh=True)
+
+    # Walked THROUGH the 2-day hole (limit=3) to --since. Floor = first
+    # empty day below the last real-data day (03-25).
+    assert summary["pipelines"]["gator_express"]["floor"] == "2026-03-24"
+    files = sorted((tmp_path / "raw" / "gator_express").glob("*.json"))
+    assert len(files) == 1
+    assert "2026-03-25" in files[0].name
 
 
 @pytest.mark.asyncio
