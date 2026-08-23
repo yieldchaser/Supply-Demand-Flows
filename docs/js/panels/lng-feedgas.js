@@ -1,194 +1,157 @@
 /**
  * LNG Feedgas Panel — Scheduled Quantities and Utilization at LNG Export Terminals.
+ *
+ * Driven entirely by the terminal registry (docs/js/util/lng-terminals.js):
+ * nine chips render from LNG_FLEET_ORDER; metadata is never hardcoded here.
+ * Direct-SQ terminals plot published TSQ; oac-proxy terminals (Cheniere)
+ * plot INFERRED capacity consumption (design − OAC) and are labelled as a
+ * proxy everywhere the number appears.
  */
 
 import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
-import { LNG_NAMEPLATE_MMCFD, LNG_METERS, dth_to_mmcf, get_utilization_level, calculate_wow_delta, should_show_envelope } from '../util/lng-metrics.js';
+import {
+  dth_to_mmcf,
+  get_utilization_level,
+  calculate_wow_delta,
+  should_show_envelope,
+} from '../util/lng-metrics.js';
+import {
+  LNG_TERMINALS,
+  LNG_FLEET_ORDER,
+  DEFAULT_TERMINAL_ID,
+  terminalSeriesPrefixes,
+  terminalCycleInfo,
+} from '../util/lng-terminals.js';
+import {
+  buildSqCycleMaps,
+  buildProxyImpliedByDate,
+  buildDailyFromCycles,
+} from './lng-fleet-overview.js';
 import { renderCycleRevisions } from './lng-cycle-revisions.js';
 
-/**
- * Platform limitation: Boardwalk's public OAC publishes Scheduled Quantities
- * as CSV for intraday cycles only (ID1/ID2/ID3) — TIMELY/EVENING never appear
- * as CSV postings. The cycle-revisions panel renders only the cycles that
- * actually exist rather than implying five publication slots.
- *
- * @type {string}
- */
-const PLATFORM_CYCLE_NOTE = 'Gulf South (Boardwalk OAC) posts ID1/ID2/ID3 only — TIMELY/EVENING are not published as CSV on this platform.';
+const CYCLE_PRIORITY = { timely: 1, evening: 2, id1: 3, id2: 4, id3: 5 };
 
 /**
- * Render the LNG feedgas panel.
+ * Render the LNG feedgas hero panel.
  *
  * @param {HTMLElement} panelEl - the element to render the panel inside
  * @param {Object} bundle - the dashboard data bundle
- * @param {string} [terminalId='freeport_lng'] - the active terminal ID
+ * @param {string} [terminalId] - active terminal ID (defaults to registry default)
+ * @param {{onSelect?: (id: string) => void}} [opts] - callbacks (fleet wiring)
  */
-export function renderLngFeedgasPanel(panelEl, bundle, terminalId = 'freeport_lng') {
+export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERMINAL_ID, opts = {}) {
   panelEl.innerHTML = '';
+  const t = LNG_TERMINALS[terminalId] || LNG_TERMINALS[DEFAULT_TERMINAL_ID];
+  const effectiveId = t.id;
 
-  // 1. Render Terminal Chips
+  // 1. Terminal Chips (all nine, straight from the registry order)
   const headerSection = document.createElement('div');
   headerSection.className = 'lng-observatory-header';
-  
+
   const chipsContainer = document.createElement('div');
   chipsContainer.className = 'terminal-chips';
-  
-  const terminals = [
-    { id: 'freeport_lng', label: 'Freeport', active: true, status: 'active' },
-    { id: 'golden_pass', label: 'Golden Pass · W2', active: false, status: 'w2' },
-    { id: 'cameron_lng', label: 'Cameron · W2', active: false, status: 'w2' },
-    { id: 'sabine_pass', label: 'Sabine · W2', active: false, status: 'w2' },
-    { id: 'plaquemines', label: 'Plaquemines · later', active: false, status: 'later' },
-  ];
 
-  terminals.forEach((term) => {
+  LNG_FLEET_ORDER.forEach((id) => {
+    const chipTerm = LNG_TERMINALS[id];
+    if (!chipTerm) return;
+    const offline = chipTerm.operational === false;
     const button = document.createElement('button');
-    button.className = `chip ${term.id === terminalId ? 'chip--active' : ''} ${term.status !== 'active' ? 'chip--disabled' : ''}`;
-    button.innerText = `${term.id === terminalId || term.status === 'active' ? '●' : '○'} ${term.label}`;
-    
-    if (term.status !== 'active') {
-      button.title = term.status === 'w2' ? 'Coming in W2' : 'Coming later';
+    button.className =
+      'chip' +
+      (id === effectiveId ? ' chip--active' : '') +
+      (offline ? ' chip--disabled' : '');
+    button.innerText = `${id === effectiveId ? '●' : offline ? '○' : '○'} ${chipTerm.display}`;
+    if (offline) {
+      button.title = chipTerm.statusText || 'Not operational';
+      button.disabled = true;
     } else {
       button.addEventListener('click', () => {
-        renderLngFeedgasPanel(panelEl, bundle, term.id);
+        if (typeof opts.onSelect === 'function') opts.onSelect(id);
+        else renderLngFeedgasPanel(panelEl, bundle, id, opts);
       });
     }
     chipsContainer.appendChild(button);
   });
-  
+
   headerSection.appendChild(chipsContainer);
   panelEl.appendChild(headerSection);
 
-  // 2. Fetch Terminal Config
-  const meterConfig = LNG_METERS[terminalId];
-  if (!meterConfig) {
-    const errorEl = document.createElement('div');
-    errorEl.className = 'panel-error';
-    errorEl.innerText = `Configuration for terminal ID '${terminalId}' is missing in LNG_METERS.`;
-    panelEl.appendChild(errorEl);
-    return;
-  }
+  // 2. Resolve bundle source for this terminal
+  const source = bundle.sources?.[t.source];
 
-  const { pipeline, loc_id, loc_name } = meterConfig;
-  const source = bundle.sources?.[pipeline];
-  
   if (!source || !source.data || source.data.length === 0) {
-    const errorEl = document.createElement('div');
-    errorEl.className = 'panel-error';
-    errorEl.innerText = `Awaiting first scrape for ${loc_name} on ${pipeline}.`;
-    panelEl.appendChild(errorEl);
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'lng-panel-body-wrapper';
+    panelEl.appendChild(bodyEl);
+    const chrome = renderPanelChrome(bodyEl, {
+      title: `${t.display} · Feed Gas Deliveries`,
+      subtitle: `${t.locName ?? ''} · ${t.platformLabel ?? ''}`,
+      sourceKey: t.source,
+      latestPeriod: null,
+    });
+    chrome.chartEl.innerHTML =
+      '<div class="panel-error">Awaiting first scrape for this terminal.</div>';
     return;
   }
 
-  // 3. Render Panel Chrome
+  // 3. Panel chrome
   const bodyEl = document.createElement('div');
   bodyEl.className = 'lng-panel-body-wrapper';
   panelEl.appendChild(bodyEl);
 
-  const nameplate = LNG_NAMEPLATE_MMCFD[terminalId] || 1000;
-  
+  const nameplate = t.nameplate;
+
   const { chartEl, sidebarEl } = renderPanelChrome(bodyEl, {
-    title: `${terminalId === 'freeport_lng' ? 'Freeport LNG' : loc_name} · Feed Gas Deliveries`,
-    subtitle: `${loc_name} interconnect · ${pipeline.toUpperCase().replace('_', ' ')} Pipeline`,
-    sourceKey: pipeline,
+    title: `${t.display} · Feed Gas Deliveries`,
+    subtitle: `${t.locName} · ${t.platformLabel}`,
+    sourceKey: t.source,
     latestPeriod: source.latest_period,
   });
 
-  // 4. Parse & Transform Curated Rows
-  // Filter for TSQ series matching this location
-  const prefix = `${pipeline}_sq_${loc_id}_`;
-  const tsqRows = source.data.filter((r) => r.series_id.startsWith(prefix));
+  const isProxy = t.signal === 'oac-proxy';
 
-  if (tsqRows.length === 0) {
-    chartEl.innerHTML = `<div class="panel-error">No feedgas flow data found for location ${loc_id}.</div>`;
+  // 4. Parse & transform curated rows (registry-driven, proxy-aware)
+  let rowsByDate;
+  if (isProxy) {
+    rowsByDate = buildProxyImpliedByDate(source.data, t);
+  } else {
+    rowsByDate = buildSqCycleMaps(source.data, t);
+  }
+
+  if (Object.keys(rowsByDate).length === 0) {
+    chartEl.innerHTML = `<div class="panel-error">No flow data found for location ${t.loc}.</div>`;
     return;
   }
 
-  // Group TSQ rows by period (gas day)
-  const rowsByDate = {}; // date_str -> { timely, evening, id1, id2, id3, latestVal, latestCycle }
-  const cyclePriority = { timely: 1, evening: 2, id1: 3, id2: 4, id3: 5 };
-
-  tsqRows.forEach((row) => {
-    const dateStr = row.period;
-    const cycle = row.series_id.substring(prefix.length).toLowerCase();
-    const mmcfVal = dth_to_mmcf(Number(row.value));
-
-    if (!rowsByDate[dateStr]) {
-      rowsByDate[dateStr] = {};
-    }
-    rowsByDate[dateStr][cycle] = mmcfVal;
-  });
-
-  // For each date, compute the latest available cycle value
-  const dailySeries = []; // Array of { date: Date, dateStr: string, value: number, cycle: string, gasYear: number, dayIndex: number }
-  
-  Object.keys(rowsByDate).forEach((dateStr) => {
-    const dateObj = new Date(dateStr);
-    const dayCycles = rowsByDate[dateStr];
-    
-    let bestCycle = null;
-    let bestPriority = -1;
-    
-    Object.keys(dayCycles).forEach((cy) => {
-      const prio = cyclePriority[cy] || 0;
-      if (prio > bestPriority) {
-        bestPriority = prio;
-        bestCycle = cy;
-      }
-    });
-
-    if (bestCycle) {
-      const val = dayCycles[bestCycle];
-      const { gasYear, dayIndex } = getGasYearInfo(dateObj);
-      
-      dailySeries.push({
-        date: dateObj,
-        dateStr,
-        value: val,
-        cycle: bestCycle,
-        gasYear,
-        dayIndex,
-      });
-    }
-  });
-
-  // Sort daily series chronologically
-  dailySeries.sort((a, b) => a.date - b.date);
+  const dailySeries = buildDailyFromCycles(rowsByDate);
 
   if (dailySeries.length === 0) {
-    chartEl.innerHTML = '<div class="panel-error">No valid daily scheduled quantities could be parsed.</div>';
+    chartEl.innerHTML = '<div class="panel-error">No valid daily values could be parsed.</div>';
     return;
   }
 
   const latestData = dailySeries[dailySeries.length - 1];
   const totalDays = dailySeries.length;
-
-  // Determine the most recent cycle in the entire dataset
   const latestCycleCode = latestData.cycle;
 
-  // Latest-cycle dotted line: filter dataset for the last 14 gas days and take ONLY that cycle
+  // Latest-cycle dotted line: last 14 gas days, only that cycle.
   const dottedSeries = [];
-  const last14Days = dailySeries.slice(-14);
-  last14Days.forEach((d) => {
-    const dateStr = d.dateStr;
-    const dayCycles = rowsByDate[dateStr];
+  dailySeries.slice(-14).forEach((d) => {
+    const dayCycles = rowsByDate[d.dateStr];
     if (dayCycles && dayCycles[latestCycleCode] !== undefined) {
-      dottedSeries.push({
-        dayIndex: d.dayIndex,
-        value: dayCycles[latestCycleCode],
-      });
+      dottedSeries.push({ dayIndex: getGasYearInfo(d.date).dayIndex, value: dayCycles[latestCycleCode] });
     }
   });
 
-  // 5. Draw Hero Chart
+  // 5. Hero chart
   drawHeroChart(chartEl, dailySeries, dottedSeries, nameplate, totalDays);
 
-  // 6. Render KPI Strip
-  renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode);
+  // 6. KPI strip (proxy-aware labels)
+  renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode, isProxy);
 
-  // 7. Render Intraday Cycle Revisions (bottom of sidebar)
+  // 7. Intraday cycle revisions — per-terminal cycles & note
   const revisionsContainer = document.createElement('div');
   revisionsContainer.className = 'cycle-revisions-panel';
   sidebarEl.appendChild(revisionsContainer);
@@ -198,19 +161,23 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = 'freeport_ln
     .map((cy) => ({
       cycle: cy.toUpperCase(),
       value: todayCyclesMap[cy],
-      priority: cyclePriority[cy] || 0,
+      priority: CYCLE_PRIORITY[cy] || 0,
     }))
     .sort((a, b) => a.priority - b.priority);
 
-  renderCycleRevisions(revisionsContainer, todayCyclesData, { platformNote: PLATFORM_CYCLE_NOTE });
-  
-  // Render Footnote
+  const cycleInfo = terminalCycleInfo(t);
+  renderCycleRevisions(revisionsContainer, todayCyclesData, { platformNote: cycleInfo.note });
+
+  // 8. Footnote — from the registry, per terminal
   const footerContainer = document.createElement('div');
   footerContainer.className = 'lng-panel-footnote';
+  const proxyLine = isProxy
+    ? `<p><strong>⚠ Proxy signal:</strong> Cheniere does not publish Scheduled Quantities. Value = Design Capacity − Operationally Available (inferred consumption), not measured feedgas.</p>`
+    : '';
   footerContainer.innerHTML = `
-    <p><strong>Source:</strong> Boardwalk Pipelines public OAC (Gulf South Pipeline, tspId=1)</p>
-    <p><strong>Method:</strong> TSQ at ${loc_name} (loc ${loc_id}, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d</p>
-    <p><strong>Last updated:</strong> ${source.latest_period || 'N/A'} · <em>Note: Freeport also fed by TETCO (KM) — full coverage in a later wave.</em></p>
+    <p><strong>Source:</strong> ${t.methodLine}</p>
+    ${proxyLine}
+    <p><strong>Last updated:</strong> ${source.latest_period || 'N/A'} · ${totalDays.toLocaleString()} gas days of history</p>
   `;
   panelEl.appendChild(footerContainer);
 }
@@ -242,7 +209,7 @@ function getGasYearInfo(date) {
  */
 function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDays) {
   container.innerHTML = '';
-  
+
   const rect = container.getBoundingClientRect();
   const margin = { top: 24, right: 32, bottom: 40, left: 56 };
   const totalH = 340;
@@ -260,10 +227,17 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
   // X scale: Gas Year Day Index (Feb 1st to Jan 31st: 0 to 365)
   const x = d3.scaleLinear().domain([0, 365]).range([0, width]);
 
+  // Assign gas year / day indices FIRST, then group by them.
+  dailySeries.forEach((d) => {
+    const info = getGasYearInfo(d.date);
+    d.gasYear = info.gasYear;
+    d.dayIndex = info.dayIndex;
+  });
+
   // Group by Gas Year
   const seriesByGasYear = d3.group(dailySeries, (d) => d.gasYear);
   const currentGasYear = d3.max(dailySeries, (d) => d.gasYear);
-  
+
   // Y scale: determined by capacity, values, and nameplate
   const maxVal = d3.max(dailySeries, (d) => d.value) || 0;
   const yMax = !should_show_envelope(totalDays)
@@ -284,7 +258,7 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .data(yTicks).enter()
     .append('line')
     .attr('x1', 0).attr('x2', width)
-    .attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+    .attr('y1', (dd) => y(dd)).attr('y2', (dd) => y(dd))
     .attr('stroke', 'rgba(255,255,255,0.04)');
 
   // Nameplate Reference Line
@@ -310,7 +284,7 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
   if (!should_show_envelope(totalDays)) {
     // Graceful degradation: Draw only current gas year + nameplate ref
     const currentYearRows = seriesByGasYear.get(currentGasYear) || [];
-    
+
     if (currentYearRows.length > 0) {
       // Area Fill
       const areaGen = d3.area()
@@ -441,14 +415,15 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
       const priorRows2 = seriesByGasYear.get(prior2GasYear);
 
       // Compute envelope per dayIndex
+      const byDay1 = new Map(priorRows1.map((r) => [r.dayIndex, r.value]));
+      const byDay2 = new Map(priorRows2.map((r) => [r.dayIndex, r.value]));
       const envelopeData = [];
       for (let i = 0; i <= 365; i++) {
-        const val1 = priorRows1.find(r => r.dayIndex === i)?.value;
-        const val2 = priorRows2.find(r => r.dayIndex === i)?.value;
         const valid = [];
-        if (val1 !== undefined) valid.push(val1);
-        if (val2 !== undefined) valid.push(val2);
-
+        const v1 = byDay1.get(i);
+        const v2 = byDay2.get(i);
+        if (v1 !== undefined) valid.push(v1);
+        if (v2 !== undefined) valid.push(v2);
         if (valid.length > 0) {
           envelopeData.push({
             dayIndex: i,
@@ -461,8 +436,8 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
       if (envelopeData.length > 1) {
         // Red 2y max envelope line
         const maxLine = d3.line()
-          .x(d => x(d.dayIndex))
-          .y(d => y(d.max))
+          .x((d) => x(d.dayIndex))
+          .y((d) => y(d.max))
           .curve(d3.curveMonotoneX);
 
         g.append('path').datum(envelopeData).attr('d', maxLine)
@@ -474,8 +449,8 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
 
         // Cyan 2y min envelope line
         const minLine = d3.line()
-          .x(d => x(d.dayIndex))
-          .y(d => y(d.min))
+          .x((d) => x(d.dayIndex))
+          .y((d) => y(d.min))
           .curve(d3.curveMonotoneX);
 
         g.append('path').datum(envelopeData).attr('d', minLine)
@@ -545,7 +520,7 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
   const isMobile = width < 500;
   const start = new Date(currentGasYear, 1, 1);
   const months = ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'];
-  
+
   months.forEach((m, offset) => {
     if (isMobile && offset % 2 !== 0) return; // skip every second label on mobile
     const d = new Date(currentGasYear + (1 + offset >= 12 ? 1 : 0), (1 + offset) % 12, 1);
@@ -578,23 +553,25 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
 /**
  * Render the KPI Cards Strip.
  */
-function renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode) {
+function renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode, isProxy) {
+  const latestLabel = isProxy ? 'Latest Implied Flow' : 'Latest Scheduled';
+
   // 1. LATEST Card
   const latestValue = latestData.value;
   const latestPeriodLabel = latestData.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const latestKpi = kpiCardHtml({
-    label: 'Latest Scheduled',
+    label: latestLabel,
     value: `${latestValue.toFixed(0)} MMcf/d`,
-    helpText: `${latestCycleCode.toUpperCase()} cycle · ${latestPeriodLabel}`,
+    helpText: `${latestCycleCode.toUpperCase()} cycle · ${latestPeriodLabel}${isProxy ? ' · proxy ⓘ' : ''}`,
   });
 
   // 2. UTILIZATION Card with Inline Progress Bar
   const utilPct = (latestValue / nameplate) * 100;
   const utilLevel = get_utilization_level(utilPct);
-  
+
   // Capacity creep check (exceeds >5%)
   const showTooltip = utilPct > 105;
-  const tooltipHtml = showTooltip 
+  const tooltipHtml = showTooltip
     ? `<span class="capacity-creep-tooltip" title="running above stated nameplate — capacity creep or measurement basis">ⓘ</span>`
     : '';
 
@@ -643,7 +620,7 @@ function renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestDat
     const valPy = pyTargetCycles[latestCycleCode];
     const pyDelta = latestValue - valPy;
     const pyPct = valPy > 0 ? (pyDelta / valPy) * 100 : 0;
-    
+
     pyValueText = `${pyDelta >= 0 ? '+' : ''}${pyDelta.toFixed(0)} MMcf/d`;
     pyDeltaProps = {
       value: `${pyPct >= 0 ? '+' : ''}${pyPct.toFixed(1)}%`,

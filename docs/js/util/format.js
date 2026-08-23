@@ -126,6 +126,34 @@ export function classifyVintage(sourceKey, latestPeriod) {
       graceDays: 1,
       criticalAfterOverdueDays: 2,
     },
+    quorum: {
+      kind: 'daily',
+      publishLag: 0,           // Quorum OpAvail posts same-day cycles
+      cadenceDays: 1,
+      graceDays: 1,
+      criticalAfterOverdueDays: 2,
+    },
+    gasnom: {
+      kind: 'daily',
+      publishLag: 0,
+      cadenceDays: 1,
+      graceDays: 1,
+      criticalAfterOverdueDays: 2,
+    },
+    bhe: {
+      kind: 'daily',
+      publishLag: 0,
+      cadenceDays: 1,
+      graceDays: 1,
+      criticalAfterOverdueDays: 2,
+    },
+    cheniere: {
+      kind: 'daily',
+      publishLag: 1,           // LNG Connection posts the prior gas day
+      cadenceDays: 1,
+      graceDays: 1,
+      criticalAfterOverdueDays: 3,
+    },
   };
 
   const rule = RULES[sourceKey];

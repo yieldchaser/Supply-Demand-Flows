@@ -17,6 +17,7 @@ import { renderDivergencePanel } from './panels/divergence.js';
 import { renderLngTotalPanel } from './panels/lng-total.js';
 import { renderLngSharesPanel } from './panels/lng-shares.js';
 import { renderLngFeedgasPanel } from './panels/lng-feedgas.js';
+import { renderLngFleetOverview } from './panels/lng-fleet-overview.js';
 
 /**
  * Render a single panel inside its own try/catch so that a failure
@@ -76,8 +77,28 @@ async function main() {
   await safeRender('lng-total',   () => renderLngTotalPanel(document.getElementById('panel-lng-total'), bundle));
   await safeRender('lng-shares',  () => renderLngSharesPanel(document.getElementById('panel-lng-shares'), bundle));
 
-  // Section 5: LNG Feedgas Observatory
-  await safeRender('lng-feedgas', () => renderLngFeedgasPanel(document.getElementById('panel-lng-feedgas'), bundle));
+  // Section 5: LNG Feedgas Observatory — fleet grid ABOVE the hero panel.
+  // Both share selection state: clicking a fleet card re-renders the hero
+  // with that terminal, highlights the card, and scrolls to the hero.
+  let activeTerminalId;
+  const fleetEl = document.getElementById('panel-lng-fleet');
+  const heroEl = document.getElementById('panel-lng-feedgas');
+
+  function renderLngSection() {
+    const handleSelect = (id) => {
+      activeTerminalId = id;
+      renderLngSection();
+      heroEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    renderLngFleetOverview(fleetEl, bundle, {
+      activeTerminalId,
+      onSelect: handleSelect,
+    });
+    renderLngFeedgasPanel(heroEl, bundle, activeTerminalId, {
+      onSelect: handleSelect,
+    });
+  }
+  await safeRender('lng-fleet', () => renderLngSection());
 
   renderFooter(bundle);
 }
