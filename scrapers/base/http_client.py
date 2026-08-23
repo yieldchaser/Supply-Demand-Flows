@@ -66,6 +66,8 @@ class HttpClient:
         * ``backoff_delays``: literal sleep durations per retry attempt
           (index ``attempt - 1``; the last value repeats if retries exceed
           the tuple length), replacing the computed exponential formula.
+          An **empty tuple** means no retry delay — attempts proceed
+          immediately instead of crashing on an empty index.
     """
 
     def __init__(
@@ -287,6 +289,11 @@ class HttpClient:
 
             # Backoff: caller-supplied literal delays, else exponential.
             if self._backoff_delays is not None:
+                if not self._backoff_delays:
+                    # Empty tuple = "no retry delay": skip straight to the
+                    # next attempt (which then exhausts and raises) instead
+                    # of indexing into an empty sequence.
+                    continue
                 delay = self._backoff_delays[min(attempts - 1, len(self._backoff_delays) - 1)]
             else:
                 delay = self._backoff_base * (2 ** (attempts - 1))

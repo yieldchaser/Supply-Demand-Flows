@@ -233,3 +233,48 @@ async def test_backoff_delays_honored(
 
     assert result == {"ok": True}
     assert recorded == [5.0, 15.0, 45.0]
+
+
+@pytest.mark.asyncio
+async def test_backoff_delays_empty_tuple_means_no_delay() -> None:
+    """backoff_delays=() must mean 'no retry delay', not IndexError."""
+    call_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 3:
+            return httpx.Response(500)
+        return httpx.Response(200, json={"ok": True})
+
+    async with _make_client(
+        httpx.MockTransport(handler),
+        max_retries=3,
+        backoff_delays=(),  # empty — previously crashed with IndexError
+    ) as client:
+        result = await client.get_json("https://example.com/empty-backoff")
+
+    assert result == {"ok": True}
+    assert call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_backoff_delays_empty_tuple_exhausts_and_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With backoff_delays=() every retry is immediate; exhaustion still raises."""
+
+    async def fail_sleep(delay: float) -> None:
+        raise AssertionError(f"no sleep expected with empty backoff_delays, got {delay}")
+
+    monkeypatch.setattr("scrapers.base.http_client.asyncio.sleep", fail_sleep)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503)
+
+    client = _make_client(httpx.MockTransport(handler), max_retries=2, backoff_delays=())
+    async with client:
+        with pytest.raises(HttpClientError) as exc_info:
+            await client.get_json("https://example.com/fail")
+
+    err = exc_info.value
+    assert err.status == 503
+    assert err.attempts == 3  # initial + 2 immediate retries
