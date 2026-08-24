@@ -1,4 +1,4 @@
-name: Williams Live Probe 12
+name: Williams Live Probe 13
 on:
   workflow_dispatch:
 jobs:
@@ -13,25 +13,26 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, json
-          UA = {"User-Agent": "Mozilla/5.0"}
-          with httpx.Client(headers=UA, timeout=60.0) as c:
-              # all captures of the williams 1line host in the last year
-              r = c.get(
-                  "http://web.archive.org/cdx/search/cdx",
-                  params={
-                      "url": "1line.williams.com*",
-                      "output": "json",
-                      "from": "2024",
-                      "limit": "200",
-                      "collapse": "urlkey",
-                  },
-              )
-              rows = r.json()
-              print("CAPTURES:", len(rows))
-              for row in rows[1:]:
-                  url = row[2]
-                  if any(k in url.lower() for k in ("oac", "api", "json", "query", "cycle")):
-                      print("CAP:", row[1], row[3], url[:150])
+          import httpx
+          UA = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+          urls = [
+              "https://infopost.enbridge.com/api/portal-service/v1/public/cycle-indicators?buId=80",
+              "https://www.1line.gulfstreamgas.com/api/portal-service/v1/public/cycle-indicators",
+              "https://www.1line.williams.com/api/portal-service/v1/public/map/menu?buId=80",
+              "https://www.1line.williams.com/api/profile-services/v1/",
+              "https://www.1line.williams.com/mfe/portal/remoteEntry.js",
+              "https://www.1line.williams.com/portal/remoteEntry.js",
+              "https://www.1line.williams.com/remoteEntry.js",
+          ]
+          with httpx.Client(headers=UA, timeout=40.0) as c:
+              for u in urls:
+                  try:
+                      r = c.get(u)
+                      ct = r.headers.get("content-type", "")[:20]
+                      kind = "JSON" if "json" in ct else ("HTML" if "html" in ct else ("JS" if "javascript" in ct else ct))
+                      head = r.text[:150].replace("\n", " ") if kind in ("JSON", "JS") else ""
+                      print(u.split("//")[1][:58], "->", r.status_code, kind, head)
+                  except Exception as e:
+                      print(u.split("//")[1][:58], "ERR", type(e).__name__)
           PYEOF
           python /tmp/probe.py
