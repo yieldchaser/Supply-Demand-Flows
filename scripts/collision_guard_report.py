@@ -5,7 +5,6 @@ import glob
 import json
 import logging
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
@@ -57,7 +56,8 @@ for f in sorted(glob.glob(str(FIELD_RAW / "*.json"))):
         continue
     cycle = stem.rsplit("_", 1)[1]
     gas_day_file = stem.rsplit("_", 1)[0]
-    payload = json.load(open(f, encoding="utf-8"))
+    with open(f, encoding="utf-8") as fh:
+        payload = json.load(fh)
     for r in payload.get("data", []):
         loc = str(r.get("Loc") or "").strip()
         if not loc:

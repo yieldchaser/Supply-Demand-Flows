@@ -37,7 +37,7 @@ def main() -> None:
     from functools import reduce
 
     daily = reduce(
-        lambda l, r: l.merge(r, on="period", how="outer"),
+        lambda left, right: left.merge(right, on="period", how="outer"),
         parts,
     )
     daily["final_tsq"] = (

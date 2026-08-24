@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import glob
 import json
-import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -42,7 +41,8 @@ def audit_gulf_south() -> None:
         if stem.startswith("_"):
             continue
         cycle = stem.rsplit("_", 1)[1]
-        payload = json.load(open(f, encoding="utf-8"))
+        with open(f, encoding="utf-8") as fh:
+            payload = json.load(fh)
         gas_day_file = stem.rsplit("_", 1)[0]
         for r in payload.get("data", []):
             loc = str(r.get("Loc") or "").strip()
@@ -53,8 +53,8 @@ def audit_gulf_south() -> None:
                 period = f"{period[:4]}-{period[4:6]}-{period[6:]}"
             else:
                 period = gas_day_file
-            fi = str(r.get("Flow Ind") or "").strip().upper()
-            purp = str(r.get("Loc Purp Desc") or "").strip()
+            str(r.get("Flow Ind") or "").strip().upper()
+            str(r.get("Loc Purp Desc") or "").strip()
             n_raw += 1
             for kind, col in (("sq", "Total Scheduled Quantity"), ("oac", "Operationally  Available Capacity")):
                 v = r.get(col)
@@ -68,10 +68,10 @@ def audit_gulf_south() -> None:
     say("### gulf_south (boardwalk)")
     say("")
     say(f"- raw rows parsed: {n_raw:,} across {len(files)} cycle files")
-    say(f"- dimensions in source: loc, cycle, flow_ind, loc_purp_desc, loc_qti_desc, "
-        f"meas_basis, IT flags")
-    say(f"- series_id encodes: loc + cycle + metric-kind. **DROPPED: flow_ind** "
-        f"(and loc_purp which mirrors it)")
+    say("- dimensions in source: loc, cycle, flow_ind, loc_purp_desc, loc_qti_desc, "
+        "meas_basis, IT flags")
+    say("- series_id encodes: loc + cycle + metric-kind. **DROPPED: flow_ind** "
+        "(and loc_purp which mirrors it)")
     say(f"- distinct (series_id, period) keys: {len(keys):,}")
     say(f"- keys with >1 raw row mapping in: **{len(dup_keys):,}**")
     say(f"- of those, keys where the colliding values DIFFER (silent overwrite): "
@@ -126,8 +126,8 @@ def audit_curated(name: str, dims_note: str) -> None:
             for (sid, per), nv in bad.head(5).items():
                 say(f"  - `{sid}` @ {per}: {nv} differing values")
     else:
-        say(f"- duplicate (series_id, period) keys in curated: **0** "
-            f"(dedup already collapsed whatever collided upstream)")
+        say("- duplicate (series_id, period) keys in curated: **0** "
+            "(dedup already collapsed whatever collided upstream)")
     say("")
 
 
