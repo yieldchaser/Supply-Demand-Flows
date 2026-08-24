@@ -1,0 +1,39 @@
+name: Williams Debug Probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install httpx beautifulsoup4
+      - name: Probe
+        run: |
+          python - <<'PY'
+          import httpx, re
+          BASE = "https://www.1line.williams.com"
+          FORM = "/ebbCode/OACQueryRequest.jsp?BUID=80&type=OAC"
+          BARE = "/ebbCode/OACQueryRequest.jsp?BUID=80"
+          REPORT = "/ebbCode/OACreport.jsp?BUID=80"
+          with httpx.Client(base_url=BASE, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}, timeout=30.0, follow_redirects=True) as c:
+              r = c.get(FORM)
+              print("GET form:", r.status_code, "len:", len(r.text))
+              m = re.search(r'<form[^>]*action="([^"]*)"', r.text, re.I | re.S)
+              print("FORM ACTION:", m.group(1) if m else "(none)")
+              inputs = re.findall(r'<input[^>]*name="([^"]+)"', r.text)
+              print("INPUTS:", sorted(set(inputs))[:20])
+              payload = {
+                  "MapID": "0", "submitflag": "true",
+                  "tbGasFlowBeginDate": "08/23/2026", "tbGasFlowEndDate": "08/23/2026",
+                  "cycle": "1", "locationIDs": "", "reportType": "OAC",
+              }
+              rA = c.post(BARE, data=payload, headers={"Referer": BASE + FORM})
+              print("POST bare:", rA.status_code, "len:", len(rA.text))
+              rB = c.post(FORM, data=payload, headers={"Referer": BASE + FORM})
+              print("POST typed:", rB.status_code, "len:", len(rB.text))
+              rC = c.get(REPORT, headers={"Referer": BASE + FORM})
+              rows = len(re.findall(r"<tr[^>]*>", rC.text))
+              print("REPORT GET:", rC.status_code, "rows:", rows, "title:", re.search(r"<title>(.*?)</title>", rC.text, re.S).group(1) if "<title>" in rC.text else "?")
+          PY
