@@ -1,4 +1,4 @@
-name: Williams Live Probe 4
+name: Williams Live Probe 5
 on:
   workflow_dispatch:
 jobs:
@@ -13,26 +13,24 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, re, json
+          import httpx, re
           BASE = "https://www.1line.williams.com"
           UA = {"User-Agent": "Mozilla/5.0"}
+          targets = ["chunk-3DTYLSSE.js", "chunk-SITE44NT.js", "chunk-CWI3U72L.js", "chunk-3QM66RYT.js", "main-ZSQ4H6XM.js"]
           with httpx.Client(headers=UA, timeout=60.0) as c:
-              html = c.get(BASE + "/").text
-              # all js assets incl. lazy chunks referenced in index
-              scripts = re.findall(r'src="([^"]+\.js)"', html)
-              print("INDEX SCRIPTS:", scripts)
-              # common config file names
-              found_cfg = None
-              for cfg in ("assets/config/configuration.json", "assets/config.json", "config.json", "assets/configuration.json", "assets/env.json", "configuration.json"):
-                  r = c.get(BASE + "/" + cfg)
-                  if r.status_code == 200 and "html" not in r.headers.get("content-type", ""):
-                      print("CONFIG FOUND:", cfg, "->", r.text[:500])
-                      found_cfg = cfg
-                      break
-                  else:
-                      print("cfg miss:", cfg, r.status_code)
-              # dump every href/src from index for manual scan
-              refs = sorted(set(re.findall(r'(?:src|href)="([^"]+)"', html)))
-              print("REFS:", [r2 for r2 in refs if not r2.startswith("http")][:30])
+              for t in targets:
+                  r = c.get(f"{BASE}/{t}")
+                  blob = r.text
+                  urls = sorted(set(re.findall(r'https?://[A-Za-z0-9_.\-]+(?:[.:][A-Za-z0-9_/\-]+)?', blob)))
+                  interesting = [u for u in urls if any(k in u.lower() for k in ("williams", "api", "portal", "1line"))]
+                  cfgfetch = re.findall(r'.{60}(?:configuration|config)\.json.{60}', blob)[:2]
+                  print("==", t, len(blob))
+                  if interesting:
+                      print("URLS:", interesting[:12])
+                  for cf in cfgfetch:
+                      print("CFGCTX:", cf.replace("\n", " ")[:180])
+                  envm = re.findall(r'(window\.[A-Za-z]+\s*=\s*\{[^}]{0,200})', blob)[:3]
+                  for e in envm:
+                      print("WINEV:", e[:220])
           PYEOF
           python /tmp/probe.py
