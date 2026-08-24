@@ -461,6 +461,8 @@ class TestShippedRules:
             "quorum",
             "bhe",
             "cheniere",
+            # TETCO via Enbridge rtba enabled in the TETCO integration
+            "enbridge",
         }
 
     def test_gulf_south_rules(self, rules: dict[str, Any]) -> None:
@@ -492,7 +494,8 @@ class TestShippedRules:
 
     def test_future_scrapers_stay_out(self, rules: dict[str, Any]) -> None:
         # gasnom/quorum/bhe/cheniere graduated from placeholder to active in
-        # commit 271d8f0; the remaining unshipped scrapers must stay out.
+        # 271d8f0 (and enbridge in the TETCO integration); the remaining
+        # shipped-but-disabled placeholders must stay out of `sources`.
         assert not {"cenagas", "cove_point_direct", "egp"} & set(rules["sources"])
 
 

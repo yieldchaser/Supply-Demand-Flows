@@ -1,0 +1,55 @@
+{
+  "source": "enbridge",
+  "pipeline": "Texas Eastern Transmission, LP (TETCO) — Enbridge rtba informational postings",
+  "note": "Freeport LNG is fed by Gulf South AND TETCO. Loc 79999 STRATTON RIDGE (STX, Delivery) is the TETCO side of the Freeport lateral interconnect (Kinder Morgan built the ~40mi lateral into Freeport's existing Stratton Ridge plant, 2014). Do NOT match 'LNG' in loc names: 73568/74568 'Kinder Morgan LNG' (WLA) and 75866 'CHENIERE LNG, BEAUREGARD PA' are unrelated meters.",
+  "series_key_format": "{prefix}_{sq|oac}_{loc}_{flow}_{cycle}",
+  "series_prefix": "tetco",
+  "enbridge": {
+    "freeport_lng": [
+      {
+        "loc_id": 79999,
+        "loc_name": "STRATTON RIDGE",
+        "zone": "STX",
+        "flow_ind": "Delivery",
+        "confidence": "high",
+        "evidence": "Gas day 2026-08-21: TIMELY TSQ 246,706 / INTRADAY 297,640 Dth against 322,000 design cap; matches KM lateral terminus into Freeport LNG Stratton Ridge plant."
+      }
+    ],
+    "freeport_lng_candidates": [],
+    "other_lng_adjacent_watchlist": [
+      {
+        "loc_id": 75866,
+        "loc_name": "CHENIERE LNG, BEAUREGARD PA, LA (D-73866/R-73566)",
+        "zone": "WLA",
+        "flow_ind": "Bi-directional",
+        "confidence": "candidate",
+        "note": "Sabine Pass / Creole Trail adjacency — NOT Freeport; bi-dir legs d/r."
+      },
+      {
+        "loc_id": 73568,
+        "loc_name": "Kinder Morgan LNG Receipt",
+        "zone": "WLA",
+        "flow_ind": "Receipt",
+        "confidence": "candidate",
+        "note": "KM Louisiana LNG complex pair with 74568 delivery leg — NOT Freeport."
+      }
+    ]
+  },
+  "_meta": {
+    "schema_version": 1,
+    "anchor_verified": {
+      "gas_day": "2026-08-21",
+      "cycles_seen": ["timely", "intraday"],
+      "design_capacity_dth": 322000,
+      "timely_tsq_dth": 246706,
+      "intraday_tsq_dth": 297640
+    },
+    "platform_facts": {
+      "base_url": "https://rtba.enbridge.com/InformationalPosting/",
+      "auth": "none",
+      "max_lookback_days": 1095,
+      "server_side_window_cap_months": 6,
+      "api_date_format": "MM-DD-YYYY"
+    }
+  }
+}
