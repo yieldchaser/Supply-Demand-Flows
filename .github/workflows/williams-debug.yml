@@ -1,4 +1,4 @@
-name: Williams Live Probe 5
+name: Williams Live Probe 6
 on:
   workflow_dispatch:
 jobs:
@@ -16,21 +16,28 @@ jobs:
           import httpx, re
           BASE = "https://www.1line.williams.com"
           UA = {"User-Agent": "Mozilla/5.0"}
-          targets = ["chunk-3DTYLSSE.js", "chunk-SITE44NT.js", "chunk-CWI3U72L.js", "chunk-3QM66RYT.js", "main-ZSQ4H6XM.js"]
-          with httpx.Client(headers=UA, timeout=60.0) as c:
-              for t in targets:
-                  r = c.get(f"{BASE}/{t}")
-                  blob = r.text
-                  urls = sorted(set(re.findall(r'https?://[A-Za-z0-9_.\-]+(?:[.:][A-Za-z0-9_/\-]+)?', blob)))
-                  interesting = [u for u in urls if any(k in u.lower() for k in ("williams", "api", "portal", "1line"))]
-                  cfgfetch = re.findall(r'.{60}(?:configuration|config)\.json.{60}', blob)[:2]
-                  print("==", t, len(blob))
-                  if interesting:
-                      print("URLS:", interesting[:12])
-                  for cf in cfgfetch:
-                      print("CFGCTX:", cf.replace("\n", " ")[:180])
-                  envm = re.findall(r'(window\.[A-Za-z]+\s*=\s*\{[^}]{0,200})', blob)[:3]
-                  for e in envm:
-                      print("WINEV:", e[:220])
+          prefixes = [
+              "/api/portal-service/v1/public/oac/report?gasFlowDate=08-23-2026&cycle=1&buId=80",
+              "/api/portal-service/v1/oac/report",
+              "/services/portal-service/v1/public/oac/cycle",
+              "/portal/api/portal-service/v1/public/oac/cycle",
+              "/ebbCode/rest/public/oac/cycle",
+              "/rest/public/oac/cycle?buId=80",
+          ]
+          with httpx.Client(headers=UA, timeout=40.0) as c:
+              html = c.get(BASE + "/").text
+              # find ALL lazy chunk urls in main bundle and fetch each; grep
+              # every one for 'public/oac' context to see full URL construction
+              main = c.get(BASE + "/main-ZSQ4H6XM.js").text
+              for m in re.finditer(r'.{140}public/oac/query.{60}', main):
+                  print("QCTX:", m.group(0).replace("\n", " ")[-320:])
+                  break
+              for m in re.finditer(r'.{100}concat\(t\.serviceGroupURL\).{160}', main):
+                  print("BUILD:", m.group(0).replace("\n", " ")[:300])
+                  break
+              for p in prefixes[:2]:
+                  r = c.get(BASE + p)
+                  ct = r.headers.get("content-type", "")[:20]
+                  print("TRY", p[:70], "->", r.status_code, ct)
           PYEOF
           python /tmp/probe.py
