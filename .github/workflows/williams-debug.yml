@@ -1,4 +1,4 @@
-name: Williams Debug Probe 2
+name: Williams Debug Probe 3
 on:
   workflow_dispatch:
 jobs:
@@ -12,19 +12,23 @@ jobs:
       - name: Probe
         run: |
           python - <<'PY'
-          import httpx, re
+          import httpx, re, html as h
           BASE = "https://www.1line.williams.com"
-          FORM = "/ebbCode/OACQueryRequest.jsp?BUID=80&type=OAC"
           with httpx.Client(base_url=BASE, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}, timeout=30.0, follow_redirects=True) as c:
-              r = c.get(FORM)
-              html = r.text
-              print("TITLE:", re.search(r"<title>(.*?)</title>", html, re.S).group(1) if "<title>" in html else "?")
-              # find every <form ...> opening tag raw
-              for m in re.findall(r"<form[^>]*>", html, re.I)[:5]:
-                  print("FORMTAG:", m[:200])
-              # find submitflag / openReport references
-              for m in re.findall(r".{60}submitflag.{80}", html)[:3]:
-                  print("CTX:", m.replace("\n"," ")[:180])
-              for m in re.findall(r"function\s+openReport[^{]*\{.{0,400}", html, re.S)[:1]:
-                  print("OPENREPORT:", m[:400].replace("\n", " "))
+              r = c.get("/ebbCode/OACQueryRequest.jsp?BUID=80&type=OAC")
+              body = h.unescape(r.text)
+              # strip tags to see the visible shell text
+              txt = re.sub(r"<script.*?</script>", " ", body, flags=re.S)
+              txt = re.sub(r"<[^>]+>", " ", txt)
+              txt = re.sub(r"\s+", " ", txt)
+              print("VISIBLE:", txt[:600])
+              # any iframe / meta refresh / redirect hints
+              for m in re.findall(r"<iframe[^>]*src="([^"]+)"", body)[:3]:
+                  print("IFRAME:", m[:200])
+              for m in re.findall(r"http-equiv="refresh"[^>]*", body)[:2]:
+                  print("REFRESH:", m[:200])
+              for m in re.findall(r"window\.location[^;]{0,120}", body)[:4]:
+                  print("LOC:", m[:160])
+              for m in re.findall(r"(?:fetch|XMLHttpRequest|axios)\([^)]{0,140}", body)[:6]:
+                  print("AJAX:", m[:180])
           PY
