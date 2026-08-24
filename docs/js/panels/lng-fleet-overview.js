@@ -22,7 +22,29 @@ import {
 import { dth_to_mmcf, get_utilization_level } from '../util/lng-metrics.js';
 
 /** Cycle publication priority (later cycles supersede earlier ones). */
-const CYCLE_PRIORITY = { timely: 1, evening: 2, id1: 3, id2: 4, id3: 5 };
+const CYCLE_PRIORITY = {
+  timely: 1,
+  evening: 2,
+  latec: 3, // TETCO's legacy overnight correction re-post (final for its gas day)
+  late: 4,
+  id1: 5,
+  id2: 6,
+  id3: 7,
+};
+
+/**
+ * Cycle priority for a token, falling back to numeric id{HH}00 buckets
+ * (TETCO posts hourly intraday snapshots — higher hour = fresher).
+ *
+ * @param {string} cycle
+ * @returns {number}
+ */
+export function cyclePriority(cycle) {
+  if (CYCLE_PRIORITY[cycle] !== undefined) return CYCLE_PRIORITY[cycle];
+  const m = /^id(\d{2})00$/.exec(cycle);
+  if (m) return 100 + parseInt(m[1], 10);
+  return 0;
+}
 
 /**
  * Build a date -> {cycle -> MMcf} map for a direct-SQ terminal.
@@ -127,7 +149,7 @@ export function buildDailyFromCycles(byDate) {
     let best = null;
     let bestPrio = -1;
     Object.keys(cycles).forEach((cy) => {
-      const prio = CYCLE_PRIORITY[cy] || 0;
+      const prio = cyclePriority(cy);
       if (prio > bestPrio) {
         bestPrio = prio;
         best = cy;
@@ -161,7 +183,7 @@ export function terminalSummary(bundle, t) {
 
     // Merge by date: total = sum of available feeds that day (zeros are data).
     const byDate = {};
-    feedDailies.forEach((daily, fi) => {
+    feedDailies.forEach((daily) => {
       daily.forEach((d) => {
         if (!byDate[d.dateStr]) byDate[d.dateStr] = { date: d.date, total: 0 };
         byDate[d.dateStr].total += d.value;
@@ -171,7 +193,23 @@ export function terminalSummary(bundle, t) {
       .map(([dateStr, v]) => ({ dateStr, date: v.date, value: v.total }))
       .sort((a, b) => a.date.getTime() - b.date.getTime());
     if (merged.length === 0) return { ok: false };
-    return summarizeDaily(merged, t.nameplate);
+    // Anchor the headline to the latest day where EVERY feed reported — a
+    // pipe that posts later in the gas day must not fake a fleet collapse.
+    const nFeeds = feedDailies.length;
+    const counts = {};
+    feedDailies.forEach((daily) => {
+      daily.forEach((d) => {
+        counts[d.dateStr] = (counts[d.dateStr] || 0) + 1;
+      });
+    });
+    let headlineSource = null;
+    for (let i = merged.length - 1; i >= 0; i--) {
+      if (counts[merged[i].dateStr] === nFeeds) {
+        headlineSource = merged[i];
+        break;
+      }
+    }
+    return summarizeDaily(merged, t.nameplate, headlineSource);
   }
 
   const src = bundle.sources?.[t.source];
@@ -210,7 +248,7 @@ function buildFeedDaily(bundle, feed) {
     let best = null;
     let bestPrio = -1;
     Object.keys(cycles).forEach((cy) => {
-      const prio = CYCLE_PRIORITY[cy] || 0;
+      const prio = cyclePriority(cy);
       if (prio > bestPrio) {
         bestPrio = prio;
         best = cy;
@@ -232,8 +270,11 @@ function buildFeedDaily(bundle, feed) {
  * @returns {{ok: boolean, latest: number, utilPct: number, spark: number[],
  *   wow: {delta: number, pct: number}|null, days: number}}
  */
-function summarizeDaily(daily, nameplate) {
-  const latestPoint = daily[daily.length - 1];
+function summarizeDaily(daily, nameplate, headlineSource = null) {
+  // headlineSource: optional pre-computed {dateStr, date, value} for the
+  // LATEST card (multi-feed terminals anchor it to the latest fully-reported
+  // day). Sparkline/WoW still run off the full merged series.
+  const latestPoint = headlineSource || daily[daily.length - 1];
   const latest = latestPoint.value;
   const utilPct = (latest / nameplate) * 100;
 

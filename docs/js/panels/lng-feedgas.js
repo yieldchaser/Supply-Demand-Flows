@@ -31,7 +31,29 @@ import {
 } from './lng-fleet-overview.js';
 import { renderCycleRevisions } from './lng-cycle-revisions.js';
 
-const CYCLE_PRIORITY = { timely: 1, evening: 2, id1: 3, id2: 4, id3: 5 };
+const CYCLE_PRIORITY = {
+  timely: 1,
+  evening: 2,
+  latec: 3, // TETCO's legacy overnight correction re-post (final for its gas day)
+  late: 4,
+  id1: 5,
+  id2: 6,
+  id3: 7,
+};
+
+/**
+ * Cycle priority for a token, falling back to numeric id{HH}00 buckets
+ * (TETCO posts hourly intraday snapshots — higher hour = fresher).
+ *
+ * @param {string} cycle
+ * @returns {number}
+ */
+function cyclePriority(cycle) {
+  if (CYCLE_PRIORITY[cycle] !== undefined) return CYCLE_PRIORITY[cycle];
+  const m = /^id(\d{2})00$/.exec(cycle);
+  if (m) return 100 + parseInt(m[1], 10);
+  return 0;
+}
 
 /** Stacked-area fill colors per feed index (base -> top). */
 const FEED_COLORS = [
@@ -99,7 +121,7 @@ export function buildMultiFeedData(bundle, t) {
       let best = null;
       let bestPrio = -1;
       Object.keys(cycles).forEach((cy) => {
-        const prio = CYCLE_PRIORITY[cy] || 0;
+        const prio = cyclePriority(cy);
         if (prio > bestPrio) {
           bestPrio = prio;
           best = cy;
@@ -124,14 +146,23 @@ export function buildMultiFeedData(bundle, t) {
   });
   dailySeries.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  // Latest per-feed split (for the breakdown line).
+  // Latest per-feed split (for the breakdown line): walk back to the most
+  // recent gas day where EVERY feed reported, so the split compares pipes
+  // on the same day rather than mixing a stale feed with a fresh one.
   let latestSplit = null;
-  if (dailySeries.length > 0) {
-    latestSplit = {};
-    const lastFeeds = rowsByDate[dailySeries[dailySeries.length - 1].dateStr];
-    Object.keys(lastFeeds).forEach((label) => {
-      latestSplit[label] = lastFeeds[label];
-    });
+  for (let i = dailySeries.length - 1; i >= 0 && latestSplit === null; i--) {
+    const dayFeeds = rowsByDate[dailySeries[i].dateStr];
+    const present = feedLabels.filter((label) => dayFeeds[label] !== undefined);
+    if (feedLabels.length > 0 && present.length === feedLabels.length) {
+      latestSplit = {};
+      feedLabels.forEach((label) => {
+        latestSplit[label] = dayFeeds[label];
+      });
+    }
+  }
+  // Fallback: partial split from the newest day.
+  if (latestSplit === null && dailySeries.length > 0) {
+    latestSplit = { ...rowsByDate[dailySeries[dailySeries.length - 1].dateStr] };
   }
 
   return { dailySeries, rowsByDate, feedLabels, latestSplit };
@@ -183,24 +214,6 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
   headerSection.appendChild(chipsContainer);
   panelEl.appendChild(headerSection);
 
-  // 2. Resolve bundle source for this terminal
-  const source = bundle.sources?.[t.source];
-
-  if (!source || !source.data || source.data.length === 0) {
-    const bodyEl = document.createElement('div');
-    bodyEl.className = 'lng-panel-body-wrapper';
-    panelEl.appendChild(bodyEl);
-    const chrome = renderPanelChrome(bodyEl, {
-      title: `${t.display} · Feed Gas Deliveries`,
-      subtitle: `${t.locName ?? ''} · ${t.platformLabel ?? ''}`,
-      sourceKey: t.source,
-      latestPeriod: null,
-    });
-    chrome.chartEl.innerHTML =
-      '<div class="panel-error">Awaiting first scrape for this terminal.</div>';
-    return;
-  }
-
   // 3. Panel chrome
   const bodyEl = document.createElement('div');
   bodyEl.className = 'lng-panel-body-wrapper';
@@ -224,10 +237,7 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     (!isMultiFeed || !multi || multi.feedLabels.length === 0) &&
     (!source || !source.data || source.data.length === 0)
   ) {
-    const bodyEl2 = document.createElement('div');
-    bodyEl2.className = 'lng-panel-body-wrapper';
-    panelEl.appendChild(bodyEl2);
-    const chrome = renderPanelChrome(bodyEl2, {
+    const chrome = renderPanelChrome(bodyEl, {
       title: `${t.display} · Feed Gas Deliveries`,
       subtitle: `${t.locName ?? ''} · ${t.platformLabel ?? ''}`,
       sourceKey: t.source,
@@ -299,21 +309,46 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
   // 5. Hero chart (stacked areas for multi-feed)
   drawHeroChart(chartEl, dailySeries, dottedSeries, nameplate, totalDays, isMultiFeed ? multi : null);
 
-  // 6. KPI strip + per-feed breakdown line
-  renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode, isProxy);
+  // 6. KPI strip + per-feed breakdown line.
+  // Multi-feed: anchor the headline KPIs to the latest COMMON gas day (every
+  // feed reporting), so a pipe that posts late in the gas day never makes
+  // the terminal read as idle. The chart still shows the newest partial day.
+  let kpiOverride = null;
+  if (isMultiFeed && multi.latestSplit && multi.feedLabels.length > 0) {
+    const allPresent = multi.feedLabels.every(
+      (label) => multi.latestSplit[label] !== undefined
+    );
+    if (allPresent) {
+      const combinedCommon = multi.feedLabels.reduce(
+        (sum, label) => sum + multi.latestSplit[label],
+        0
+      );
+      kpiOverride = {
+        value: combinedCommon,
+        helpText: 'Combined · latest fully-reported gas day',
+      };
+    }
+  }
+  renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode, isProxy, kpiOverride);
 
   if (isMultiFeed && multi.latestSplit) {
     const parts = multi.feedLabels
       .filter((label) => multi.latestSplit[label] !== undefined)
       .map((label) => `${label} ${multi.latestSplit[label].toFixed(0)}`);
     if (parts.length > 0) {
+      const splitSum = parts.reduce((acc, _p) => acc, 0);
+      const splitTotal = multi.feedLabels.reduce(
+        (sum, label) => sum + (multi.latestSplit[label] || 0),
+        0
+      );
+      void splitSum;
       const breakdown = document.createElement('div');
       breakdown.className = 'feed-breakdown';
       breakdown.innerHTML =
         `<span class="feed-breakdown__line">${parts.join(' · ')} ` +
         `<span class="feed-breakdown__eq">=</span> ` +
-        `<strong>${latestData.value.toFixed(0)}</strong> MMcf/d</span>` +
-        `<span class="feed-breakdown__note">per-pipe split at the latest common gas day</span>`;
+        `<strong>${splitTotal.toFixed(0)}</strong> MMcf/d</span>` +
+        `<span class="feed-breakdown__note">per-pipe split · latest fully-reported gas day</span>`;
       sidebarEl.appendChild(breakdown);
     }
   }
@@ -345,9 +380,13 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     ? `<p><strong>⚠ Proxy signal:</strong> Cheniere does not publish Scheduled Quantities. Value = Design Capacity − Operationally Available (inferred consumption), not measured feedgas.</p>`
     : '';
   const latestPeriodText = source && source.latest_period ? source.latest_period : latestData.dateStr;
+  const kmtpLine = isMultiFeed
+    ? `<p><strong>⚠ Interstate-visible feedgas only.</strong> KMTP (intrastate) is not publicly posted — figures are conservative.</p>`
+    : '';
   footerContainer.innerHTML = `
     <p><strong>Source:</strong> ${t.methodLine}</p>
     ${proxyLine}
+    ${kmtpLine}
     <p><strong>Last updated:</strong> ${latestPeriodText} · ${totalDays.toLocaleString()} gas days of history</p>
   `;
   panelEl.appendChild(footerContainer);
@@ -459,10 +498,14 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
 
   // Median reference marker — only when today deviates >25% from the
   // trailing-90-day median, so an unusual day is never read as normal.
+  // Multi-feed: compare the latest FULLY-REPORTED combined day, never a
+  // partial day where a late-posting pipe would fake a collapse.
   const recentValues = dailySeries.slice(-90).map((d) => d.value);
   if (recentValues.length >= 30) {
     const medianVal = d3.median(recentValues);
-    const latest = dailySeries[dailySeries.length - 1].value;
+    const latest = multi && multi.latestSplit
+      ? multi.feedLabels.reduce((s, l) => s + (multi.latestSplit[l] || 0), 0)
+      : dailySeries[dailySeries.length - 1].value;
     if (medianVal > 0 && Math.abs(latest - medianVal) / medianVal > 0.25) {
       g.append('line')
         .attr('x1', 0).attr('x2', width)
@@ -514,7 +557,6 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
           .attr('stroke-width', 1.5)
           .attr('stroke-opacity', 0.9);
         upper.forEach((v, k) => cum.set(k, v));
-        stackTop.set(fi, upper);
       });
 
       // Total line on top of the stack + latest callout.
@@ -866,16 +908,20 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
 /**
  * Render the KPI Cards Strip.
  */
-function renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode, isProxy) {
+function renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode, isProxy, kpiOverride = null) {
   const latestLabel = isProxy ? 'Latest Implied Flow' : 'Latest Scheduled';
 
   // 1. LATEST Card
-  const latestValue = latestData.value;
-  const latestPeriodLabel = latestData.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const latestValue = kpiOverride ? kpiOverride.value : latestData.value;
+  const latestPeriodLabel = (kpiOverride ? new Date() : latestData.date).toLocaleDateString(
+    'en-US',
+    { month: 'short', day: 'numeric', year: 'numeric' }
+  );
+  const helpSuffix = kpiOverride ? kpiOverride.helpText : `${latestCycleCode.toUpperCase()} cycle`;
   const latestKpi = kpiCardHtml({
-    label: latestLabel,
+    label: kpiOverride ? 'Latest Combined' : latestLabel,
     value: `${latestValue.toFixed(0)} MMcf/d`,
-    helpText: `${latestCycleCode.toUpperCase()} cycle · ${latestPeriodLabel}${isProxy ? ' · proxy ⓘ' : ''}`,
+    helpText: `${helpSuffix} · ${latestPeriodLabel}${isProxy && !kpiOverride ? ' · proxy ⓘ' : ''}`,
   });
 
   // 2. UTILIZATION Card with Inline Progress Bar
