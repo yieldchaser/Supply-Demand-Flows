@@ -1,4 +1,4 @@
-name: Williams Live Probe 14
+name: Williams Live Probe 15
 on:
   workflow_dispatch:
 jobs:
@@ -13,28 +13,26 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx
+          import httpx, time
           UA = {
               "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
               "Accept": "application/json, text/plain, */*",
-              "Accept-Language": "en-US,en;q=0.9",
-              "Origin": "https://www.1line.williams.com",
-              "Referer": "https://www.1line.williams.com/",
-              "Sec-Fetch-Dest": "empty",
-              "Sec-Fetch-Mode": "cors",
-              "Sec-Fetch-Site": "same-origin",
           }
-          tests = [
-              "https://www.1line.williams.com/api/portal-service/v1/public/cycle-indicators?buId=80",
-              "https://www.1line.williams.com/api/portal-service/v1/public/map/menu?buId=80",
-              "https://infopost.enbridge.com/api/portal-service/v1/public/cycle-indicators?buId=80",
-          ]
           with httpx.Client(headers=UA, timeout=40.0) as c:
-              for u in tests:
-                  r = c.get(u)
-                  ct = r.headers.get("content-type", "")[:24]
-                  body = r.text[:250].replace("\n", " ")
-                  print(u.split("//")[1][:55], "->", r.status_code, ct)
-                  print("   ", body)
+              c.get("https://www.1line.williams.com/")
+              time.sleep(1)
+              print("JAR1:", dict(c.cookies))
+              r = c.get(
+                  "https://www.1line.williams.com/api/portal-service/v1/public/cycle-indicators",
+                  params={"buId": 80},
+                  headers={"Referer": "https://www.1line.williams.com/", "Origin": "https://www.1line.williams.com"},
+              )
+              print("API:", r.status_code, r.headers.get("content-type", "")[:24], r.text[:200].replace("\n", " "))
+              # also try the OLD jsp again with cookies now set
+              r2 = c.get("https://www.1line.williams.com/ebbCode/OACQueryRequest.jsp?BUID=80&type=OAC")
+              t = r2.text
+              import re
+              title = re.search(r"<title>(.*?)</title>", t)
+              print("JSP:", r2.status_code, "len:", len(t), "title:", title.group(1) if title else "?", "has OAC form:", ("OAC" in t and "GasFlow" in t or "cycle" in t.lower()))
           PYEOF
           python /tmp/probe.py
