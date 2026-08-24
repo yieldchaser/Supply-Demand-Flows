@@ -1,4 +1,4 @@
-name: Williams Final Verdict 4
+name: Williams Discrimination Test 32
 on:
   workflow_dispatch:
 jobs:
@@ -9,7 +9,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install httpx
-      - name: Run probe
+      - name: Run discrimination test
         run: |
-          echo "CmltcG9ydCBodHRweApVQSA9IHsiVXNlci1BZ2VudCI6ICJNb3ppbGxhLzUuMCIsICJBY2NlcHQiOiAiYXBwbGljYXRpb24vanNvbiJ9CndpdGggaHR0cHguQ2xpZW50KGhlYWRlcnM9VUEsIHRpbWVvdXQ9NDAuMCkgYXMgYzoKICAgIGZvciBwIGluICgiL2FwaS9kZWZpbml0ZWx5LW5vdC1yZWFsLXh5eiIsICIvYXBpL3BvcnRhbC1zZXJ2aWNlL3YxL3B1YmxpYy9vYWMvY3ljbGUiKToKICAgICAgICByID0gYy5nZXQoImh0dHBzOi8vd3d3LjFsaW5lLndpbGxpYW1zLmNvbSIgKyBwKQogICAgICAgIGN0ID0gci5oZWFkZXJzLmdldCgiY29udGVudC10eXBlIiwgIiIpWzoyMF0KICAgICAgICBwcmludChwLCAiLT4iLCByLnN0YXR1c19jb2RlLCBjdCwgInwgbGVuOiIsIGxlbihyLnRleHQpKQo=" | base64 -d > /tmp/probe.py
+          echo "CmltcG9ydCBodHRweApVQSA9IHsiVXNlci1BZ2VudCI6ICJNb3ppbGxhLzUuMCIsICJBY2NlcHQiOiAiYXBwbGljYXRpb24vanNvbiJ9CndpdGggaHR0cHguQ2xpZW50KGhlYWRlcnM9VUEsIHRpbWVvdXQ9NDAuMCkgYXMgYzoKICAgIGZvciBwIGluICgiL2FwaS9kZWZpbml0ZWx5LW5vdC1yZWFsLXh5eiIsICIvYXBpL3BvcnRhbC1zZXJ2aWNlL3YxL3B1YmxpYy9vYWMvY3ljbGUiKToKICAgICAgICByID0gYy5nZXQoImh0dHBzOi8vd3d3LjFsaW5lLndpbGxpYW1zLmNvbSIgKyBwKQogICAgICAgIGN0ID0gci5oZWFkZXJzLmdldCgiY29udGVudC10eXBlIiwgIiIpWzoyMF0KICAgICAgICBwcmludCgiRElTQyIsIHAsICItPiIsIHIuc3RhdHVzX2NvZGUsIGN0LCAifCBsZW46IiwgbGVuKHIudGV4dCkpCg==" | base64 -d > /tmp/probe.py
           python /tmp/probe.py
