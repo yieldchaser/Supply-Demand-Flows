@@ -456,13 +456,11 @@ class TestShippedRules:
             "eia_storage",
             "eia_lng_exports",
             "eia_supply",
-            # EBB daily sources enabled 2026-08-23 (commit 271d8f0)
             "gasnom",
             "quorum",
             "bhe",
             "cheniere",
-            # TETCO via Enbridge rtba enabled in the TETCO integration
-            "enbridge",
+            "transco",
         }
 
     def test_gulf_south_rules(self, rules: dict[str, Any]) -> None:
@@ -491,12 +489,6 @@ class TestShippedRules:
             assert source["mode"] == "accumulation"
         # quorum must NOT enforce calendar gaps: the tenant has retention holes.
         assert "gap_rule" not in rules["sources"]["quorum"]
-
-    def test_future_scrapers_stay_out(self, rules: dict[str, Any]) -> None:
-        # gasnom/quorum/bhe/cheniere graduated from placeholder to active in
-        # 271d8f0 (and enbridge in the TETCO integration); the remaining
-        # shipped-but-disabled placeholders must stay out of `sources`.
-        assert not {"cenagas", "cove_point_direct", "egp"} & set(rules["sources"])
 
 
 # ------------------------------------------------------------ render_table

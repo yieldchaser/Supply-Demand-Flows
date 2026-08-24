@@ -147,17 +147,19 @@ sources:
         min: -200000.0        # payback/recycle adjustments below zero
         max: 4000000.0        # above observed max 2,750,000
 
-  enbridge:
-    parquet: data/curated/enbridge.parquet
-    health_file: data/health/enbridge.json  # created by CI on first scheduled run
-    staleness: {warn_days: 2, fail_days: 4}  # multi-cycle daily EBB
+  transco:
+    parquet: data/curated/williams.parquet
+    health_file: data/health/transco.json   # created by CI on first scheduled run
+    staleness: {warn_days: 2, fail_days: 4}  # daily EBB, five cycles/day
     unit_expected: Dth/d
     mode: accumulation
-    negative_values_fail: true
-    # TETCO OAC/TSQ magnitudes; the Freeport anchor (79999 STRATTON RIDGE)
-    # runs ~250-300k Dth/d against a 322k design cap.
+    # Watchlist-scoped dataset (~15 series families): LNG-terminal feedgas
+    # interconnects, storage fields, basin-egress anchors. Zeros are
+    # LEGITIMATE at LNG interconnects — no gas scheduled that cycle is real
+    # operating state, never flagged. negative_values_fail stays unset:
+    # payback adjustments can post below zero (quorum precedent).
     bands:
-      - label: freeport_stratton_ridge_sq
-        series_glob: "tetco_sq_79999_*"
-        min: 0.0              # inclusive floor — zero flow is legitimate
-        max: 400000.0         # above design capacity 322,000
+      - label: transco_watchlist_capacity
+        series_glob: "*"
+        min: -100000.0        # payback/recycle headroom below zero
+        max: 5000000.0        # above Sabine Pass nameplate 4.5M Dth/d
