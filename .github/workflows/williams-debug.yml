@@ -1,4 +1,4 @@
-name: Williams Debug Probe 4
+name: Williams Debug Probe 5
 on:
   workflow_dispatch:
 jobs:
@@ -13,20 +13,29 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, re, html as h
+          import httpx, re
           BASE = "https://www.1line.williams.com"
-          with httpx.Client(base_url=BASE, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}, timeout=30.0, follow_redirects=True) as c:
+          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+          with httpx.Client(base_url=BASE, headers=UA, timeout=30.0, follow_redirects=True) as c:
               r = c.get("/ebbCode/OACQueryRequest.jsp?BUID=80&type=OAC")
-              body = h.unescape(r.text)
-              txt = re.sub(r"<script.*?</script>", " ", body, flags=re.S)
-              txt = re.sub(r"<[^>]+>", " ", txt)
-              txt = re.sub(r"\s+", " ", txt)
-              print("VISIBLE:", txt[:600])
-              for m in re.findall(r'<iframe[^>]*src="([^"]+)"', body)[:3]:
-                  print("IFRAME:", m[:200])
-              for m in re.findall(r'window\.location[^;]{0,120}', body)[:4]:
-                  print("LOC:", m[:160])
-              for m in re.findall(r'(?:fetch|XMLHttpRequest|axios)\([^)]{0,140}', body)[:6]:
-                  print("AJAX:", m[:180])
+              scripts = re.findall(r'<script[^>]*src="([^"]+)"', r.text)
+              print("SCRIPTS:", scripts[:10])
+              links = re.findall(r'href="([^"]+\.js)"', r.text)
+              print("LINKS:", links[:6])
+              for s in scripts[:4]:
+                  url = s if s.startswith("http") else BASE + (s if s.startswith("/") else "/" + s)
+                  try:
+                      jr = c.get(url if url.startswith("http") else s)
+                      blob = jr.text
+                  except Exception as e:
+                      print("fetch fail", s, e); continue
+                  apis = re.findall(r'"(/[A-Za-z0-9_/.-]{3,80})"', blob)
+                  interesting = sorted({a for a in apis if any(k in a.lower() for k in ("api","oac","ebb","query","data","loc"))})[:20]
+                  if interesting:
+                      print("API HITS from", s[-40:], ":", interesting)
+              # also probe common REST paths directly
+              for p in ["/ebbCode/api/oac", "/api/oac", "/1LineApi/oac"]:
+                  pr = c.get(p)
+                  print("DIRECT", p, "->", pr.status_code)
           PYEOF
           python /tmp/probe.py
