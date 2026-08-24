@@ -75,6 +75,32 @@ START_DATE = "2021-01-01"
 # Exclude it — we want per-destination rows only.
 AGGREGATE_DUOAREA = "NUS-Z00"
 
+#: Authoritative duoarea → ISO-3166-alpha3 destination map.
+#:
+#: WHY THIS EXISTS: EIA's ``area-name`` metadata is corrupted for some
+#: duoareas — e.g. duoarea ``NUS-NFI`` (Finland, per its own
+#: series-description "…Exports by Vessel to Finland") carries
+#: ``area-name: "DEU"``. Trusting area-name mislabeled Finland's volumes
+#: as Germany and, with duoarea dropped from the raw payload, the two
+#: countries' rows collided on one series_id (the 2026-08 lng_export_deu
+#: bug: 43 months of wrong data). Map rebuilt empirically 2026-08-23 from
+#: series-description text; see analysis/_duoarea_country_map.json.
+DUOAREA_TO_COUNTRY: dict[str, str] = {
+    "NUS-NAC": "ATG", "NUS-NAR": "ARG", "NUS-NBA": "BHR", "NUS-NBB": "BRB",
+    "NUS-NBE": "BEL", "NUS-NBF": "BHS", "NUS-NBG": "BGD", "NUS-NBR": "BRA",
+    "NUS-NCH": "CHN", "NUS-NCI": "CHL", "NUS-NCO": "COL", "NUS-NDR": "DOM",
+    "NUS-NEG": "EGY", "NUS-NES": "SLV", "NUS-NFI": "FIN", "NUS-NFR": "FRA",
+    "NUS-NGM": "DEU", "NUS-NGR": "GRC", "NUS-NHA": "HTI", "NUS-NHR": "HRV",
+    "NUS-NID": "IDN", "NUS-NIN": "IND", "NUS-NIS": "ISR", "NUS-NIT": "ITA",
+    "NUS-NJA": "JPN", "NUS-NJM": "JAM", "NUS-NJO": "JOR", "NUS-NKS": "KOR",
+    "NUS-NKU": "KWT", "NUS-NLH": "LTU", "NUS-NM6": "MLT", "NUS-NMR": "MRT",
+    "NUS-NMX": "MEX", "NUS-NMY": "MYS", "NUS-NNL": "NLD", "NUS-NNU": "NIC",
+    "NUS-NPK": "PAK", "NUS-NPL": "POL", "NUS-NPM": "PAN", "NUS-NPO": "PRT",
+    "NUS-NRP": "PHL", "NUS-NRS": "RUS", "NUS-NSG": "SEN", "NUS-NSN": "SGP",
+    "NUS-NSP": "ESP", "NUS-NTC": "ARE", "NUS-NTH": "THA", "NUS-NTU": "TUR",
+    "NUS-NTW": "TWN", "NUS-NUK": "GBR", "NUS-NCA": "CAN",
+}
+
 
 def _read_prior_state() -> tuple[str | None, int]:
     """Return (latest_period, row_count) from the last saved raw file, or (None, 0)."""
@@ -126,15 +152,28 @@ def _coerce_rows(api_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if value_mmcf < 0:
             continue
 
-        dest_code = area_name.upper().strip()
+        # Destination identity comes from DUOAREA (authoritative), NOT
+        # area-name — EIA's area-name is corrupted for some duoareas
+        # (NUS-NFI/Finland ships area-name "DEU"). Unknown duoareas fall
+        # back to area-name and are flagged for the mapping table.
+        dest_code = DUOAREA_TO_COUNTRY.get(duoarea, "").upper()
+        if not dest_code:
+            log.warning(
+                "Unknown duoarea %s (area-name=%s) — falling back to area-name; "
+                "extend DUOAREA_TO_COUNTRY.",
+                duoarea,
+                area_name,
+            )
+            dest_code = area_name.upper().strip()
 
         out.append(
             {
                 "period": period,
                 "destination_code": dest_code,
-                "destination_name": area_name,
+                "destination_name": dest_code,
                 "value_mmcf": value_mmcf,
                 "process": str(process),
+                "duoarea": str(duoarea),  # kept: destination provenance
             }
         )
     return out
