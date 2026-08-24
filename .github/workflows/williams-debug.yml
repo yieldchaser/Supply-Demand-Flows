@@ -1,4 +1,4 @@
-name: Williams Live Probe 9
+name: Williams Live Probe 10
 on:
   workflow_dispatch:
 jobs:
@@ -14,23 +14,25 @@ jobs:
         run: |
           cat > /tmp/probe.py <<'PYEOF'
           import httpx, json
-          BASE = "https://www.1line.williams.com"
-          API = BASE + "/api/portal-service/v1"
           UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
                 "Accept": "application/json"}
-          with httpx.Client(headers=UA, timeout=60.0) as c:
-              # cycle-indicators is a known-good GET: proves /public/* works
-              r = c.get(API + "/public/cycle-indicators", params={"buId": 80})
-              print("CYCLE-IND:", r.status_code, r.headers.get("content-type","")[:20], r.text[:300].replace("\n"," "))
-              r2 = c.post(API + "/public/oac/query", json={
-                  "buId": 80,
-                  "gasFlowBeginDate": "08-23-2026",
-                  "gasFlowEndDate": "08-23-2026",
-                  "cycle": ["1"],
-                  "locationIDs": [],
-                  "reportType": "OAC",
-              })
-              print("QUERY:", r2.status_code, r2.headers.get("content-type","")[:20])
-              print("BODY:", r2.text[:600].replace("\n"," "))
+          tests = [
+              ("https://www.1line.williams.com/api/portal-service/v1/public/cycle-indicators?buId=80", None),
+              ("https://www.1line.williams.com/portal-service/v1/public/cycle-indicators?buId=80", None),
+              ("https://infopost.enbridge.com/api/portal-service/v1/public/oac/cycle?buId=80", None),
+              ("https://www.1line.williams.com/ebbcopilot/api/portal-service/v1/public/cycle-indicators?buId=80", None),
+              ("https://api.1line.williams.com/api/portal-service/v1/public/cycle-indicators?buId=80", None),
+              ("https://www.1line.williams.com/OACQueryRequest.jsp?BUID=80", None),
+          ]
+          with httpx.Client(headers=UA, timeout=40.0, follow_redirects=True) as c:
+              for u, _ in tests:
+                  try:
+                      r = c.get(u)
+                      ct = r.headers.get("content-type", "")[:20]
+                      kind = "JSON" if "json" in ct else ("HTML" if "html" in ct else ct)
+                      head = r.text[:120].replace("\n", " ") if kind != "HTML" else ""
+                      print(u.split("//")[1][:60], "->", r.status_code, kind, head)
+                  except Exception as e:
+                      print(u.split("//")[1][:60], "ERR", type(e).__name__)
           PYEOF
           python /tmp/probe.py
