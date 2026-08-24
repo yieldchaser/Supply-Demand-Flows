@@ -1,4 +1,4 @@
-name: Williams Debug Probe 12
+name: Williams Live Probe
 on:
   workflow_dispatch:
 jobs:
@@ -13,25 +13,37 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, re
+          import httpx, json
           BASE = "https://www.1line.williams.com"
-          UA = {"User-Agent": "Mozilla/5.0"}
+          API = BASE + "/api/portal-service/v1"
+          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+                "Accept": "application/json, text/plain, */*",
+                "Origin": BASE, "Referer": BASE + "/"}
           with httpx.Client(headers=UA, timeout=60.0) as c:
-              html = c.get(BASE + "/").text
-              js_files = re.findall(r'(?:src="|href=")([^"]+\.js)"', html)
-              js_files = [j for j in set(js_files)]
-              blob = ""
-              for s in js_files:
-                  u = s if s.startswith("http") else BASE + (s if s.startswith("/") else "/" + s)
-                  blob += c.get(u).text
-              # find chunk names referenced inside the bundles (lazy routes)
-              chunks = sorted(set(re.findall(r'chunk-([A-Z0-9]+)\.js', blob)))
-              print("CHUNKS:", len(chunks))
-              # grep blob for gas-flow / OAC query markers
-              for pat in ("GasFlowBeginDate", "gasFlowBeginDate", "locationIDs", "OACQueryRequest", "oac/report", "scheduledQuantit", "TotalScheduled"):
-                  hits = [mm.start() for mm in re.finditer(pat, blob)][:2]
-                  for hh in hits:
-                      seg = blob[max(0,hh-100):hh+150].replace("\n", " ")
-                      print("HIT:", pat, "::", seg[:220])
+              r = c.get(API + "/public/oac/cycle", params={"buId": 80})
+              print("CYCLE:", r.status_code, r.headers.get("content-type","")[:24], r.text[:400])
+              q = {
+                  "buId": 80,
+                  "gasFlowBeginDate": "08-23-2026",
+                  "gasFlowEndDate": "08-23-2026",
+                  "cycle": ["1"],
+                  "locationIDs": [],
+                  "reportType": "OAC",
+              }
+              r2 = c.post(API + "/public/oac/query", json=q)
+              print("QUERY:", r2.status_code, r2.headers.get("content-type","")[:24])
+              print("QBODY:", r2.text[:500].replace("\n", " "))
+              r3 = c.get(API + "/public/oac/report", params={"buId": 80})
+              ct = r3.headers.get("content-type","")
+              print("REPORT:", r3.status_code, ct[:30], "len:", len(r3.text))
+              if "json" in ct:
+                  try:
+                      data = r3.json()
+                      s = json.dumps(data)[:600]
+                      print("RJSON:", s)
+                  except Exception as e:
+                      print("RJSONERR:", e)
+              else:
+                  print("RTXT:", r3.text[:300].replace("\n"," "))
           PYEOF
           python /tmp/probe.py
