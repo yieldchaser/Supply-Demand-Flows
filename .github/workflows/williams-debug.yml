@@ -1,4 +1,4 @@
-name: Williams Debug Probe 10
+name: Williams Debug Probe 11
 on:
   workflow_dispatch:
 jobs:
@@ -13,31 +13,35 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, re
-          BASE = "https://www.1line.williams.com"
-          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
-          with httpx.Client(base_url=BASE, headers=UA, timeout=60.0) as c:
-              html = c.get("/").text
-              tags = re.findall(r"<script[^>]*>", html)
-              for t in tags[:8]:
-                  print("TAG:", t[:200])
-              hrefs = re.findall(r'<link[^>]*href="([^"]+)"', html)
-              print("LINKHREFS:", [h for h in hrefs if h.endswith(".js")][:6])
-              # fetch every js and grep hosts + api paths
-              alljs = []
-              for t in tags:
-                  m = re.search(r'src="([^"]+)"', t)
-                  if m:
-                      alljs.append(m.group(1))
-              blob = ""
-              for s in alljs:
-                  u = s if s.startswith("http") else BASE + (s if s.startswith("/") else "/" + s)
-                  r = c.get(u)
-                  blob += r.text
-                  print("FETCHED", u[-50:], len(r.text))
-              hosts = sorted({mm.split("//")[1] for mm in re.findall(r'https?://[A-Za-z0-9_.\-]+', blob)})
-              print("HOSTS:", hosts[:30])
-              api = sorted(set(re.findall(r'/api/[A-Za-z0-9_/.\-]+', blob)))[:40]
-              print("APIPATHS:", api)
+          import httpx, re, json
+          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36", "Accept": "application/json, text/plain, */*"}
+          # mine the main bundle for endpoint fragments after 'portal-service/v1/'
+          with httpx.Client(headers=UA, timeout=60.0) as c:
+              js = c.get("https://www.1line.williams.com/main-ZSQ4H6XM.js").text
+              i = 0
+              frags = set()
+              for m in re.finditer(r'portal-service/v1/', js):
+                  seg = js[m.start()-80:m.start()+120]
+                  # capture string literals near it
+                  frags.add(re.sub(r"\s+", " ", seg)[:200])
+                  i += 1
+                  if i > 8: break
+              for f in sorted(frags)[:8]:
+                  print("FRAG:", f)
+              # try known enbridge infopost OAC endpoints against williams host
+              tries = [
+                  "https://www.1line.williams.com/api/portal-service/v1/oac/postings?businessUnit=TE",
+                  "https://www.1line.williams.com/api/portal-service/v1/postings?bu=80",
+                  "https://www.1line.williams.com/api/portal-service/v1/breadcrumb?buId=80",
+                  "https://infopost.enbridge.com/api/portal-service/v1/oac/postings?businessUnit=TE",
+              ]
+              for u in tries:
+                  try:
+                      rr = c.get(u)
+                      ct = rr.headers.get("content-type", "?")
+                      body = rr.text[:180].replace("\n", " ")
+                      print("TRY", u[-70:], "->", rr.status_code, ct[:24], body)
+                  except Exception as e:
+                      print("TRY", u[-70:], "ERR", type(e).__name__)
           PYEOF
           python /tmp/probe.py
