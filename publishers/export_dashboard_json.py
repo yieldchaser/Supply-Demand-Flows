@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -47,6 +48,16 @@ EBB_METER_CONFIGS: dict[str, Path] = {
     "bhe": Path("config/meters/bhe.json"),
     "cheniere": Path("config/meters/cheniere.json"),
     "enbridge": Path("config/meters/enbridge.json"),
+}
+
+#: Frontend registries that extend the relevance allowlist beyond the
+#: high-confidence meter configs above. Each entry maps a source key to a
+#: JS registry module exporting arrays with numeric ``loc`` fields (plus,
+#: optionally, ``inHeadline: false`` entries that must still ship — the
+#: basin-egress table flags them instead of dropping them). Every loc id
+#: found in these modules is allowlisted for the source.
+FRONTEND_EXTRA_REGISTRIES: dict[str, tuple[Path, ...]] = {
+    "gulf_south": (Path("docs/js/util/basin-egress.js"),),
 }
 
 #: Blob-size guard only — never a pruning mechanism. Trips loudly.
@@ -97,8 +108,41 @@ def _collect_from_pair(key: str, value: Any, found: set[str]) -> None:
         _collect_high_confidence_loc_ids(value, found)
 
 
+def _loc_ids_from_frontend_registries(source_key: str) -> set[str]:
+    """Pull loc ids out of the source's frontend registry JS modules.
+
+    What:
+        Scans each registered ``docs/js/util/*.js`` module for
+        ``{ loc: <int>,`` object literals. The registries are plain data —
+        a regex over ``loc:\\s*(\\d+)`` is exact for this file family and
+        avoids shipping a JS parser in the publisher.
+
+    Failure modes:
+        Missing module -> empty contribution (config decides); unreadable
+        module prints a warning and continues with what parsed.
+    """
+    found: set[str] = set()
+    for path in FRONTEND_EXTRA_REGISTRIES.get(source_key, ()):  # noqa: PTH117 - relative to repo root by design
+        if not path.exists():
+            print(f"WARN: frontend registry {path} not found — no extra loc ids from it")
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"WARN: unreadable frontend registry {path}: {exc}")
+            continue
+        found.update(m.group(1) for m in re.finditer(r"loc:\s*(\d+)", text))
+    return found
+
+
 def load_relevant_loc_ids(source_key: str) -> set[str]:
     """Return the lowercase loc_id allowlist for one EBB source.
+
+    What:
+        Union of (a) high-confidence entries in the meter config and (b)
+        every loc id in the source's frontend registries — basin egress,
+        storage, and power-burn meters are medium-confidence by design and
+        would otherwise never reach the bundle.
 
     Failure modes:
         Missing/unreadable config -> empty set; callers treat that as
@@ -119,6 +163,10 @@ def load_relevant_loc_ids(source_key: str) -> set[str]:
             _collect_from_pair(key, value, found)
     else:
         _collect_high_confidence_loc_ids(data, found)
+    before = len(found)
+    found |= _loc_ids_from_frontend_registries(source_key)
+    if len(found) > before:
+        print(f"{source_key}: +{len(found) - before} loc id(s) from frontend registries")
     return found
 
 
