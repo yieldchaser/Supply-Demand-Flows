@@ -1,4 +1,4 @@
-name: Williams Live Probe
+name: Williams Live Probe 2
 on:
   workflow_dispatch:
 jobs:
@@ -13,37 +13,30 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, json
+          import httpx, json, re
           BASE = "https://www.1line.williams.com"
-          API = BASE + "/api/portal-service/v1"
           UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
                 "Accept": "application/json, text/plain, */*",
                 "Origin": BASE, "Referer": BASE + "/"}
+          candidates = [
+              "/portal-service/v1/public/oac/cycle?buId=80",
+              "/api/portal-service/v1/public/oac/cycle",
+              "/api/portal-service/public/oac/cycle?buId=80",
+              "/public/oac/cycle?buId=80",
+              "/oac/public/oac/cycle?buId=80",
+          ]
           with httpx.Client(headers=UA, timeout=60.0) as c:
-              r = c.get(API + "/public/oac/cycle", params={"buId": 80})
-              print("CYCLE:", r.status_code, r.headers.get("content-type","")[:24], r.text[:400])
-              q = {
-                  "buId": 80,
-                  "gasFlowBeginDate": "08-23-2026",
-                  "gasFlowEndDate": "08-23-2026",
-                  "cycle": ["1"],
-                  "locationIDs": [],
-                  "reportType": "OAC",
-              }
-              r2 = c.post(API + "/public/oac/query", json=q)
-              print("QUERY:", r2.status_code, r2.headers.get("content-type","")[:24])
-              print("QBODY:", r2.text[:500].replace("\n", " "))
-              r3 = c.get(API + "/public/oac/report", params={"buId": 80})
-              ct = r3.headers.get("content-type","")
-              print("REPORT:", r3.status_code, ct[:30], "len:", len(r3.text))
-              if "json" in ct:
-                  try:
-                      data = r3.json()
-                      s = json.dumps(data)[:600]
-                      print("RJSON:", s)
-                  except Exception as e:
-                      print("RJSONERR:", e)
-              else:
-                  print("RTXT:", r3.text[:300].replace("\n"," "))
+              for p in candidates:
+                  r = c.get(BASE + p)
+                  ct = r.headers.get("content-type", "")[:24]
+                  marker = "JSON" if "json" in ct else ("HTML" if "html" in ct else ct)
+                  body = r.text[:150].replace("\n", " ") if "json" in ct else ""
+                  print(p, "->", r.status_code, marker, body)
+              # mine main.js for how serviceGroupURL is consumed (prefix path)
+              js = c.get(BASE + "/main-ZSQ4H6XM.js").text
+              for m in re.finditer(r'.{80}serviceGroupURL.{200}', js):
+                  seg = m.group(0).replace("\n", " ")
+                  print("USE:", seg[:300])
+                  break
           PYEOF
           python /tmp/probe.py
