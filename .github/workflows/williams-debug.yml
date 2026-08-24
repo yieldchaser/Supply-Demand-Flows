@@ -1,4 +1,4 @@
-name: Williams Debug Probe 8
+name: Williams Debug Probe 9
 on:
   workflow_dispatch:
 jobs:
@@ -13,28 +13,25 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, re
+          import httpx, re, json
           BASE = "https://www.1line.williams.com"
           UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
           with httpx.Client(base_url=BASE, headers=UA, timeout=60.0) as c:
               html = c.get("/").text
-              print("INDEX len:", len(html))
               m = re.findall(r'src="([^"]+main[^"]*\.js)"', html)
               print("MAINJS:", m)
-              mainjs = m[0] if m else None
-              # runtime/config chunks referenced by index
-              for cfg in ("/assets/config.json", "/config.json", "/assets/app-config.json", "/runtime-config.js"):
-                  rr = c.get(cfg)
-                  print("CFG", cfg, "->", rr.status_code, rr.text[:200].replace("\n"," "))
-              if mainjs:
-                  blob = c.get(mainjs if mainjs.startswith("/") else "/" + mainjs).text
-                  abs_urls = sorted(set(re.findall(r'https?://[A-Za-z0-9_.-]+[A-Za-z0-9_/.-]*', blob)))
-                  hosts = sorted({u.split("/")[2] for u in abs_urls})[:25]
-                  print("HOSTS:", hosts)
-                  api_paths = sorted({p for p in re.findall(r'"(/api/[A-Za-z0-9_/.-]+)"', blob)})[:30]
+              if not m:
+                  print(html[:800])
+              else:
+                  js = c.get(m[0]).text
+                  print("JSLEN:", len(js))
+                  abs_urls = sorted(set(re.findall(r'https?://[A-Za-z0-9_.\-]+', js)))
+                  hosts = sorted({u.split("//")[1] for u in abs_urls})
+                  print("HOSTS:", hosts[:30])
+                  api_paths = sorted(set(re.findall(r'"(\/api\/[A-Za-z0-9_/.\-]+)"', js)))[:30]
                   print("APIPATHS:", api_paths)
-                  env = re.findall(r'(portalService|apiUrl|baseUrl|environment)[^,;]{0,120}', blob)[:10]
-                  for e in env:
-                      print("ENV:", e[:180])
+                  cfg = re.findall(r'(portalService|apiUrl|baseUrl|envJson|appConfig)["\']?\s*[:=]\s*["\']([^"\']{5,120})', js)[:12]
+                  for k, v in cfg:
+                      print("CFGPAIR:", k, "=", v)
           PYEOF
           python /tmp/probe.py
