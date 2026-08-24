@@ -1,4 +1,4 @@
-name: Williams Live Probe 7
+name: Williams Live Probe 8
 on:
   workflow_dispatch:
 jobs:
@@ -13,27 +13,18 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, re, json
-          UA = {"User-Agent": "Mozilla/5.0"}
-          with httpx.Client(headers=UA, timeout=60.0) as c:
-              # 1) does the served shell mention OAC at all?
-              r = c.get("https://www.1line.williams.com/ebbCode/OACQueryRequest.jsp?BUID=80&type=OAC")
-              hits = len(re.findall(r"OAC", r.text))
-              print("OAC mentions in served page:", hits)
-              # 2) wayback: latest captures of the JSP endpoints
-              for u in ("www.1line.williams.com/ebbCode/OACreport.jsp?BUID=80",
-                        "www.1line.williams.com/ebbCode/OACQueryRequest.jsp"):
-                  api = "http://archive.org/wayback/available?url=" + u
-                  wr = c.get(api)
-                  try:
-                      d = wr.json()
-                      snap = d.get("archived_snapshots", {}).get("closest", {})
-                      print("WAYBACK:", u[:50], "->", snap.get("timestamp"), snap.get("status"))
-                  except Exception as e:
-                      print("WAYBACK ERR", e)
-              # 3) CDX: any JSON API endpoints captured recently?
-              cdx = c.get("http://web.archive.org/cdx/search/cdx?url=1line.williams.com&output=text&fl=original,timestamp,statuscode&filter=original:.*(json|api).*&limit=15&from=2025")
-              print("CDX:")
-              print(cdx.text[:1200])
+          import httpx, json, re
+          BASE = "https://www.1line.williams.com"
+          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+                "Accept": "application/json"}
+          with httpx.Client(headers=UA, timeout=60.0, follow_redirects=False) as c:
+              js = c.get(BASE + "/main-ZSQ4H6XM.js").text
+              # find every 'public/...' endpoint literal
+              pubs = sorted(set(re.findall(r'"(public/[A-Za-z0-9_/\-]+)"', js)))
+              print("PUBLIC EPS:", pubs[:30])
+              # find base url token used before serviceGroupURL
+              m = re.findall(r'.{120}SERVICE_GROUP_CONFIG.{200}', js)
+              for s in m[:2]:
+                  print("SGC:", s.replace("\n", " ")[:320])
           PYEOF
           python /tmp/probe.py
