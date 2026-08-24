@@ -1,4 +1,4 @@
-name: Williams Debug Probe 7
+name: Williams Debug Probe 8
 on:
   workflow_dispatch:
 jobs:
@@ -13,27 +13,28 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, json
+          import httpx, re
           BASE = "https://www.1line.williams.com"
-          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36", "Accept": "application/json"}
-          paths = [
-              "/api/portal-service/v1/",
-              "/api/portal-service/v1/oac",
-              "/api/portal-service/v1/oac/cycles",
-              "/api/portal-service/v1/oac/locations?buId=80",
-              "/api/portal-service/v1/locations?buId=80",
-              "/api/portal-service/v1/businessunits",
-              "/api/portal-service/v1/business-units",
-          ]
-          with httpx.Client(base_url=BASE, headers=UA, timeout=30.0, follow_redirects=True) as c:
-              r = c.get("/api/portal-service/v1/")
-              print("ROOT:", r.status_code, r.text[:300])
-              for p in paths[2:]:
-                  try:
-                      rr = c.get(p)
-                      ct = rr.headers.get("content-type", "?")
-                      print(p, "->", rr.status_code, ct[:30], rr.text[:200].replace("\n", " "))
-                  except Exception as e:
-                      print(p, "ERR", e)
+          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+          with httpx.Client(base_url=BASE, headers=UA, timeout=60.0) as c:
+              html = c.get("/").text
+              print("INDEX len:", len(html))
+              m = re.findall(r'src="([^"]+main[^"]*\.js)"', html)
+              print("MAINJS:", m)
+              mainjs = m[0] if m else None
+              # runtime/config chunks referenced by index
+              for cfg in ("/assets/config.json", "/config.json", "/assets/app-config.json", "/runtime-config.js"):
+                  rr = c.get(cfg)
+                  print("CFG", cfg, "->", rr.status_code, rr.text[:200].replace("\n"," "))
+              if mainjs:
+                  blob = c.get(mainjs if mainjs.startswith("/") else "/" + mainjs).text
+                  abs_urls = sorted(set(re.findall(r'https?://[A-Za-z0-9_.-]+[A-Za-z0-9_/.-]*', blob)))
+                  hosts = sorted({u.split("/")[2] for u in abs_urls})[:25]
+                  print("HOSTS:", hosts)
+                  api_paths = sorted({p for p in re.findall(r'"(/api/[A-Za-z0-9_/.-]+)"', blob)})[:30]
+                  print("APIPATHS:", api_paths)
+                  env = re.findall(r'(portalService|apiUrl|baseUrl|environment)[^,;]{0,120}', blob)[:10]
+                  for e in env:
+                      print("ENV:", e[:180])
           PYEOF
           python /tmp/probe.py
