@@ -319,8 +319,10 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
       (label) => multi.latestSplit[label] !== undefined
     );
     if (allPresent) {
+      // Round each feed FIRST, then sum — so the breakdown line's parts
+      // visibly add up to the headline total.
       const combinedCommon = multi.feedLabels.reduce(
-        (sum, label) => sum + multi.latestSplit[label],
+        (sum, label) => sum + Math.round(multi.latestSplit[label]),
         0
       );
       kpiOverride = {
@@ -336,12 +338,10 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
       .filter((label) => multi.latestSplit[label] !== undefined)
       .map((label) => `${label} ${multi.latestSplit[label].toFixed(0)}`);
     if (parts.length > 0) {
-      const splitSum = parts.reduce((acc, _p) => acc, 0);
       const splitTotal = multi.feedLabels.reduce(
-        (sum, label) => sum + (multi.latestSplit[label] || 0),
+        (sum, label) => sum + Math.round(multi.latestSplit[label] || 0),
         0
       );
-      void splitSum;
       const breakdown = document.createElement('div');
       breakdown.className = 'feed-breakdown';
       breakdown.innerHTML =
@@ -575,6 +575,14 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
 
       const latestPoint = currentYearRows[currentYearRows.length - 1];
       if (latestPoint) {
+        // Partial-day guard: if the newest day is missing any feed, the
+        // callout names what IS reported instead of claiming "combined".
+        const dayFeeds = multi.rowsByDate[latestPoint.dateStr] || {};
+        const presentFeeds = labels.filter((l2) => dayFeeds[l2] !== undefined);
+        const calloutText =
+          presentFeeds.length === labels.length
+            ? `${latestPoint.value.toFixed(0)} combined`
+            : `${presentFeeds.join(' + ')} only · ${latestPoint.value.toFixed(0)}`;
         g.append('circle')
           .attr('cx', x(latestPoint.dayIndex))
           .attr('cy', y(latestPoint.value))
@@ -608,7 +616,7 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
           .style('font-feature-settings', '"tnum"')
           .style('fill', '#fff')
           .style('font-weight', '600')
-          .text(`${latestPoint.value.toFixed(0)} combined`);
+          .text(calloutText);
 
         // Feed legend under the callout colors.
         const legend = svg
