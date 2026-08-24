@@ -330,7 +330,10 @@ class TranscoClient:
             "reportType": "OAC",
         }
         referer = WILLIAMS_BASE_URL + _OAC_FORM_PATH
-        self._post_with_retry(_OAC_FORM_PATH.replace("?type=OAC", ""), form=form, referer=referer)
+        # POST must go to the SAME URL the browser submits (with &type=OAC):
+        # posting to the bare ?BUID=80 path returns "405 Not Allowed" from
+        # the JSP container and the session never gains query state.
+        self._post_with_retry(_OAC_FORM_PATH, form=form, referer=referer)
         body = self._get_with_retry(_OAC_REPORT_PATH, referer=referer)
         return parse_oac_table(body)
 
