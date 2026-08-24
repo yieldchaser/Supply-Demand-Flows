@@ -24,9 +24,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import csv
+import io
 import json
 import logging
 import sys
+import zipfile
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -38,9 +41,11 @@ from scrapers.base.safe_writer import safe_write_json
 from scrapers.enbridge.client import (
     BASE_URL,
     BUSINESS_UNIT,
+    COL_LOC,
     RAW_DIR,
+    SOURCE_NAME,
     fetch_oac_zip_bytes,
-    parse_oac_zip,
+    parse_csv_filename,
 )
 
 log = logging.getLogger(__name__)
@@ -224,7 +229,48 @@ class EnbridgeBackfill:
                 )
                 self.chains_run += 1
                 fetched_at = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-                payloads = parse_oac_zip(zip_bytes, fetched_at, business_unit=self.config.business_unit)
+                # Stream the archive member-by-member: a six-month window is
+                # ~6,000 CSVs and holding every parsed payload in memory at
+                # once OOM'd a 16GB machine during the first backfill run.
+                seen = 0
+                with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+                    members = sorted(n for n in zf.namelist() if n.lower().endswith(".csv"))
+                    for member in members:
+                        parsed = parse_csv_filename(member)
+                        if parsed is None:
+                            continue
+                        cycle_tok, gas_day_iso = parsed
+                        stem = member.rsplit(".", 1)[0]
+                        out_path = self.config.raw_dir / f"{gas_day_iso}_{cycle_tok}_{stem}.json"
+
+                        if member in self._done_members or out_path.exists():
+                            self.skipped_raw_file += 1
+                            self._done_members.add(member)
+                            continue
+
+                        text = zf.read(member).decode("utf-8-sig", errors="replace")
+                        rows = [
+                            {(k or "").strip(): (v or "").strip() for k, v in row.items() if k is not None}
+                            for row in csv.DictReader(io.StringIO(text))
+                        ]
+                        rows = [r for r in rows if r.get(COL_LOC)]
+                        if not rows:
+                            continue
+                        payload = {
+                            "source": SOURCE_NAME,
+                            "business_unit": self.config.business_unit,
+                            "archive_member": member,
+                            "cycle": cycle_tok,
+                            "gas_day": gas_day_iso,
+                            "fetched_at": fetched_at,
+                            "row_count": len(rows),
+                            "data": rows,
+                        }
+                        safe_write_json(out_path, payload)
+                        self._done_members.add(member)
+                        self.fetched += 1
+                        seen += 1
+                        del payload, rows, text
             except HttpClientError as exc:
                 self.errors_http += 1
                 log.warning("Window %s..%s failed after retries: %s", begin, end, exc)
@@ -233,34 +279,13 @@ class EnbridgeBackfill:
                 continue
 
             self.windows_walked += 1
-            self.payloads_seen += len(payloads)
-
-            for p in payloads:
-                member = str(p["archive_member"])
-                stem = member.rsplit(".", 1)[0]
-                out_path = self.config.raw_dir / f"{p['gas_day']}_{p['cycle']}_{stem}.json"
-                gas_day = str(p["gas_day"])
-
-                # A curated day only covers cycles we actually ingested; the
-                # raw-file check below still catches new cycles for old days.
-                if gas_day in have_curated_days and out_path.exists():
-                    self.skipped_curated_day += 1
-                    self._done_members.add(member)
-                    continue
-                if member in self._done_members or out_path.exists():
-                    self.skipped_raw_file += 1
-                    self._done_members.add(member)
-                    continue
-
-                safe_write_json(out_path, p)
-                self._done_members.add(member)
-                self.fetched += 1
-
+            self.payloads_seen += seen
+            del zip_bytes
             log.info(
-                "Window %s..%s: %d posting(s), %d written cumulatively.",
+                "Window %s..%s: %d posting(s) written, %d cumulative.",
                 begin,
                 end,
-                len(payloads),
+                seen,
                 self.fetched,
             )
             self._write_checkpoint(next_window=index + 1)
