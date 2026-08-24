@@ -1,4 +1,4 @@
-name: Williams Live Probe 10
+name: Williams Live Probe 11
 on:
   workflow_dispatch:
 jobs:
@@ -13,26 +13,17 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, json
-          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-                "Accept": "application/json"}
-          tests = [
-              ("https://www.1line.williams.com/api/portal-service/v1/public/cycle-indicators?buId=80", None),
-              ("https://www.1line.williams.com/portal-service/v1/public/cycle-indicators?buId=80", None),
-              ("https://infopost.enbridge.com/api/portal-service/v1/public/oac/cycle?buId=80", None),
-              ("https://www.1line.williams.com/ebbcopilot/api/portal-service/v1/public/cycle-indicators?buId=80", None),
-              ("https://api.1line.williams.com/api/portal-service/v1/public/cycle-indicators?buId=80", None),
-              ("https://www.1line.williams.com/OACQueryRequest.jsp?BUID=80", None),
-          ]
-          with httpx.Client(headers=UA, timeout=40.0, follow_redirects=True) as c:
-              for u, _ in tests:
-                  try:
-                      r = c.get(u)
-                      ct = r.headers.get("content-type", "")[:20]
-                      kind = "JSON" if "json" in ct else ("HTML" if "html" in ct else ct)
-                      head = r.text[:120].replace("\n", " ") if kind != "HTML" else ""
-                      print(u.split("//")[1][:60], "->", r.status_code, kind, head)
-                  except Exception as e:
-                      print(u.split("//")[1][:60], "ERR", type(e).__name__)
+          import httpx, re, json
+          BASE = "https://www.1line.williams.com"
+          UA = {"User-Agent": "Mozilla/5.0"}
+          with httpx.Client(headers=UA, timeout=40.0) as c:
+              r = c.get(BASE + "/", headers={"Accept": "text/html"})
+              print("STATUS:", r.status_code)
+              for k, v in r.headers.items():
+                  if k.lower() in ("set-cookie", "server", "x-powered-by", "via", "location"):
+                      print("HDR:", k, "=", v[:160])
+              print("COOKIES:", dict(c.cookies))
+              cfg = c.get(BASE + "/chunk-3DTYLSSE.js").text[:1800]
+              print("CHUNK3D:", cfg)
           PYEOF
           python /tmp/probe.py
