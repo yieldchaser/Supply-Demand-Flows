@@ -1,4 +1,4 @@
-name: Williams Live Probe 11
+name: Williams Live Probe 12
 on:
   workflow_dispatch:
 jobs:
@@ -13,17 +13,25 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, re, json
-          BASE = "https://www.1line.williams.com"
+          import httpx, json
           UA = {"User-Agent": "Mozilla/5.0"}
-          with httpx.Client(headers=UA, timeout=40.0) as c:
-              r = c.get(BASE + "/", headers={"Accept": "text/html"})
-              print("STATUS:", r.status_code)
-              for k, v in r.headers.items():
-                  if k.lower() in ("set-cookie", "server", "x-powered-by", "via", "location"):
-                      print("HDR:", k, "=", v[:160])
-              print("COOKIES:", dict(c.cookies))
-              cfg = c.get(BASE + "/chunk-3DTYLSSE.js").text[:1800]
-              print("CHUNK3D:", cfg)
+          with httpx.Client(headers=UA, timeout=60.0) as c:
+              # all captures of the williams 1line host in the last year
+              r = c.get(
+                  "http://web.archive.org/cdx/search/cdx",
+                  params={
+                      "url": "1line.williams.com*",
+                      "output": "json",
+                      "from": "2024",
+                      "limit": "200",
+                      "collapse": "urlkey",
+                  },
+              )
+              rows = r.json()
+              print("CAPTURES:", len(rows))
+              for row in rows[1:]:
+                  url = row[2]
+                  if any(k in url.lower() for k in ("oac", "api", "json", "query", "cycle")):
+                      print("CAP:", row[1], row[3], url[:150])
           PYEOF
           python /tmp/probe.py
