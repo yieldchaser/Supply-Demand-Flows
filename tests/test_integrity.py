@@ -460,6 +460,9 @@ class TestShippedRules:
             "quorum",
             "bhe",
             "cheniere",
+            # TETCO via Enbridge rtba enabled in the TETCO integration
+            "enbridge",
+            # Transco via Williams 1Line (CI-only egress; WAF-blocked locally)
             "transco",
         }
 

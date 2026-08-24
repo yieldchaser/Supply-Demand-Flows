@@ -147,6 +147,21 @@ sources:
         min: -200000.0        # payback/recycle adjustments below zero
         max: 4000000.0        # above observed max 2,750,000
 
+  enbridge:
+    parquet: data/curated/enbridge.parquet
+    health_file: data/health/enbridge.json  # created by CI on first scheduled run
+    staleness: {warn_days: 2, fail_days: 4}  # multi-cycle daily EBB
+    unit_expected: Dth/d
+    mode: accumulation
+    negative_values_fail: true
+    # TETCO OAC/TSQ magnitudes; the Freeport anchor (79999 STRATTON RIDGE)
+    # runs ~250-300k Dth/d against a 322k design cap.
+    bands:
+      - label: freeport_stratton_ridge_sq
+        series_glob: "tetco_sq_79999_*"
+        min: 0.0              # inclusive floor — zero flow is legitimate
+        max: 400000.0         # above design capacity 322,000
+
   transco:
     parquet: data/curated/williams.parquet
     health_file: data/health/transco.json   # created by CI on first scheduled run
