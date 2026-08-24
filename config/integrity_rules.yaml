@@ -146,3 +146,20 @@ sources:
         series_glob: "*"
         min: -200000.0        # payback/recycle adjustments below zero
         max: 4000000.0        # above observed max 2,750,000
+
+  transco:
+    parquet: data/curated/williams.parquet
+    health_file: data/health/transco.json   # created by CI on first scheduled run
+    staleness: {warn_days: 2, fail_days: 4}  # daily EBB, five cycles/day
+    unit_expected: Dth/d
+    mode: accumulation
+    # Watchlist-scoped dataset (~15 series families): LNG-terminal feedgas
+    # interconnects, storage fields, basin-egress anchors. Zeros are
+    # LEGITIMATE at LNG interconnects — no gas scheduled that cycle is real
+    # operating state, never flagged. negative_values_fail stays unset:
+    # payback adjustments can post below zero (quorum precedent).
+    bands:
+      - label: transco_watchlist_capacity
+        series_glob: "*"
+        min: -100000.0        # payback/recycle headroom below zero
+        max: 5000000.0        # above Sabine Pass nameplate 4.5M Dth/d

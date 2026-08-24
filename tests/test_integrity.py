@@ -460,6 +460,7 @@ class TestShippedRules:
             "quorum",
             "bhe",
             "cheniere",
+            "transco",
         }
 
     def test_gulf_south_rules(self, rules: dict[str, Any]) -> None:

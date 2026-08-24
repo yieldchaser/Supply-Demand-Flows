@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "source": "transco",
+  "platform": "1Line (www.1line.williams.com), legacy JSP OAC flow",
+  "tsp_name": "TRANSCONTINENTAL GAS PIPE LINE COMPANY, LLC",
+  "tsp_code": "007933021",
+  "buid": 80,
+  "series_prefix": "transco",
+  "series_key": "{prefix}_{kind}_{loc}_{flow}_{cycle}",
+  "unit": "Dth/d",
+  "notes": "Values RAW Dth/d, never converted. Both legs of bidirectional meters are separate series (flow r|d|u). Watchlist-scoped: Transco publishes ~541 locations per cycle; wholesale emission would balloon the parquet (TETCO lesson).",
+  "high": [
+    {
+      "label": "sabine_pass_lng",
+      "terminal": "sabine_pass_lng",
+      "nameplate_mmcf_d": 4500,
+      "match": {"name_pattern": "(?i)(SABINE\\s*PASS|SPL)\\s*(LNG|LIQUEF?ACTION)"},
+      "evidence": "Transco Zone 3 interconnect deliveries to Sabine Pass Liquefaction; Cheniere publishes no scheduled quantities, so this is the measured feedgas proxy. Name rule avoids the TETCO 'CHENIERE LNG, BEAUREGARD PA' false-positive class.",
+      "confidence": "high"
+    },
+    {
+      "label": "golden_pass_lng",
+      "terminal": "golden_pass_lng",
+      "nameplate_mmcf_d": 2600,
+      "match": {"name_pattern": "(?i)GOLDEN\\s*PASS"},
+      "evidence": "Golden Pass supply moves over the Texas/Southern Gas lateral corridor into Transco Zone 3; pipeline-side points complement the gasnom terminal-side meter.",
+      "confidence": "high"
+    },
+    {
+      "label": "cove_point_lng",
+      "terminal": "cove_point_lng",
+      "nameplate_mmcf_d": 750,
+      "match": {"name_pattern": "(?i)COVE\\s*POINT"},
+      "evidence": "Cove Point supply enters via Transco Zone 6 (Mid-Atlantic); EGTS Loudoun meters only one leg. If Zone 6 shows hundreds of MMcf/d against the current ~149 reading, the single-meter figure understates feedgas.",
+      "confidence": "high"
+    },
+    {
+      "label": "eminence_storage",
+      "terminal": null,
+      "nameplate_mmcf_d": null,
+      "match": {"name_pattern": "(?i)EMINENCE"},
+      "evidence": "Zone 2 salt-cavern storage pair; named in Transco's own OAC correction notices ('storage quantities for Eminence and Washington').",
+      "confidence": "high"
+    },
+    {
+      "label": "washington_storage",
+      "terminal": null,
+      "match": {"name_pattern": "(?i)WASHINGTON\\s+ST(?:ORAGE)?"},
+      "evidence": "Zone 2 storage field, same OAC correction notice as Eminence. Requires STORAGE suffix so unrelated 'Washington' delivery points never match.",
+      "confidence": "high"
+    },
+    {
+      "label": "leidy_storage_complex",
+      "terminal": null,
+      "match": {"name_pattern": "(?i)LEIDY"},
+      "evidence": "Zone 6 Leidy storage/line complex anchors Appalachia egress and Cove Point-era market flows.",
+      "confidence": "high"
+    }
+  ],
+  "candidate": [
+    {
+      "label": "transco_lng_peakshaving",
+      "terminal": null,
+      "match": {"name_pattern": "(?i)LNG\\s*(PEAKSHAV|STATION|FACILITY|INJ|W\\/D)"},
+      "evidence": "Transco operates its own small LNG peakshaving facilities; distinct from export terminals. Kept as candidate until volumes confirm identity.",
+      "confidence": "candidate"
+    },
+    {
+      "label": "perryville_egress",
+      "terminal": null,
+      "match": {"name_pattern": "(?i)PERRYVILLE"},
+      "evidence": "Perryville hub exit on Zone 3 — Haynesville basin-egress anchor (RBN/CenterPoint documented hub).",
+      "confidence": "candidate"
+    },
+    {
+      "label": "station30_basin_proxy",
+      "terminal": null,
+      "match": {"name_pattern": "(?i)STATION\\s*30\\b"},
+      "evidence": "Station 30 mainline proxy for South Texas supply entering Zone 1/2.",
+      "confidence": "candidate"
+    }
+  ],
+  "excluded_patterns_note": "Do NOT regex bare 'LNG' — TETCO taught that 'Kinder Morgan LNG Receipt (WLA)' and similar are not terminal feedgas. Every LNG rule above requires the terminal name itself.",
+  "backfill": {
+    "max_lookback_days": 1095,
+    "server_cap_evidence": "oacquery.js enforces begin > now-3years client-side; true retention floor recorded on first run",
+    "cycles": ["timely", "evening", "id1", "id2", "id3"]
+  },
+  "integrity_rules": {
+    "parquet": "data/curated/williams.parquet",
+    "health_file": "data/health/transco.json",
+    "staleness": {"warn_days": 2, "fail_days": 4},
+    "unit_expected": "Dth/d",
+    "mode": "accumulation",
+    "bands": [
+      {
+        "label": "transco_watchlist_capacity",
+        "series_glob": "*",
+        "min": -100000.0,
+        "max": 5000000.0
+      }
+    ]
+  }
+}
