@@ -1,4 +1,4 @@
-name: Williams Debug Probe
+name: Williams Debug Probe 2
 on:
   workflow_dispatch:
 jobs:
@@ -8,32 +8,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: pip install httpx beautifulsoup4
+      - run: pip install httpx
       - name: Probe
         run: |
           python - <<'PY'
           import httpx, re
           BASE = "https://www.1line.williams.com"
           FORM = "/ebbCode/OACQueryRequest.jsp?BUID=80&type=OAC"
-          BARE = "/ebbCode/OACQueryRequest.jsp?BUID=80"
-          REPORT = "/ebbCode/OACreport.jsp?BUID=80"
           with httpx.Client(base_url=BASE, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}, timeout=30.0, follow_redirects=True) as c:
               r = c.get(FORM)
-              print("GET form:", r.status_code, "len:", len(r.text))
-              m = re.search(r'<form[^>]*action="([^"]*)"', r.text, re.I | re.S)
-              print("FORM ACTION:", m.group(1) if m else "(none)")
-              inputs = re.findall(r'<input[^>]*name="([^"]+)"', r.text)
-              print("INPUTS:", sorted(set(inputs))[:20])
-              payload = {
-                  "MapID": "0", "submitflag": "true",
-                  "tbGasFlowBeginDate": "08/23/2026", "tbGasFlowEndDate": "08/23/2026",
-                  "cycle": "1", "locationIDs": "", "reportType": "OAC",
-              }
-              rA = c.post(BARE, data=payload, headers={"Referer": BASE + FORM})
-              print("POST bare:", rA.status_code, "len:", len(rA.text))
-              rB = c.post(FORM, data=payload, headers={"Referer": BASE + FORM})
-              print("POST typed:", rB.status_code, "len:", len(rB.text))
-              rC = c.get(REPORT, headers={"Referer": BASE + FORM})
-              rows = len(re.findall(r"<tr[^>]*>", rC.text))
-              print("REPORT GET:", rC.status_code, "rows:", rows, "title:", re.search(r"<title>(.*?)</title>", rC.text, re.S).group(1) if "<title>" in rC.text else "?")
+              html = r.text
+              print("TITLE:", re.search(r"<title>(.*?)</title>", html, re.S).group(1) if "<title>" in html else "?")
+              # find every <form ...> opening tag raw
+              for m in re.findall(r"<form[^>]*>", html, re.I)[:5]:
+                  print("FORMTAG:", m[:200])
+              # find submitflag / openReport references
+              for m in re.findall(r".{60}submitflag.{80}", html)[:3]:
+                  print("CTX:", m.replace("\n"," ")[:180])
+              for m in re.findall(r"function\s+openReport[^{]*\{.{0,400}", html, re.S)[:1]:
+                  print("OPENREPORT:", m[:400].replace("\n", " "))
           PY
