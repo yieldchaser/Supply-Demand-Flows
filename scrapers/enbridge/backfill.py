@@ -35,6 +35,8 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from scrapers.base.errors import HttpClientError
 from scrapers.base.http_client import HttpClient
 from scrapers.base.safe_writer import safe_write_json
@@ -274,6 +276,15 @@ class EnbridgeBackfill:
             except HttpClientError as exc:
                 self.errors_http += 1
                 log.warning("Window %s..%s failed after retries: %s", begin, end, exc)
+                self.windows_walked += 1
+                self._write_checkpoint(next_window=index + 1)
+                continue
+            except (httpx.HTTPError, OSError) as exc:
+                # Transport faults inside the FileHandler form-POST bypass
+                # HttpClient's retry engine (it is a direct httpx call); an
+                # ISP drop must cost one skipped window, not the whole walk.
+                self.errors_http += 1
+                log.warning("Window %s..%s failed on transport: %s: %s", begin, end, type(exc).__name__, exc)
                 self.windows_walked += 1
                 self._write_checkpoint(next_window=index + 1)
                 continue
