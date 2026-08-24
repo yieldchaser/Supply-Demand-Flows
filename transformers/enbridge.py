@@ -123,14 +123,14 @@ def _normalize_period(raw: str) -> str | None:
     return None
 
 
-def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
+def _rows_from_file(path: Path, ingested_at: str, loc_ids: frozenset[int]) -> list[dict[str, Any]]:
     """Extract flow-segmented series rows from one raw TETCO payload.
 
     What:
-        Emits TSQ, OAC, operating-capacity and design-capacity series for
-        EVERY meter row — flow direction is part of the series id so
-        bi-directional legs never collide. Zeros are preserved (they mean
-        "no gas scheduled that cycle").
+        Emits TSQ and OAC series for the configured meters only — flow
+        direction is part of the series id so bi-directional legs never
+        collide. Zeros are preserved (they mean "no gas scheduled that
+        cycle").
 
     Failure modes:
         Malformed JSON files are skipped with a warning; rows missing loc,
@@ -150,6 +150,8 @@ def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
         if not isinstance(row, dict):
             continue
         loc_id = str(row.get(COL_LOC) or "").strip()
+        if not loc_id or (loc_id.isdigit() and int(loc_id) not in loc_ids):
+            continue
         loc_name = str(row.get(COL_LOC_NAME) or "").strip() or loc_id
         zone = str(row.get(COL_LOC_ZN) or "").strip()
         period = _normalize_period(str(row.get(COL_GAS_DAY) or ""))
@@ -194,6 +196,38 @@ def resolve_cycle(csv_cycle_desc: str, fallback: str) -> str | None:
     return token or (fallback or None)
 
 
+def _load_meter_config() -> dict[str, Any]:
+    """Load the Enbridge meter config (loc ids to emit into curated).
+
+    Why:
+        TETCO's MLC posting carries ~730 meters x ~34 hourly cycles per
+        gas day — emitting every meter would put 100M+ rows in the curated
+        parquet. Like BHE (Cove Point only), curated holds the LNG-relevant
+        meters from ``config/meters/enbridge.json``; the full firehose
+        stays in ``data/raw/``.
+
+    Failure modes:
+        Missing/unreadable config raises ``TransformError`` — silently
+        emitting zero series would look like a healthy empty feed.
+    """
+    path = Path("config/meters/enbridge.json")
+    try:
+        cfg: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise TransformError(f"Cannot read meter config {path}: {exc}") from exc
+    enbridge = cfg.get("enbridge") or {}
+    locs: list[int] = []
+    for group in ("freeport_lng", "freeport_lng_candidates", "other_lng_adjacent_watchlist"):
+        for entry in enbridge.get(group) or []:
+            try:
+                locs.append(int(entry["loc_id"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+    if not locs:
+        raise TransformError(f"No loc_ids in {path} — refusing to emit an empty feed.")
+    return {"loc_ids": frozenset(locs), "raw": cfg}
+
+
 def transform(
     raw_dir: Path = RAW_DIR,
     curated_parquet_path: Path = CURATED_PATH,
@@ -202,18 +236,23 @@ def transform(
 
     What:
         Scans *raw_dir* recursively, parses each raw file into flow-segmented
-        series rows, stacks to a DataFrame, sorts by posting time, dedups on
+        series rows for the configured meters (Freeport anchor 79999 +
+        watchlist), stacks to a DataFrame, sorts by posting time, dedups on
         (series_id, period) keeping the latest, accumulates the batch into
         the curated history (``merge_into_curated``), and returns stats over
         the merged frame.
 
     Failure modes:
-        Raises ``TransformError`` when the raw dir/files are missing or the
-        batch produces zero rows; accumulation shrinkage raises
-        ``AccumulationShrinkError`` before any write.
+        Raises ``TransformError`` when the raw dir/files are missing, the
+        meter config is unreadable, or the batch produces zero rows;
+        accumulation shrinkage raises ``AccumulationShrinkError`` before any
+        write.
     """
     if not raw_dir.exists():
         raise TransformError(f"Raw directory not found: {raw_dir}. Run scrapers.enbridge.client first.")
+
+    meters = _load_meter_config()
+    loc_ids: frozenset[int] = meters["loc_ids"]
 
     raw_files = sorted(raw_dir.rglob("*.json"))
     raw_files = [f for f in raw_files if f.name != "_backfill_state.json"]
@@ -223,7 +262,7 @@ def transform(
     ingested_at = datetime.now(UTC).isoformat()
     all_rows: list[dict[str, Any]] = []
     for path in raw_files:
-        all_rows.extend(_rows_from_file(path, ingested_at))
+        all_rows.extend(_rows_from_file(path, ingested_at, loc_ids))
 
     if not all_rows:
         raise TransformError(f"Enbridge transformer produced zero rows from {len(raw_files)} file(s).")
