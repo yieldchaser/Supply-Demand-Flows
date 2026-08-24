@@ -1,4 +1,4 @@
-name: Williams Live Probe 8
+name: Williams Live Probe 9
 on:
   workflow_dispatch:
 jobs:
@@ -13,18 +13,24 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, json, re
+          import httpx, json
           BASE = "https://www.1line.williams.com"
+          API = BASE + "/api/portal-service/v1"
           UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
                 "Accept": "application/json"}
-          with httpx.Client(headers=UA, timeout=60.0, follow_redirects=False) as c:
-              js = c.get(BASE + "/main-ZSQ4H6XM.js").text
-              # find every 'public/...' endpoint literal
-              pubs = sorted(set(re.findall(r'"(public/[A-Za-z0-9_/\-]+)"', js)))
-              print("PUBLIC EPS:", pubs[:30])
-              # find base url token used before serviceGroupURL
-              m = re.findall(r'.{120}SERVICE_GROUP_CONFIG.{200}', js)
-              for s in m[:2]:
-                  print("SGC:", s.replace("\n", " ")[:320])
+          with httpx.Client(headers=UA, timeout=60.0) as c:
+              # cycle-indicators is a known-good GET: proves /public/* works
+              r = c.get(API + "/public/cycle-indicators", params={"buId": 80})
+              print("CYCLE-IND:", r.status_code, r.headers.get("content-type","")[:20], r.text[:300].replace("\n"," "))
+              r2 = c.post(API + "/public/oac/query", json={
+                  "buId": 80,
+                  "gasFlowBeginDate": "08-23-2026",
+                  "gasFlowEndDate": "08-23-2026",
+                  "cycle": ["1"],
+                  "locationIDs": [],
+                  "reportType": "OAC",
+              })
+              print("QUERY:", r2.status_code, r2.headers.get("content-type","")[:20])
+              print("BODY:", r2.text[:600].replace("\n"," "))
           PYEOF
           python /tmp/probe.py
