@@ -1,4 +1,4 @@
-name: Williams Debug Probe 6
+name: Williams Debug Probe 7
 on:
   workflow_dispatch:
 jobs:
@@ -13,18 +13,27 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, re, json
+          import httpx, json
           BASE = "https://www.1line.williams.com"
-          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
-          with httpx.Client(base_url=BASE, headers=UA, timeout=60.0, follow_redirects=True) as c:
-              r = c.get("/main-ZSQ4H6XM.js")
-              blob = r.text
-              # find portal-service endpoint fragments
-              eps = sorted(set(re.findall(r'"[^"]*portal-service[^"]*"', blob)))[:40]
-              for e in eps:
-                  print("EP:", e[:160])
-              # find words near 'oac' and 'location'
-              for m in re.findall(r'.{50}[Oo][Aa][Cc].{80}', blob)[:10]:
-                  print("OACCTX:", m.replace("\n", " ")[:180])
+          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36", "Accept": "application/json"}
+          paths = [
+              "/api/portal-service/v1/",
+              "/api/portal-service/v1/oac",
+              "/api/portal-service/v1/oac/cycles",
+              "/api/portal-service/v1/oac/locations?buId=80",
+              "/api/portal-service/v1/locations?buId=80",
+              "/api/portal-service/v1/businessunits",
+              "/api/portal-service/v1/business-units",
+          ]
+          with httpx.Client(base_url=BASE, headers=UA, timeout=30.0, follow_redirects=True) as c:
+              r = c.get("/api/portal-service/v1/")
+              print("ROOT:", r.status_code, r.text[:300])
+              for p in paths[2:]:
+                  try:
+                      rr = c.get(p)
+                      ct = rr.headers.get("content-type", "?")
+                      print(p, "->", rr.status_code, ct[:30], rr.text[:200].replace("\n", " "))
+                  except Exception as e:
+                      print(p, "ERR", e)
           PYEOF
           python /tmp/probe.py
