@@ -390,6 +390,42 @@
   color: var(--text-tertiary, #6b7280);
 }
 
+/* Per-feed breakdown line under the KPI strip (multi-feed terminals) */
+.feed-breakdown {
+  margin-top: var(--space-2, 8px);
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feed-breakdown__line {
+  font-family: var(--font-mono), monospace;
+  font-feature-settings: 'tnum';
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.feed-breakdown__line strong {
+  color: var(--blue-flame, #0ea5e9);
+  font-size: 12.5px;
+}
+
+.feed-breakdown__eq {
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 3px;
+}
+
+.feed-breakdown__note {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 8.5px;
+  font-style: italic;
+  color: var(--text-tertiary, #6b7280);
+}
+
 /* Tablet: 2 columns */
 @media (max-width: 900px) {
   .fleet-grid {

@@ -33,6 +33,111 @@ import { renderCycleRevisions } from './lng-cycle-revisions.js';
 
 const CYCLE_PRIORITY = { timely: 1, evening: 2, id1: 3, id2: 4, id3: 5 };
 
+/** Stacked-area fill colors per feed index (base -> top). */
+const FEED_COLORS = [
+  { area: 'rgba(14, 165, 233, 0.30)', line: '#38bdf8' },  // sky (Gulf South)
+  { area: 'rgba(52, 211, 153, 0.28)', line: '#34d399' },  // emerald (TETCO)
+  { area: 'rgba(251, 191, 36, 0.25)', line: '#fbbf24' },  // amber (future feeds)
+];
+
+/**
+ * Build a date -> {cycle -> MMcf} map for one feed of a multi-feed terminal.
+ * `seriesStem` is the registry's series stem ("{prefix}_sq_{loc}_{flow}").
+ *
+ * @param {Array<{series_id: string, period: string, value: number}>} rows
+ * @param {string} seriesStem — e.g. "gulf_south_sq_24329_d"
+ * @returns {Object<string, Object<string, number>>}
+ */
+function buildFeedCycleMaps(rows, seriesStem) {
+  const prefix = `${seriesStem.toLowerCase()}_`;
+  const byDate = {};
+  rows.forEach((r) => {
+    const sid = r.series_id.toLowerCase();
+    if (!sid.startsWith(prefix)) return;
+    const cycle = sid.slice(prefix.length).toLowerCase();
+    if (!byDate[r.period]) byDate[r.period] = {};
+    byDate[r.period][cycle] = dth_to_mmcf(Number(r.value));
+  });
+  return byDate;
+}
+
+/**
+ * Build a combined daily series + per-feed daily maps for multi-feed terminals.
+ * Combined = sum of the highest-priority cycle available per feed that day.
+ *
+ * @param {Object} bundle
+ * @param {LngTerminal} t
+ * @returns {{
+ *   dailySeries: Array<{dateStr: string, date: Date, value: number}>,
+ *   rowsByDate: Object<string, Object<string, number>>,  // date -> {feedLabel -> MMcf}
+ *   feedLabels: string[],
+ *   latestSplit: Object<string, number>|null,
+ * }}
+ */
+export function buildMultiFeedData(bundle, t) {
+  const feedLabels = [];
+  const feedMaps = [];
+  for (const feed of t.feeds || []) {
+    const src = bundle.sources?.[feed.source];
+    if (!src || !src.data) continue;
+    const map = buildFeedCycleMaps(src.data, feed.series);
+    if (Object.keys(map).length === 0) continue;
+    feedLabels.push(feed.label);
+    feedMaps.push({ label: feed.label, map });
+  }
+
+  /** @type {Object<string, Object<string, number>>} */
+  const rowsByDate = {};
+  const allDates = new Set();
+  feedMaps.forEach((fm) => Object.keys(fm.map).forEach((d) => allDates.add(d)));
+
+  allDates.forEach((dateStr) => {
+    rowsByDate[dateStr] = {};
+    feedMaps.forEach((fm) => {
+      const cycles = fm.map[dateStr];
+      if (!cycles) return;
+      let best = null;
+      let bestPrio = -1;
+      Object.keys(cycles).forEach((cy) => {
+        const prio = CYCLE_PRIORITY[cy] || 0;
+        if (prio > bestPrio) {
+          bestPrio = prio;
+          best = cy;
+        }
+      });
+      if (best !== null) {
+        // Zeros are data — sum them in.
+        rowsByDate[dateStr][fm.label] = cycles[best];
+      }
+    });
+  });
+
+  const dailySeries = [];
+  Object.keys(rowsByDate).forEach((dateStr) => {
+    const feeds = rowsByDate[dateStr];
+    if (Object.keys(feeds).length === 0) return;
+    let total = 0;
+    Object.values(feeds).forEach((v) => {
+      total += v;
+    });
+    dailySeries.push({ dateStr, date: new Date(dateStr), value: total });
+  });
+  dailySeries.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Latest per-feed split (for the breakdown line).
+  let latestSplit = null;
+  if (dailySeries.length > 0) {
+    latestSplit = {};
+    const lastFeeds = rowsByDate[dailySeries[dailySeries.length - 1].dateStr];
+    Object.keys(lastFeeds).forEach((label) => {
+      latestSplit[label] = lastFeeds[label];
+    });
+  }
+
+  return { dailySeries, rowsByDate, feedLabels, latestSplit };
+}
+
+
 /**
  * Render the LNG feedgas hero panel.
  *
@@ -103,29 +208,71 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
 
   const nameplate = t.nameplate;
 
+  // Multi-feed terminals (e.g. Freeport: Gulf South + TETCO) extract per-feed
+  // cycle maps and combine them; everything downstream renders stacked.
+  const isMultiFeed = Array.isArray(t.feeds) && t.feeds.length > 0;
+  let multi = null;
+  let source = bundle.sources?.[t.source];
+  if (isMultiFeed) {
+    multi = buildMultiFeedData(bundle, t);
+    if (multi.feedLabels.length > 0) {
+      source = bundle.sources?.[t.feeds[0].source];
+    }
+  }
+
+  if (
+    (!isMultiFeed || !multi || multi.feedLabels.length === 0) &&
+    (!source || !source.data || source.data.length === 0)
+  ) {
+    const bodyEl2 = document.createElement('div');
+    bodyEl2.className = 'lng-panel-body-wrapper';
+    panelEl.appendChild(bodyEl2);
+    const chrome = renderPanelChrome(bodyEl2, {
+      title: `${t.display} · Feed Gas Deliveries`,
+      subtitle: `${t.locName ?? ''} · ${t.platformLabel ?? ''}`,
+      sourceKey: t.source,
+      latestPeriod: null,
+    });
+    chrome.chartEl.innerHTML =
+      '<div class="panel-error">Awaiting first scrape for this terminal.</div>';
+    return;
+  }
+
   const { chartEl, sidebarEl } = renderPanelChrome(bodyEl, {
     title: `${t.display} · Feed Gas Deliveries`,
     subtitle: `${t.locName} · ${t.platformLabel}`,
     sourceKey: t.source,
-    latestPeriod: source.latest_period,
+    latestPeriod: source ? source.latest_period : null,
   });
 
   const isProxy = t.signal === 'oac-proxy';
 
   // 4. Parse & transform curated rows (registry-driven, proxy-aware)
   let rowsByDate;
-  if (isProxy) {
+  if (isMultiFeed) {
+    rowsByDate = multi.rowsByDate;
+  } else if (isProxy) {
     rowsByDate = buildProxyImpliedByDate(source.data, t);
   } else {
     rowsByDate = buildSqCycleMaps(source.data, t);
   }
 
-  if (Object.keys(rowsByDate).length === 0) {
+  if (!isMultiFeed && Object.keys(rowsByDate).length === 0) {
     chartEl.innerHTML = `<div class="panel-error">No flow data found for location ${t.loc}.</div>`;
     return;
   }
 
-  const dailySeries = buildDailyFromCycles(rowsByDate);
+  let dailySeries;
+  if (isMultiFeed) {
+    dailySeries = multi.dailySeries.map((d) => ({
+      dateStr: d.dateStr,
+      date: d.date,
+      value: d.value,
+      cycle: 'combined',
+    }));
+  } else {
+    dailySeries = buildDailyFromCycles(rowsByDate);
+  }
 
   if (dailySeries.length === 0) {
     chartEl.innerHTML = '<div class="panel-error">No valid daily values could be parsed.</div>';
@@ -139,34 +286,57 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
   // Latest-cycle dotted line: last 14 gas days, only that cycle.
   const dottedSeries = [];
   dailySeries.slice(-14).forEach((d) => {
+    if (isMultiFeed) {
+      dottedSeries.push({ dayIndex: getGasYearInfo(d.date).dayIndex, value: d.value });
+      return;
+    }
     const dayCycles = rowsByDate[d.dateStr];
     if (dayCycles && dayCycles[latestCycleCode] !== undefined) {
       dottedSeries.push({ dayIndex: getGasYearInfo(d.date).dayIndex, value: dayCycles[latestCycleCode] });
     }
   });
 
-  // 5. Hero chart
-  drawHeroChart(chartEl, dailySeries, dottedSeries, nameplate, totalDays);
+  // 5. Hero chart (stacked areas for multi-feed)
+  drawHeroChart(chartEl, dailySeries, dottedSeries, nameplate, totalDays, isMultiFeed ? multi : null);
 
-  // 6. KPI strip (proxy-aware labels)
+  // 6. KPI strip + per-feed breakdown line
   renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode, isProxy);
 
-  // 7. Intraday cycle revisions — per-terminal cycles & note
-  const revisionsContainer = document.createElement('div');
-  revisionsContainer.className = 'cycle-revisions-panel';
-  sidebarEl.appendChild(revisionsContainer);
+  if (isMultiFeed && multi.latestSplit) {
+    const parts = multi.feedLabels
+      .filter((label) => multi.latestSplit[label] !== undefined)
+      .map((label) => `${label} ${multi.latestSplit[label].toFixed(0)}`);
+    if (parts.length > 0) {
+      const breakdown = document.createElement('div');
+      breakdown.className = 'feed-breakdown';
+      breakdown.innerHTML =
+        `<span class="feed-breakdown__line">${parts.join(' · ')} ` +
+        `<span class="feed-breakdown__eq">=</span> ` +
+        `<strong>${latestData.value.toFixed(0)}</strong> MMcf/d</span>` +
+        `<span class="feed-breakdown__note">per-pipe split at the latest common gas day</span>`;
+      sidebarEl.appendChild(breakdown);
+    }
+  }
 
-  const todayCyclesMap = rowsByDate[latestData.dateStr] || {};
-  const todayCyclesData = Object.keys(todayCyclesMap)
-    .map((cy) => ({
-      cycle: cy.toUpperCase(),
-      value: todayCyclesMap[cy],
-      priority: CYCLE_PRIORITY[cy] || 0,
-    }))
-    .sort((a, b) => a.priority - b.priority);
+  // 7. Intraday cycle revisions — single-source only (multi-feed platforms
+  // publish on different cycles, so per-cycle revisions are not comparable).
+  if (!isMultiFeed) {
+    const revisionsContainer = document.createElement('div');
+    revisionsContainer.className = 'cycle-revisions-panel';
+    sidebarEl.appendChild(revisionsContainer);
 
-  const cycleInfo = terminalCycleInfo(t);
-  renderCycleRevisions(revisionsContainer, todayCyclesData, { platformNote: cycleInfo.note });
+    const todayCyclesMap = rowsByDate[latestData.dateStr] || {};
+    const todayCyclesData = Object.keys(todayCyclesMap)
+      .map((cy) => ({
+        cycle: cy.toUpperCase(),
+        value: todayCyclesMap[cy],
+        priority: CYCLE_PRIORITY[cy] || 0,
+      }))
+      .sort((a, b) => a.priority - b.priority);
+
+    const cycleInfo = terminalCycleInfo(t);
+    renderCycleRevisions(revisionsContainer, todayCyclesData, { platformNote: cycleInfo.note });
+  }
 
   // 8. Footnote — from the registry, per terminal
   const footerContainer = document.createElement('div');
@@ -174,10 +344,11 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
   const proxyLine = isProxy
     ? `<p><strong>⚠ Proxy signal:</strong> Cheniere does not publish Scheduled Quantities. Value = Design Capacity − Operationally Available (inferred consumption), not measured feedgas.</p>`
     : '';
+  const latestPeriodText = source && source.latest_period ? source.latest_period : latestData.dateStr;
   footerContainer.innerHTML = `
     <p><strong>Source:</strong> ${t.methodLine}</p>
     ${proxyLine}
-    <p><strong>Last updated:</strong> ${source.latest_period || 'N/A'} · ${totalDays.toLocaleString()} gas days of history</p>
+    <p><strong>Last updated:</strong> ${latestPeriodText} · ${totalDays.toLocaleString()} gas days of history</p>
   `;
   panelEl.appendChild(footerContainer);
 }
@@ -206,8 +377,14 @@ function getGasYearInfo(date) {
 
 /**
  * Draw the Hero Chart with D3.
+ *
+ * When `multi` is provided (multi-feed terminal), renders one STACKED area
+ * per feed (base = first feed) instead of a single line — the per-pipe
+ * split is the signal. A dashed median-reference marker is drawn when the
+ * current latest value deviates strongly from the trailing 90-day median
+ * (guards against implying an outlier day is normal).
  */
-function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDays) {
+function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDays, multi = null) {
   container.innerHTML = '';
 
   const rect = container.getBoundingClientRect();
@@ -280,8 +457,144 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .style('fill', 'rgba(255,255,255,0.45)')
     .text(`Nameplate ${nameplate.toLocaleString()} MMcf/d`);
 
+  // Median reference marker — only when today deviates >25% from the
+  // trailing-90-day median, so an unusual day is never read as normal.
+  const recentValues = dailySeries.slice(-90).map((d) => d.value);
+  if (recentValues.length >= 30) {
+    const medianVal = d3.median(recentValues);
+    const latest = dailySeries[dailySeries.length - 1].value;
+    if (medianVal > 0 && Math.abs(latest - medianVal) / medianVal > 0.25) {
+      g.append('line')
+        .attr('x1', 0).attr('x2', width)
+        .attr('y1', y(medianVal)).attr('y2', y(medianVal))
+        .attr('stroke', 'rgba(148, 163, 184, 0.7)')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '2,3');
+      g.append('text')
+        .attr('x', width - 8)
+        .attr('y', y(medianVal) + 11)
+        .attr('text-anchor', 'end')
+        .attr('font-size', '9px')
+        .attr('font-family', 'var(--font-mono)')
+        .style('fill', 'rgba(148, 163, 184, 0.8)')
+        .text(`90d median ${medianVal.toFixed(0)} · today ${((latest / medianVal - 1) * 100).toFixed(0)}%`);
+    }
+  }
+
   // Draw lines based on history length (Graceful Degradation gate)
-  if (!should_show_envelope(totalDays)) {
+  if (multi) {
+    // ── MULTI-FEED: stacked areas, current gas year only. ──
+    // One band per feed: feed i is drawn between the cumulative sum of
+    // feeds [0..i-1] and [0..i]. The per-pipe split IS the signal.
+    const currentYearRows = seriesByGasYear.get(currentGasYear) || [];
+    if (currentYearRows.length > 0) {
+      const labels = multi.feedLabels;
+      const cum = new Map();
+      labels.forEach((label, fi) => {
+        const lower = new Map(cum);
+        const upper = new Map();
+        currentYearRows.forEach((row) => {
+          const prev = cum.get(row.dayIndex) || 0;
+          const feedVal =
+            (multi.rowsByDate[row.dateStr] && multi.rowsByDate[row.dateStr][label]) || 0;
+          upper.set(row.dayIndex, prev + feedVal);
+        });
+        const color = FEED_COLORS[fi % FEED_COLORS.length];
+        const areaGen = d3
+          .area()
+          .x((d) => x(d))
+          .y0((d) => y(lower.get(d) || 0))
+          .y1((d) => y(upper.get(d) || 0))
+          .curve(d3.curveMonotoneX);
+        g.append('path')
+          .datum([...upper.keys()].sort((a2, b2) => a2 - b2))
+          .attr('d', areaGen)
+          .attr('fill', color.area)
+          .attr('stroke', color.line)
+          .attr('stroke-width', 1.5)
+          .attr('stroke-opacity', 0.9);
+        upper.forEach((v, k) => cum.set(k, v));
+        stackTop.set(fi, upper);
+      });
+
+      // Total line on top of the stack + latest callout.
+      const totalLine = d3
+        .line()
+        .x((d) => x(d.dayIndex))
+        .y((d) => y(d.value))
+        .curve(d3.curveMonotoneX);
+      g.append('path')
+        .datum(currentYearRows)
+        .attr('d', totalLine)
+        .attr('fill', 'none')
+        .style('stroke', 'var(--blue-flame)')
+        .attr('stroke-width', 2)
+        .attr('stroke-linecap', 'round');
+
+      const latestPoint = currentYearRows[currentYearRows.length - 1];
+      if (latestPoint) {
+        g.append('circle')
+          .attr('cx', x(latestPoint.dayIndex))
+          .attr('cy', y(latestPoint.value))
+          .attr('r', 6)
+          .style('fill', 'var(--blue-flame)')
+          .style('stroke', '#0c0f16')
+          .style('stroke-width', '2px');
+
+        const callout = g
+          .append('g')
+          .attr(
+            'transform',
+            `translate(${x(latestPoint.dayIndex) + 12}, ${y(latestPoint.value) - 10})`
+          );
+        callout
+          .append('rect')
+          .attr('x', -4)
+          .attr('y', -11)
+          .attr('width', 74)
+          .attr('height', 15)
+          .attr('rx', 3)
+          .style('fill', 'rgba(15, 23, 42, 0.85)')
+          .style('stroke', 'rgba(125, 211, 252, 0.3)')
+          .style('stroke-width', '0.5px');
+        callout
+          .append('text')
+          .attr('x', 2)
+          .attr('y', 0)
+          .attr('font-size', '8.5px')
+          .attr('font-family', 'var(--font-mono)')
+          .style('font-feature-settings', '"tnum"')
+          .style('fill', '#fff')
+          .style('font-weight', '600')
+          .text(`${latestPoint.value.toFixed(0)} combined`);
+
+        // Feed legend under the callout colors.
+        const legend = svg
+          .append('g')
+          .attr('transform', `translate(${margin.left}, ${totalH - 6})`);
+        labels.forEach((label, fi) => {
+          const item = legend
+            .append('g')
+            .attr('transform', `translate(${fi * 110}, 0)`);
+          item
+            .append('rect')
+            .attr('width', 8)
+            .attr('height', 8)
+            .attr('ry', 1)
+            .style('fill', FEED_COLORS[fi % FEED_COLORS.length].area)
+            .style('stroke', FEED_COLORS[fi % FEED_COLORS.length].line);
+          item
+            .append('text')
+            .attr('x', 12)
+            .attr('y', 7)
+            .attr('font-size', '9px')
+            .attr('font-family', 'var(--font-sans)')
+            .style('fill', 'rgba(255,255,255,0.65)')
+            .text(label);
+        });
+      }
+    }
+  } else if (!should_show_envelope(totalDays)) {
     // Graceful degradation: Draw only current gas year + nameplate ref
     const currentYearRows = seriesByGasYear.get(currentGasYear) || [];
 

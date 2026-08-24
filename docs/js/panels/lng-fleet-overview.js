@@ -150,6 +150,30 @@ export function buildDailyFromCycles(byDate) {
  *   wow?: {delta: number, pct: number}, days?: number}}
  */
 export function terminalSummary(bundle, t) {
+  // Multi-feed terminals: combine per-feed daily series (sum of feeds).
+  if (Array.isArray(t.feeds) && t.feeds.length > 0) {
+    const feedDailies = [];
+    for (const feed of t.feeds) {
+      const d = buildFeedDaily(bundle, feed);
+      if (d.length) feedDailies.push(d);
+    }
+    if (feedDailies.length === 0) return { ok: false };
+
+    // Merge by date: total = sum of available feeds that day (zeros are data).
+    const byDate = {};
+    feedDailies.forEach((daily, fi) => {
+      daily.forEach((d) => {
+        if (!byDate[d.dateStr]) byDate[d.dateStr] = { date: d.date, total: 0 };
+        byDate[d.dateStr].total += d.value;
+      });
+    });
+    const merged = Object.entries(byDate)
+      .map(([dateStr, v]) => ({ dateStr, date: v.date, value: v.total }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    if (merged.length === 0) return { ok: false };
+    return summarizeDaily(merged, t.nameplate);
+  }
+
   const src = bundle.sources?.[t.source];
   if (!src || !src.data || !src.data.length) return { ok: false };
   const daily =
@@ -157,21 +181,70 @@ export function terminalSummary(bundle, t) {
       ? buildDailyProxySeries(src.data, t)
       : buildDailySqSeries(src.data, t);
   if (daily.length === 0) return { ok: false };
+  return summarizeDaily(daily, t.nameplate);
+}
 
+/**
+ * Build the combined daily series for one feed entry of a multi-feed terminal.
+ *
+ * @param {Object} bundle
+ * @param {{source: string, series: string}} feed
+ * @returns {Array<{dateStr: string, date: Date, value: number}>}
+ */
+function buildFeedDaily(bundle, feed) {
+  const src = bundle.sources?.[feed.source];
+  if (!src || !src.data) return [];
+  const prefix = `${feed.series.toLowerCase()}_`;
+  /** @type {Object<string, Object<string, number>>} */
+  const byDate = {};
+  src.data.forEach((r) => {
+    const sid = String(r.series_id).toLowerCase();
+    if (!sid.startsWith(prefix)) return;
+    const cycle = sid.slice(prefix.length);
+    if (!byDate[r.period]) byDate[r.period] = {};
+    byDate[r.period][cycle] = dth_to_mmcf(Number(r.value));
+  });
+  const out = [];
+  Object.keys(byDate).forEach((dateStr) => {
+    const cycles = byDate[dateStr];
+    let best = null;
+    let bestPrio = -1;
+    Object.keys(cycles).forEach((cy) => {
+      const prio = CYCLE_PRIORITY[cy] || 0;
+      if (prio > bestPrio) {
+        bestPrio = prio;
+        best = cy;
+      }
+    });
+    if (best !== null) {
+      out.push({ dateStr, date: new Date(dateStr), value: cycles[best] });
+    }
+  });
+  out.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return out;
+}
+
+/**
+ * Shared summary math for a finished daily series.
+ *
+ * @param {Array<{dateStr: string, date: Date, value: number}>} daily
+ * @param {number} nameplate
+ * @returns {{ok: boolean, latest: number, utilPct: number, spark: number[],
+ *   wow: {delta: number, pct: number}|null, days: number}}
+ */
+function summarizeDaily(daily, nameplate) {
   const latestPoint = daily[daily.length - 1];
   const latest = latestPoint.value;
-  const utilPct = (latest / t.nameplate) * 100;
+  const utilPct = (latest / nameplate) * 100;
 
-  // 7-day sparkline window (up to 8 points incl. today).
   const sparkWindow = daily.slice(-8);
   const spark = sparkWindow.map((d) => d.value);
 
-  // WoW: same cycle exactly 7 days ago.
   let wow = null;
   const target = new Date(latestPoint.date);
   target.setDate(target.getDate() - 7);
   const targetStr = target.toISOString().slice(0, 10);
-  const weekAgo = daily.find((d) => d.dateStr === targetStr && d.cycle === latestPoint.cycle);
+  const weekAgo = daily.find((d) => d.dateStr === targetStr);
   if (weekAgo) {
     wow = {
       delta: latest - weekAgo.value,

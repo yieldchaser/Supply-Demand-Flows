@@ -46,6 +46,7 @@ EBB_METER_CONFIGS: dict[str, Path] = {
     "quorum": Path("config/meters/quorum.json"),
     "bhe": Path("config/meters/bhe.json"),
     "cheniere": Path("config/meters/cheniere.json"),
+    "enbridge": Path("config/meters/enbridge.json"),
 }
 
 #: Blob-size guard only — never a pruning mechanism. Trips loudly.

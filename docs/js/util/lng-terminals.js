@@ -33,6 +33,11 @@
  * @property {string} [platformNote]   — per-terminal cycle-publications note
  * @property {string} [platformLabel]  — short upstream platform name
  * @property {string} [methodLine]     — footer methodology sentence
+ * @property {Array<{source: string, series: string, label: string}>} [feeds]
+ *   — MULTI-FEED terminals only: each pipeline that feeds the terminal, with
+ *   the exact series-id stem (up to, but excluding, the cycle token) and a
+ *   display label. When present, `feeds` supersedes the single-source
+ *   fields for data extraction; the hero renders one stacked area per feed.
  */
 
 /**
@@ -44,19 +49,22 @@ export const LNG_TERMINALS = {
   freeport: {
     id: 'freeport',
     display: 'Freeport',
-    source: 'gulf_south',
-    seriesPrefix: 'gulf_south',
-    loc: '24329',
-    flow: 'd',
-    locName: 'Stratton Ridge (To Freeport Lng)',
+    // Multi-feed: Gulf South (Boardwalk) + TETCO (Enbridge rtba) both feed
+    // the Freeport lateral at Stratton Ridge. KMTP (intrastate) is not
+    // publicly posted — figures are conservative.
+    feeds: [
+      { source: 'gulf_south', series: 'gulf_south_sq_24329_d', label: 'Gulf South' },
+      { source: 'enbridge', series: 'tetco_sq_79999_d', label: 'TETCO' },
+    ],
+    locName: 'Stratton Ridge — dual feed (Gulf South + TETCO)',
     nameplate: 2100,
     signal: 'sq',
     cycles: ['id1', 'id2', 'id3'],
-    platformLabel: 'Boardwalk OAC',
+    platformLabel: 'Boardwalk OAC + Enbridge rtba',
     platformNote:
-      'Gulf South (Boardwalk OAC) posts ID1/ID2/ID3 only — TIMELY/EVENING are not published as CSV on this platform.',
+      'Gulf South posts ID1/ID2/ID3 only; TETCO (Enbridge rtba) posts Timely/Evening/Intraday. Figures are interstate-visible feedgas only — KMTP (intrastate) is not publicly posted, so totals are conservative.',
     methodLine:
-      'TSQ at Stratton Ridge (loc 24329, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d',
+      'Combined TSQ into Freeport LNG: Gulf South Stratton Ridge 24329 + TETCO Stratton Ridge 79999 (both delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Interstate-visible only',
   },
 
   plaquemines: {
@@ -221,6 +229,9 @@ export const FLEET_PROXY_EXCLUSIONS = ['sabine_pass', 'corpus_christi'];
 
 /**
  * Resolve the series-id matcher strings for one terminal.
+ *
+ * Single-source terminals only — multi-feed terminals use `feeds` entries
+ * directly (see LNG_TERMINALS.freeport).
  *
  * @param {LngTerminal} t
  * @returns {{sqPrefix: string|null, kindPrefixes: Object<string, string>|null}}
