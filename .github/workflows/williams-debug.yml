@@ -1,11 +1,10 @@
-name: Williams Live Probe 15
+name: Williams Final Verdict
 on:
   workflow_dispatch:
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -13,26 +12,17 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, time
-          UA = {
-              "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-              "Accept": "application/json, text/plain, */*",
-          }
+          import httpx, re
+          UA = {"User-Agent": "Mozilla/5.0"}
           with httpx.Client(headers=UA, timeout=40.0) as c:
-              c.get("https://www.1line.williams.com/")
-              time.sleep(1)
-              print("JAR1:", dict(c.cookies))
-              r = c.get(
-                  "https://www.1line.williams.com/api/portal-service/v1/public/cycle-indicators",
-                  params={"buId": 80},
-                  headers={"Referer": "https://www.1line.williams.com/", "Origin": "https://www.1line.williams.com"},
-              )
-              print("API:", r.status_code, r.headers.get("content-type", "")[:24], r.text[:200].replace("\n", " "))
-              # also try the OLD jsp again with cookies now set
-              r2 = c.get("https://www.1line.williams.com/ebbCode/OACQueryRequest.jsp?BUID=80&type=OAC")
-              t = r2.text
-              import re
-              title = re.search(r"<title>(.*?)</title>", t)
-              print("JSP:", r2.status_code, "len:", len(t), "title:", title.group(1) if title else "?", "has OAC form:", ("OAC" in t and "GasFlow" in t or "cycle" in t.lower()))
+              # 1) does the SPA route to an OAC page? fetch its routing config
+              main = c.get("https://www.1line.williams.com/main-ZSQ4H6XM.js").text
+              routes = sorted(set(re.findall(r'"([a-z-]*oac[a-z-/]*)"', main)))[:20]
+              print("OAC ROUTES:", routes)
+              # 2) is there a dedicated OAC micro-frontend remote entry?
+              mfe = sorted(set(re.findall(r'"([A-Za-z0-9_/.-]*remoteEntry[A-Za-z0-9_.-]*)"|'([A-Za-z0-9_/.-]*remoteEntry[A-Za-z0-9_.-]*)'', main)))
+              print("MFE RAW:", mfe[:6])
+              mfe2 = sorted(set(re.findall(r'[\w/.-]*remoteEntry\.js', main)))[:10]
+              print("MFE:", mfe2)
           PYEOF
           python /tmp/probe.py
