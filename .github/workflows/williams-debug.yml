@@ -1,4 +1,4 @@
-name: Williams Live Probe 2
+name: Williams Live Probe 3
 on:
   workflow_dispatch:
 jobs:
@@ -13,30 +13,31 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, json, re
+          import httpx, json
           BASE = "https://www.1line.williams.com"
           UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
                 "Accept": "application/json, text/plain, */*",
-                "Origin": BASE, "Referer": BASE + "/"}
-          candidates = [
-              "/portal-service/v1/public/oac/cycle?buId=80",
-              "/api/portal-service/v1/public/oac/cycle",
-              "/api/portal-service/public/oac/cycle?buId=80",
-              "/public/oac/cycle?buId=80",
-              "/oac/public/oac/cycle?buId=80",
-          ]
-          with httpx.Client(headers=UA, timeout=60.0) as c:
-              for p in candidates:
-                  r = c.get(BASE + p)
-                  ct = r.headers.get("content-type", "")[:24]
-                  marker = "JSON" if "json" in ct else ("HTML" if "html" in ct else ct)
-                  body = r.text[:150].replace("\n", " ") if "json" in ct else ""
-                  print(p, "->", r.status_code, marker, body)
-              # mine main.js for how serviceGroupURL is consumed (prefix path)
-              js = c.get(BASE + "/main-ZSQ4H6XM.js").text
-              for m in re.finditer(r'.{80}serviceGroupURL.{200}', js):
-                  seg = m.group(0).replace("\n", " ")
-                  print("USE:", seg[:300])
-                  break
+                "X-Requested-With": "XMLHttpRequest"}
+          with httpx.Client(headers=UA, timeout=60.0, follow_redirects=True) as c:
+              r0 = c.get(BASE + "/")
+              print("cookies:", list(c.cookies.keys()))
+              xsrf = c.cookies.get("XSRF-TOKEN")
+              if xsrf:
+                  c.headers["X-XSRF-TOKEN"] = xsrf
+                  print("xsrf acquired")
+              url = BASE + "/api/portal-service/v1/public/oac/cycle"
+              r1 = c.get(url, params={"buId": 80})
+              ct = r1.headers.get("content-type", "")[:24]
+              print("GET cycle:", r1.status_code, ct, r1.text[:300].replace("\n", " "))
+              qurl = BASE + "/api/portal-service/v1/public/oac/query"
+              q = {"buId": 80, "gasFlowBeginDate": "08-23-2026", "gasFlowEndDate": "08-23-2026",
+                   "cycle": ["1"], "locationIDs": [], "reportType": "OAC"}
+              r2 = c.post(qurl, json=q)
+              ct2 = r2.headers.get("content-type", "")[:24]
+              print("POST query:", r2.status_code, ct2)
+              if "json" in ct2:
+                  print("QDATA:", r2.text[:800])
+              else:
+                  print("QBODY:", r2.text[:200].replace("\n", " "))
           PYEOF
           python /tmp/probe.py
