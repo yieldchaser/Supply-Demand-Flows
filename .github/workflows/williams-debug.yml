@@ -1,4 +1,4 @@
-name: Williams Live Probe 3
+name: Williams Live Probe 4
 on:
   workflow_dispatch:
 jobs:
@@ -13,31 +13,26 @@ jobs:
       - name: Write probe script
         run: |
           cat > /tmp/probe.py <<'PYEOF'
-          import httpx, json
+          import httpx, re, json
           BASE = "https://www.1line.williams.com"
-          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-                "Accept": "application/json, text/plain, */*",
-                "X-Requested-With": "XMLHttpRequest"}
-          with httpx.Client(headers=UA, timeout=60.0, follow_redirects=True) as c:
-              r0 = c.get(BASE + "/")
-              print("cookies:", list(c.cookies.keys()))
-              xsrf = c.cookies.get("XSRF-TOKEN")
-              if xsrf:
-                  c.headers["X-XSRF-TOKEN"] = xsrf
-                  print("xsrf acquired")
-              url = BASE + "/api/portal-service/v1/public/oac/cycle"
-              r1 = c.get(url, params={"buId": 80})
-              ct = r1.headers.get("content-type", "")[:24]
-              print("GET cycle:", r1.status_code, ct, r1.text[:300].replace("\n", " "))
-              qurl = BASE + "/api/portal-service/v1/public/oac/query"
-              q = {"buId": 80, "gasFlowBeginDate": "08-23-2026", "gasFlowEndDate": "08-23-2026",
-                   "cycle": ["1"], "locationIDs": [], "reportType": "OAC"}
-              r2 = c.post(qurl, json=q)
-              ct2 = r2.headers.get("content-type", "")[:24]
-              print("POST query:", r2.status_code, ct2)
-              if "json" in ct2:
-                  print("QDATA:", r2.text[:800])
-              else:
-                  print("QBODY:", r2.text[:200].replace("\n", " "))
+          UA = {"User-Agent": "Mozilla/5.0"}
+          with httpx.Client(headers=UA, timeout=60.0) as c:
+              html = c.get(BASE + "/").text
+              # all js assets incl. lazy chunks referenced in index
+              scripts = re.findall(r'src="([^"]+\.js)"', html)
+              print("INDEX SCRIPTS:", scripts)
+              # common config file names
+              found_cfg = None
+              for cfg in ("assets/config/configuration.json", "assets/config.json", "config.json", "assets/configuration.json", "assets/env.json", "configuration.json"):
+                  r = c.get(BASE + "/" + cfg)
+                  if r.status_code == 200 and "html" not in r.headers.get("content-type", ""):
+                      print("CONFIG FOUND:", cfg, "->", r.text[:500])
+                      found_cfg = cfg
+                      break
+                  else:
+                      print("cfg miss:", cfg, r.status_code)
+              # dump every href/src from index for manual scan
+              refs = sorted(set(re.findall(r'(?:src|href)="([^"]+)"', html)))
+              print("REFS:", [r2 for r2 in refs if not r2.startswith("http")][:30])
           PYEOF
           python /tmp/probe.py
