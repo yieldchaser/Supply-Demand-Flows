@@ -38,6 +38,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+from scrapers.base.headers import QUORUM_CSV_COLUMNS, rename_keys, resolve_columns
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.http_client import HttpClient
 from scrapers.base.identity import assert_response_identity
@@ -154,6 +155,12 @@ def parse_export_csv(csv_text: str) -> list[dict[str, str]]:
         return []
 
     field_count = len(reader.fieldnames)
+    colmap = resolve_columns(
+        QUORUM_CSV_COLUMNS,
+        [f for f in reader.fieldnames if f],
+        optional=("Quantity Not Available Reason",),
+        source="quorum ExportToCSV",
+    )
     rows: list[dict[str, str]] = []
     for raw_row in reader:
         extras = raw_row.get(None)
@@ -170,6 +177,12 @@ def parse_export_csv(csv_text: str) -> list[dict[str, str]]:
             if not col:
                 col = _UNNAMED_COLUMN_KEY
             clean[col] = (value or "").strip()
+        # Preserve the unnamed-blank placeholder through canonical re-keying
+        # (it is a positional artifact, not an upstream column name).
+        blank_val = clean.get(_UNNAMED_COLUMN_KEY)
+        clean = rename_keys(clean, colmap)
+        if _UNNAMED_COLUMN_KEY not in clean and blank_val is not None:
+            clean[_UNNAMED_COLUMN_KEY] = blank_val
         if not clean.get("Loc"):
             continue
         rows.append(clean)

@@ -53,6 +53,7 @@ from typing import Any
 
 import httpx
 
+from scrapers.base.headers import HeaderMismatchError
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.identity import assert_response_identity
 from scrapers.base.safe_writer import safe_write_json
@@ -279,10 +280,21 @@ def parse_opavail_grid(html: str) -> list[dict[str, str]]:
     """Parse the server-rendered OpAvail grid into row dicts.
 
     What:
-        Keeps <tr> rows with >= 10 <td> cells whose second cell is a
-        4-6 digit loc id; maps cells positionally onto the column contract.
+        Keeps <tr> rows whose second cell is a 4-6 digit loc id; maps cells
+        POSITIONALLY onto the 12-column contract documented at module top
+        (View | Loc | Loc Name | Loc Zn | Loc(Segment) | Design Capacity |
+        Operating Capacity | Total Scheduled Quantity |
+        Operationally Available Capacity | IT | Flow Ind | All Qty Avail).
+        There is no header row to resolve by name, so the guard here is a
+        CELL-COUNT CONSISTENCY contract: every accepted row must carry the
+        same number of cells. A mixed-shape grid means KM inserted or moved
+        a column and every positional field would silently mislabel —
+        refuse instead.
+
+    Failure modes:
+        ``HeaderMismatchError`` when accepted rows disagree on cell count.
     """
-    rows: list[dict[str, str]] = []
+    candidates: list[tuple[int, list[str]]] = []
     for tr in _TR_RE.findall(html):
         cells = [_clean(cc) for cc in _TD_RE.findall(tr)]
         if len(cells) < 10:
@@ -290,9 +302,22 @@ def parse_opavail_grid(html: str) -> list[dict[str, str]]:
         loc = cells[1]
         if not re.fullmatch(r"\d{4,6}", loc):
             continue
+        candidates.append((len(cells), cells))
+
+    if candidates:
+        counts = {count for count, _ in candidates}
+        if len(counts) > 1:
+            raise HeaderMismatchError(
+                "kinder_morgan OpAvail grid",
+                [f"consistent cell count ({sorted(counts)[0]} seen)"],
+                [f"rows with {n} cells: {sum(1 for c, _ in candidates if c == n)}" for n in sorted(counts)],
+            )
+
+    rows: list[dict[str, str]] = []
+    for _, cells in candidates:
         rows.append(
             {
-                "loc": loc,
+                "loc": cells[1],
                 "loc_name": cells[2],
                 "loc_zone": cells[3],
                 "loc_segment": cells[4],

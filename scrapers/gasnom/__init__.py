@@ -48,6 +48,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+from scrapers.base.headers import rename_keys, resolve_columns
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.safe_writer import safe_write_json
 from scrapers.gasnom.client import GasnomClient, cycle_code_from_description
@@ -132,11 +133,26 @@ def _normalize_html_rows(
 
 
 def _normalize_tsv_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Map parsed bulk-TSV rows onto the canonical snake_case keys."""
+    """Map parsed bulk-TSV rows onto the canonical snake_case keys.
+
+    Header hardening: TSV headers resolve through
+    ``scrapers.base.headers.resolve_columns`` (whitespace/case-insensitive)
+    and rows are RE-KEYED through the resolved mapping, so a spacing/case
+    variant of any mapped column still lands on its canonical key while a
+    genuine rename raises :class:`HeaderMismatchError` loudly.
+    """
+    colmap: dict[str, str] | None = None
     out: list[dict[str, str]] = []
     for row in rows:
+        if colmap is None:
+            colmap = resolve_columns(
+                list(_TSV_KEY_MAP),
+                list(row.keys()),
+                source="gasnom bulk TSV",
+            )
+        renamed = rename_keys(row, colmap)
         normalized = {
-            canonical: (row.get(tsv_key, "") or "").strip()
+            canonical: (renamed.get(tsv_key, "") or "").strip()
             for tsv_key, canonical in _TSV_KEY_MAP.items()
         }
         if normalized["loc"]:

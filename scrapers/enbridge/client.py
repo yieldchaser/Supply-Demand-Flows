@@ -55,6 +55,7 @@ from io import StringIO
 from typing import Any
 
 from scrapers.base.errors import HttpClientError
+from scrapers.base.headers import ENBRIDGE_CSV_COLUMNS, rename_keys, resolve_columns
 from scrapers.base.http_client import HttpClient
 from scrapers.base.identity import assert_response_identity
 
@@ -89,7 +90,6 @@ COL_TSQ = "Total_Scheduled_Quantity"
 COL_OP_CAP = "Operating_Capacity"
 COL_DESIGN_CAP = "Total_Design_Capacity"
 COL_OAC = "Operationally_Available_Capacity"
-
 
 class EnbridgeApiError(HttpClientError):
     """Raised when the rtba page-method envelope carries an application error."""
@@ -333,6 +333,44 @@ async def fetch_oac_zip_bytes(
     return response.content
 
 
+def parse_capacity_csv(text: str, source_label: str = "enbridge/TE_OA_MLC") -> list[dict[str, str]]:
+    """Parse one TE_OA_MLC CSV body into cleaned, canonically-keyed rows.
+
+    Header hardening: columns resolve through
+    ``scrapers.base.headers.resolve_columns`` so spacing/case variants of
+    ``TOTAL_SCHEDULED_QUANTITY``-style headers still parse and genuine
+    renames raise :class:`HeaderMismatchError` loudly.
+
+    Failure modes:
+        Rows without a Loc are dropped; unresolvable headers raise.
+    """
+    assert_response_identity(
+        expected="TX EAST TRAN",
+        response_text=text,
+        context=source_label,
+    )
+    reader = csv.DictReader(StringIO(text))
+    if reader.fieldnames is None:
+        return []
+    colmap = resolve_columns(
+        ENBRIDGE_CSV_COLUMNS,
+        [f for f in reader.fieldnames if f],
+        source=source_label,
+    )
+    rows = [
+        rename_keys(
+            {
+                (k or "").strip(): (v or "").strip()
+                for k, v in row.items()
+                if k is not None
+            },
+            colmap,
+        )
+        for row in reader
+    ]
+    return [r for r in rows if r.get(COL_LOC)]
+
+
 def parse_oac_zip(
     zip_bytes: bytes,
     fetched_at: str,
@@ -369,16 +407,7 @@ def parse_oac_zip(
                 continue
             cycle_tok, gas_day_iso = parsed
             text = zf.read(name).decode("utf-8-sig", errors="replace")
-            assert_response_identity(
-                expected="TX EAST TRAN",
-                response_text=text,
-                context=f"enbridge/{name}",
-            )
-            rows = [
-                {(k or "").strip(): (v or "").strip() for k, v in row.items() if k is not None}
-                for row in csv.DictReader(StringIO(text))
-            ]
-            rows = [r for r in rows if r.get(COL_LOC)]
+            rows = parse_capacity_csv(text, source_label=f"enbridge/{name}")
             if not rows:
                 continue
             out.append(

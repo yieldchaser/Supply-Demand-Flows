@@ -32,6 +32,7 @@ from io import StringIO
 from typing import Any, Literal
 
 from scrapers.base.errors import HttpClientError
+from scrapers.base.headers import BHE_CSV_COLUMNS, rename_keys, resolve_columns
 from scrapers.base.http_client import HttpClient
 from scrapers.base.identity import assert_response_identity
 
@@ -159,6 +160,13 @@ def parse_oac_csv(csv_text: str) -> list[dict[str, str]]:
         context="bhe/egts OAC CSV",
     )
     reader = csv.DictReader(StringIO(csv_text))
+    if reader.fieldnames is None:
+        return []
+    colmap = resolve_columns(
+        BHE_CSV_COLUMNS,
+        [f for f in reader.fieldnames if f],
+        source="bhe/egts OAC CSV",
+    )
     rows: list[dict[str, str]] = []
     for row in reader:
         clean = {
@@ -166,6 +174,7 @@ def parse_oac_csv(csv_text: str) -> list[dict[str, str]]:
             for k, v in row.items()
             if k is not None
         }
+        clean = rename_keys(clean, colmap)
         if not clean.get(COL_LOC):
             continue
         rows.append(clean)

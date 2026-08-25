@@ -19,6 +19,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from scrapers.base.headers import GULF_SOUTH_CSV_COLUMNS, rename_keys, resolve_columns
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.http_client import HttpClient
 from scrapers.base.identity import assert_response_identity
@@ -128,6 +129,12 @@ def parse_oac_csv(csv_text: str) -> list[dict[str, str]]:
 
     Tenant-fallback guard (KM pipeline2 lesson): the CSV's ``TSP Name``
     column must identify Gulf South (Boardwalk) before any row is accepted.
+
+    Header hardening: expected columns resolve through
+    ``scrapers.base.headers.resolve_columns`` (whitespace/case-insensitive).
+    A double-space variant of ``Operationally  Available Capacity`` once
+    silently dropped every OAC series here for months — unresolvable
+    headers now raise :class:`HeaderMismatchError` instead.
     """
     assert_response_identity(
         expected="Gulf South",
@@ -135,10 +142,23 @@ def parse_oac_csv(csv_text: str) -> list[dict[str, str]]:
         context="gulf_south/boardwalk OAC CSV",
     )
     reader = csv.DictReader(csv_text.splitlines())
+    if reader.fieldnames is None:
+        return []
+    colmap = resolve_columns(
+        GULF_SOUTH_CSV_COLUMNS,
+        [f for f in reader.fieldnames if f],
+        source="gulf_south/boardwalk OAC CSV",
+    )
     rows = []
     for row in reader:
-        # Strip whitespace from keys and values
-        clean_row = {(k.strip() if k else ""): (v.strip() if v else "") for k, v in row.items()}
+        # Strip whitespace from keys and values, drop the extras bucket
+        # (None key) and blanks, then re-key onto the canonical names.
+        clean_raw = {
+            (k.strip() if k else ""): (v.strip() if v else "")
+            for k, v in row.items()
+            if k is not None
+        }
+        clean_row = rename_keys(clean_raw, colmap)
         # Ignore empty/header placeholder rows
         if not clean_row.get("Loc"):
             continue
