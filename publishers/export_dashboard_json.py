@@ -48,6 +48,7 @@ EBB_METER_CONFIGS: dict[str, Path] = {
     "bhe": Path("config/meters/bhe.json"),
     "cheniere": Path("config/meters/cheniere.json"),
     "enbridge": Path("config/meters/enbridge.json"),
+    "kinder_morgan": Path("config/meters/kinder_morgan.json"),
 }
 
 #: Frontend registries that extend the relevance allowlist beyond the

@@ -178,3 +178,26 @@ sources:
   #       series_glob: "*"
   #       min: -100000.0
   #       max: 5000000.0
+
+  kinder_morgan:
+    parquet: data/curated/kinder_morgan.parquet
+    health_file: data/health/kinder_morgan.json  # created by CI on first scheduled run
+    staleness: {warn_days: 2, fail_days: 4}  # BEST-AVAILABLE snapshot, ~3x daily
+    unit_expected: MMcf/d
+    mode: accumulation
+    negative_values_fail: true
+    # Confirmed LNG-bound meters only (Sabine recon + CI live-fire 2026-08-25).
+    # KMLP 44337 CALCA deliberately absent — Calcasieu corridor, not Sabine.
+    bands:
+      - label: km_ngpl_sabine_sq
+        series_glob: "km_ngpl_sq_3592_*"
+        min: 0.0              # zero flow is legitimate (no nomination that cycle)
+        max: 600000.0         # above design capacity 500,000 Dth/d (~488 MMcf/d)
+      - label: km_tgp_corpus_sq
+        series_glob: "km_tgp_sq_49861_*"
+        min: 0.0
+        max: 900000.0         # above design capacity 768,750 Dth/d (~750 MMcf/d)
+      - label: km_tgp_area_candidates
+        series_glob: "km_tgp_sq_{47799,49524}_*"
+        min: 0.0
+        max: 900000.0

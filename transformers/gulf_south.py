@@ -87,6 +87,7 @@ def _parse_raw_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
         )
         oac_raw = (
             row.get("Operationally Available Capacity")
+            or row.get("Operationally  Available Capacity")
             or row.get("operationally_available_capacity")
             or row.get("operationallyAvailableCapacity")
         )
