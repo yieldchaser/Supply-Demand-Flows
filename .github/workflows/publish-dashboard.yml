@@ -63,7 +63,12 @@ jobs:
         run: |
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
-          git add docs/data/
+          # Force-add cache-busted shards so Pages serves them (they are
+          # gitignored to keep the repo lean, but the live site needs them
+          # for lazy loading — see .gitignore note). The stable entrypoints
+          # (bundle.json, manifest.json) are tracked normally.
+          git add docs/data/bundle.json docs/data/manifest.json
+          git add -f docs/data/bundle.*.json docs/data/src.*.json docs/data/index.*.json 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "docs(bundle): rebuild dashboard bundle"
             for i in {1..5}; do

@@ -106,7 +106,19 @@ export async function loadBundle() {
   }
 
   const indexUrl = `./data/${manifest.index_url}?v=${manifest.hash}`;
-  const index = await (await fetchWithRetry(indexUrl)).json();
+  let index;
+  try {
+    index = await (await fetchWithRetry(indexUrl)).json();
+  } catch (err) {
+    // Shards not deployed (e.g. gitignored build artifacts on Pages) — fall
+    // back to the monolithic bundle.json, which is always tracked + served.
+    console.warn(
+      `[bluetide] index shard ${manifest.index_url} unavailable — falling back to full-bundle parse`
+    );
+    const bundleUrl = `./data/${manifest.bundle_url}?v=${manifest.hash}`;
+    const bundle = await (await fetchWithRetry(bundleUrl)).json();
+    return attachHelpers({ ...bundle, hash: manifest.hash });
+  }
 
   /** @type {any} */
   const bundle = {
