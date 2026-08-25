@@ -18,6 +18,7 @@ import { renderLngTotalPanel } from './panels/lng-total.js';
 import { renderLngSharesPanel } from './panels/lng-shares.js';
 import { renderLngFeedgasPanel } from './panels/lng-feedgas.js';
 import { renderLngFleetOverview } from './panels/lng-fleet-overview.js';
+import { renderBasinEgressPanel } from './panels/basin-egress.js';
 
 /**
  * Render a single panel inside its own try/catch so that a failure
@@ -99,6 +100,11 @@ async function main() {
     });
   }
   await safeRender('lng-fleet', () => renderLngSection());
+
+  // Section 6: Basin Egress — the supply-side counterpart to LNG feedgas.
+  await safeRender('basin-egress', () =>
+    renderBasinEgressPanel(document.getElementById('panel-basin-egress'), bundle)
+  );
 
   renderFooter(bundle);
 }

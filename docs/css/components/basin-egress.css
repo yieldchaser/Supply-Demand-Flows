@@ -1,0 +1,125 @@
+/**
+ * Basin Egress panel — Section 6.
+ * Reuses tokens, kpi-card, basin-table, and the utilization color ladder
+ * from the existing sheets. Only layout glue for this panel lives here.
+ */
+
+.basin-egress-wrapper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Chart + table spacing inside the chrome body */
+.panel-chart .basin-egress-table-wrap,
+.basin-egress-table-wrap {
+  margin-top: var(--space-5, 20px);
+  overflow-x: auto;
+}
+
+.basin-egress-table th,
+.basin-egress-table td {
+  white-space: nowrap;
+}
+.basin-egress-table td:first-child,
+.basin-egress-table th:first-child {
+  min-width: 260px;
+}
+
+.basin-egress-footnote {
+  margin-top: var(--space-4, 16px);
+  font-size: var(--fs-xs, 11px);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── Congestion strip ── */
+.basin-egress-congestion {
+  margin-top: var(--space-5, 20px);
+  padding: var(--space-4, 16px);
+  border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 10px);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.congestion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3, 12px);
+  flex-wrap: wrap;
+}
+
+.congestion-header h3 {
+  margin: 0;
+  font-size: var(--fs-sm, 13px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary, #fff);
+}
+
+.congestion-status {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 6px);
+}
+.congestion-status--pending {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.congestion-ladder {
+  display: flex;
+  gap: var(--space-2, 8px);
+  flex-wrap: wrap;
+  margin-top: var(--space-3, 12px);
+}
+
+.congestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 6px);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.congestion-chip.utilization-gray { border-color: rgba(148, 163, 184, 0.4); }
+.congestion-chip.utilization-green { border-color: rgba(52, 211, 153, 0.45); }
+.congestion-chip.utilization-green b { color: #34d399; }
+.congestion-chip.utilization-amber { border-color: rgba(251, 191, 36, 0.45); }
+.congestion-chip.utilization-amber b { color: #fbbf24; }
+.congestion-chip.utilization-red { border-color: rgba(239, 68, 68, 0.5); }
+.congestion-chip.utilization-red b { color: #ef4444; }
+
+.congestion-note {
+  margin: var(--space-3, 12px) 0 0;
+  font-size: var(--fs-xs, 11px);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* Medium-confidence badge reuses basin-table .badge sizing; keep it subtle */
+.basin-egress-table .badge {
+  margin-left: 6px;
+  opacity: 0.85;
+}
+
+/* ── Mobile reflow (390px) ── */
+@media (max-width: 480px) {
+  .basin-egress-table td:first-child,
+  .basin-egress-table th:first-child {
+    min-width: 170px;
+  }
+  .basin-egress-congestion {
+    padding: var(--space-3, 12px);
+  }
+  .congestion-header h3 {
+    font-size: 12px;
+  }
+}
