@@ -162,19 +162,19 @@ sources:
         min: 0.0              # inclusive floor — zero flow is legitimate
         max: 400000.0         # above design capacity 322,000
 
-  transco:
-    parquet: data/curated/williams.parquet
-    health_file: data/health/transco.json   # created by CI on first scheduled run
-    staleness: {warn_days: 2, fail_days: 4}  # daily EBB, five cycles/day
-    unit_expected: Dth/d
-    mode: accumulation
-    # Watchlist-scoped dataset (~15 series families): LNG-terminal feedgas
-    # interconnects, storage fields, basin-egress anchors. Zeros are
-    # LEGITIMATE at LNG interconnects — no gas scheduled that cycle is real
-    # operating state, never flagged. negative_values_fail stays unset:
-    # payback adjustments can post below zero (quorum precedent).
-    bands:
-      - label: transco_watchlist_capacity
-        series_glob: "*"
-        min: -100000.0        # payback/recycle headroom below zero
-        max: 5000000.0        # above Sabine Pass nameplate 4.5M Dth/d
+  # SHELVED 2026-08-25: the transco stanza is commented out — the legacy JSP
+  # endpoints are gone (1Line portal-app migration, see
+  # scrapers/williams/VERDICT.md) and active monitoring would emit permanent
+  # WARN staleness noise. Restore this stanza if a new public API appears.
+  #
+  # transco:
+  #   parquet: data/curated/williams.parquet
+  #   health_file: data/health/transco.json
+  #   staleness: {warn_days: 2, fail_days: 4}
+  #   unit_expected: Dth/d
+  #   mode: accumulation
+  #   bands:
+  #     - label: transco_watchlist_capacity
+  #       series_glob: "*"
+  #       min: -100000.0
+  #       max: 5000000.0

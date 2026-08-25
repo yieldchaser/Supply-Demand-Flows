@@ -1,18 +1,19 @@
-name: Williams Transco (5x daily)
+name: Williams Transco (SHELVED 2026-08-25 — manual only)
 
 on:
   schedule:
-    # All times UTC. Transco posts OAC per NAESB cycle (Central Time):
-    #   Timely:  ~1:30 PM CT -> 19:30 UTC (+1h buffer)
-    - cron: '30 2 * * *'
-    #   Evening: ~9:00 PM CT -> 03:00 UTC (+1h buffer)
-    - cron: '0 3 * * *'
-    #   Intraday 1: ~6:00 AM CT next day -> 12:15 UTC
-    - cron: '15 12 * * *'
-    #   Intraday 2: ~11:00 AM CT next day -> 17:15 UTC
-    - cron: '15 17 * * *'
-    #   Intraday 3 (final): ~4:00 PM CT next day -> 22:15 UTC
-    - cron: '15 22 * * *'
+    # SHELVED: the legacy JSP endpoints (OACQueryRequest.jsp / OACreport.jsp)
+    # no longer exist — 1Line migrated to the portal-app SPA and every path
+    # serves the SPA catch-all shell (see scrapers/williams/VERDICT.md).
+    # Scheduled runs would write empty/warn health forever. Manual dispatch
+    # kept for re-verification if Williams exposes a public API again.
+    #
+    # Historical cadence (all times UTC), commented out 2026-08-25:
+    # - cron: '30 2 * * *'
+    # - cron: '0 3 * * *'
+    # - cron: '15 12 * * *'
+    # - cron: '15 17 * * *'
+    # - cron: '15 22 * * *'
   workflow_dispatch:
     inputs:
       gas_day:

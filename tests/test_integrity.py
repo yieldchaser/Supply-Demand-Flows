@@ -462,8 +462,9 @@ class TestShippedRules:
             "cheniere",
             # TETCO via Enbridge rtba enabled in the TETCO integration
             "enbridge",
-            # Transco via Williams 1Line (CI-only egress; WAF-blocked locally)
-            "transco",
+            # SHELVED 2026-08-25: transco removed — legacy 1Line JSP endpoints
+            # are gone (portal-app migration); stanza commented out in
+            # config/integrity_rules.yaml to stop permanent WARN noise.
         }
 
     def test_gulf_south_rules(self, rules: dict[str, Any]) -> None:
