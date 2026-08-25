@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -133,7 +134,7 @@ def test_harvest_hidden_inputs() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _raw_payload(cycle: str, tsq: str, gas_day: str) -> dict:
+def _raw_payload(cycle: str, tsq: str, gas_day: str) -> dict[str, Any]:
     return {
         "fetched_at": "2026-08-25T12:00:00+00:00",
         "source": "kinder_morgan",

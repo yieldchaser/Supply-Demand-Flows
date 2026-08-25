@@ -57,7 +57,7 @@ class TestTenantFallbackTrap:
         """THE TRAP: NGPL requested, TGP page served (HTTP 200) must raise."""
         import scrapers.kinder_morgan as km
 
-        monkeypatch.setattr(km.httpx, "Client", _FakeClientFactory)
+        monkeypatch.setattr(km, "httpx", _FakeHttpxModule)
         with pytest.raises(TenantFallbackError):
             scrape_tenant_best_available("NGPL")
 
@@ -87,6 +87,14 @@ class FakeResp:
 
     def __init__(self, text: str) -> None:
         self.text = text
+
+
+class _FakeHttpxModule:
+    """Stand-in for the httpx module so the test patches the module object
+    rather than reaching through ``km.httpx`` (which strict mypy flags as a
+    non-exported attribute)."""
+
+    Client = _FakeClientFactory
 
 
 class TestTransformPayload:
