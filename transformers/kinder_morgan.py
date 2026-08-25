@@ -36,8 +36,6 @@ CONFIRMED_METERS: dict[str, dict[str, str]] = {
 #: NOT Sabine — Calcasieu Pass corridor. Kept here to document the exclusion.
 EXCLUDED_METERS = {"44337": "Calcasieu Pass area — do not mislabel as Sabine"}
 
-CONV = 1.025 * 1000  # Dth/d -> MMcf/d
-
 
 def _num(text: str) -> float | None:
     try:
@@ -89,8 +87,8 @@ def transform_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "series_id": series_id,
                 "series_name": f"KM {conf['pipeline'].upper()} TSQ {conf['label']} [d] ({cycle})",
                 "period": gas_day,
-                "value": round(tsq_dth / CONV, 1),
-                "unit": "MMcf/d",
+                "value": tsq_dth,
+                "unit": "Dth/d",
                 "region": "US",
                 "zone": row.get("loc_zone", ""),
                 "ingested_at": fetched,

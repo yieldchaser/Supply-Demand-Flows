@@ -120,7 +120,9 @@ class TestTransformPayload:
         assert len(rows) == 1
         # Cycle token lowercased with underscore; flow leg d.
         assert rows[0]["series_id"] == "km_ngpl_sq_3592_d_best_available"
-        assert rows[0]["value"] == round(472702 / (1.025 * 1000), 1)
+        # RAW Dth/d — conversion to MMcf happens only in the frontend.
+        assert rows[0]["value"] == 472702
+        assert rows[0]["unit"] == "Dth/d"
 
     def test_kmlp_44337_never_emitted(self) -> None:
         payload = {
