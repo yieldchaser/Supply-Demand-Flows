@@ -40,6 +40,7 @@ from typing import Any
 
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.http_client import HttpClient
+from scrapers.base.identity import assert_response_identity
 from scrapers.base.safe_writer import safe_write_json
 
 log = logging.getLogger(__name__)
@@ -223,7 +224,17 @@ class QuorumIPWSScraper:
         raw_bytes = await client.get_bytes(url)
         # Live endpoint serves plain UTF-8 (no BOM observed); utf-8-sig strips
         # a BOM if Quorum ever adds one.
-        return raw_bytes.decode("utf-8-sig")
+        text = raw_bytes.decode("utf-8-sig")
+        # Tenant-fallback guard: the IPWS portal serves the REQUESTED tenant's
+        # export for known TspNo values but can silently fall back for others.
+        # The CSV carries a 'TSP Name' column — verify it matches the tenant's
+        # pipeline family (Gator Express / TransCameron, both Venture Global).
+        assert_response_identity(
+            expected="Venture",
+            response_text=text,
+            context=f"quorum/{self.prefix} (TspNo={self.tsp_no})",
+        )
+        return text
 
     async def run(
         self,

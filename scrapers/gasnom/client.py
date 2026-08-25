@@ -38,6 +38,7 @@ from typing import Any
 import httpx
 
 from scrapers.base.errors import HttpClientError
+from scrapers.base.identity import assert_response_identity
 from scrapers.gasnom.pipelines import GasnomPipeline
 
 log = logging.getLogger(__name__)
@@ -296,6 +297,13 @@ class GasnomClient:
             f"?dt={gas_day.strftime('%m/%d/%Y')}&type=1"
         )
         body = self._get_with_waf_retry(url, referer=self._pipeline_url("frameindex.cfm"))
+        # Tenant-fallback guard (KM pipeline2 lesson): verify the page names
+        # THIS pipeline before parsing.
+        assert_response_identity(
+            expected=self.pipeline.name,
+            response_text=body,
+            context=f"gasnom/{self.pipeline.slug}",
+        )
         return parse_html_oac(body)
 
     def fetch_bulk_tsv(self, start: date, end: date) -> str:

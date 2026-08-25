@@ -21,6 +21,7 @@ from typing import Any, Literal
 
 from scrapers.base.health_writer import HealthWriter
 from scrapers.base.http_client import HttpClient
+from scrapers.base.identity import assert_response_identity
 from scrapers.base.safe_writer import safe_write_json
 
 log = logging.getLogger(__name__)
@@ -123,7 +124,16 @@ async def fetch_oac_csv(client: HttpClient, tracker_id: int) -> str:
 
 
 def parse_oac_csv(csv_text: str) -> list[dict[str, str]]:
-    """Parse the OAC CSV into clean dictionaries, stripping whitespace."""
+    """Parse the OAC CSV into clean dictionaries, stripping whitespace.
+
+    Tenant-fallback guard (KM pipeline2 lesson): the CSV's ``TSP Name``
+    column must identify Gulf South (Boardwalk) before any row is accepted.
+    """
+    assert_response_identity(
+        expected="Gulf South",
+        response_text=csv_text,
+        context="gulf_south/boardwalk OAC CSV",
+    )
     reader = csv.DictReader(csv_text.splitlines())
     rows = []
     for row in reader:

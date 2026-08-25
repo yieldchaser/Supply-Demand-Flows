@@ -56,6 +56,7 @@ from typing import Any
 
 from scrapers.base.errors import HttpClientError
 from scrapers.base.http_client import HttpClient
+from scrapers.base.identity import assert_response_identity
 
 log = logging.getLogger(__name__)
 
@@ -348,6 +349,11 @@ def parse_oac_zip(
         cycle, gas_day, row_count, data`` where ``data`` rows carry cleaned
         CSV columns.
 
+        Tenant-fallback guard (KM pipeline2 lesson): every CSV's ``TSP_Name``
+        column must identify Texas Eastern (``TX EAST TRAN``) before its rows
+        are accepted — the Enbridge rtba portal serves many pipelines from
+        the same page-method API keyed by business unit.
+
     Failure modes:
         Members whose names don't parse are skipped with a warning; empty
         CSVs produce no payloads; a corrupt archive raises ``BadZipFile``.
@@ -363,6 +369,11 @@ def parse_oac_zip(
                 continue
             cycle_tok, gas_day_iso = parsed
             text = zf.read(name).decode("utf-8-sig", errors="replace")
+            assert_response_identity(
+                expected="TX EAST TRAN",
+                response_text=text,
+                context=f"enbridge/{name}",
+            )
             rows = [
                 {(k or "").strip(): (v or "").strip() for k, v in row.items() if k is not None}
                 for row in csv.DictReader(StringIO(text))

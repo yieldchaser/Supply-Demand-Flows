@@ -54,6 +54,11 @@ def _csv_row(post_time: str, eff_day: str, cycle: str, loc: str, loc_name: str,
     return ",".join(fields)
 
 
+# The header-only fixture must still pass the tenant-fallback identity guard
+# (a real header-only day names the TSP in a data row).
+_HEADER = _HEADER + '\r\n,,,,"VENTURE GLOBAL GATOR EXPRESS, LLC"'
+
+
 def _gator_csv(cycle: str = "Intraday 3") -> str:
     """Fixture CSV mirroring the live TspNo=2 payload (5 meters, one cycle)."""
     rows = [
@@ -117,9 +122,14 @@ def test_parse_export_csv_extra_field_raises() -> None:
     Note:
         The fixture appends an unquoted extra value to a data line WITHOUT
         extending the header, so DictReader sees 21 fields vs 20 headers.
+        Uses a raw single-row CSV (not _HEADER) because the appended
+        identity row in `_HEADER` would otherwise be picked as first line.
     """
-    first_data_line = _SAMPLE_CSV.split("\r\n")[1]
-    bad_csv = _HEADER + "\r\n" + first_data_line + ",oops\r\n"
+    # _SAMPLE_CSV's second line is a data row; append an unquoted extra field
+    # so DictReader sees one field too many (schema change).
+    lines = _SAMPLE_CSV.split("\r\n")
+    data_line = lines[2] if len(lines) > 2 else lines[1]
+    bad_csv = lines[0] + "\r\n" + data_line + ",oops\r\n"
     with pytest.raises(ValueError, match="schema changed"):
         parse_export_csv(bad_csv)
 

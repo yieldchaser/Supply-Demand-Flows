@@ -33,6 +33,7 @@ from typing import Any, Literal
 
 from scrapers.base.errors import HttpClientError
 from scrapers.base.http_client import HttpClient
+from scrapers.base.identity import assert_response_identity
 
 log = logging.getLogger(__name__)
 
@@ -142,10 +143,21 @@ def parse_oac_csv(csv_text: str) -> list[dict[str, str]]:
         Mirrors the Gulf South parser: strips keys/values, drops rows without
         a ``Loc`` so header/placeholder rows never enter the raw payloads.
 
+        Tenant-fallback guard (KM pipeline2 lesson): the CSV's ``TSP Name``
+        column must identify EGTS before any row is returned — infopost
+        serves multiple pipelines from the same API family, and a wrong-pipe
+        response parses cleanly but mislabels every row.
+
     Failure modes:
         Rows with missing ``Loc`` are skipped; a malformed header surfaces as
-        an empty list rather than an exception.
+        an empty list rather than an exception. A response whose TSP Name
+        does not match EGTS raises :class:`TenantFallbackError`.
     """
+    assert_response_identity(
+        expected="EGTS",
+        response_text=csv_text,
+        context="bhe/egts OAC CSV",
+    )
     reader = csv.DictReader(StringIO(csv_text))
     rows: list[dict[str, str]] = []
     for row in reader:

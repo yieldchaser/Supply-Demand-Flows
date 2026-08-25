@@ -28,11 +28,13 @@ Failure modes:
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date
 from typing import Any
 
 from scrapers.base.http_client import HttpClient
+from scrapers.base.identity import assert_response_identity
 
 log = logging.getLogger(__name__)
 
@@ -224,6 +226,17 @@ async def run(
                     continue
 
                 payload = await fetch_capacity(client, tsp_no, target_day, cycle_id=cycle_id)
+                # Tenant-fallback guard (KM pipeline2 lesson): the GetCapacity
+                # API must return rows whose pipeline identity matches the
+                # requested tspNo. Creole Trail rows carry CTPL loc prefixes;
+                # Corpus Christi rows CCPL. Verify before parsing.
+                expected_marker = "CTPL" if tsp_no == TSP_CREOLE_TRAIL else "CCPL"
+                blob = json.dumps(payload)
+                assert_response_identity(
+                    expected=expected_marker,
+                    response_text=blob,
+                    context=f"cheniere/tsp{tsp_no}",
+                )
                 rows = parse_capacity_rows(payload)
                 per_tsp_rows[tsp_no] = len(rows)
 
