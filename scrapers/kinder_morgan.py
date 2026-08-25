@@ -47,7 +47,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -95,6 +95,106 @@ _AJAX_MARKER = (
 _LCYCLE_RE = re.compile(
     r'id="WebSplitter1_tmpl1_ContentPlaceHolder1_lCycle"[^>]*>([^<]*)<'
 )
+_POST_DATE_RE = re.compile(r"Post\s*Date:\s*(\d{1,2}/\d{1,2}/\d{4})", re.I)
+_POST_TIME_RE = re.compile(
+    r"Post\s*Time:\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)", re.I
+)
+
+
+def parse_posting_stamp(html: str) -> dict[str, str]:
+    """Extract the served grid's cycle description + post date/time stamp.
+
+    What:
+        On BEST-AVAILABLE pages the ``lCycle`` span reads e.g.
+        ``CycleDesc:  EVENING | Post Date: 08/24/2026 | Post Time: 6:45 PM``.
+        On AJAX pinned pulls the span carries only ``CycleDesc:  TIMELY`` and
+        the combined stamp appears in a second delta fragment — so after the
+        span attempt, the full document is searched for
+        ``CycleDesc ... | Post Date ... | Post Time``.
+
+        The post date — not the wall clock — anchors which GAS DAY the grid
+        belongs to (see :func:`derive_gas_day`).
+
+    Failure modes:
+        Returns empty strings when neither shape matches; callers treat a
+        missing post date as unpinnable rather than guessing the gas day.
+    """
+    seg = ""
+    m = _LCYCLE_RE.search(html)
+    if m:
+        seg = m.group(1)
+    stamp = _stamp_from_segment(seg)
+    if not stamp["post_date"]:
+        # AJAX delta fallback: the combined fragment lives elsewhere in the
+        # document — grab a window around the first 'Post Date:' occurrence
+        # and parse it (desc may come back empty; the lCycle span already
+        # supplied it).
+        dm2 = _POST_DATE_RE.search(html)
+        if dm2:
+            window = html[max(0, dm2.start() - 300) : dm2.end() + 160]
+            found = _stamp_from_segment(window)
+            if found["post_date"]:
+                if not found["cycle_desc"] and stamp["cycle_desc"]:
+                    found["cycle_desc"] = stamp["cycle_desc"]
+                return found
+    return stamp
+
+
+def _stamp_from_segment(seg: str) -> dict[str, str]:
+    """Parse one 'CycleDesc ... | Post Date ... | Post Time ...' segment."""
+    dm = _POST_DATE_RE.search(seg)
+    tm = _POST_TIME_RE.search(seg)
+    desc = ""
+    head = seg.split("|", 1)[0]
+    hm = re.match(r"\s*CycleDesc:\s*(.+)", head, re.I)
+    if hm:
+        desc = hm.group(1).strip().upper()
+    return {
+        "cycle_desc": desc,
+        "post_date": dm.group(1) if dm else "",
+        "post_time": tm.group(1).strip() if tm else "",
+    }
+
+
+def _parse_us_date(raw: str) -> date | None:
+    """Parse an ``MM/DD/YYYY`` posting stamp; None when absent/malformed."""
+    try:
+        mm, dd, yyyy = (int(p) for p in raw.split("/"))
+        return date(yyyy, mm, dd)
+    except (ValueError, AttributeError):
+        return None
+
+
+def derive_gas_day(cycle_code: str, post_date: str, post_time: str = "") -> str:
+    """Derive the GAS DAY a posted grid belongs to from its posting stamp.
+
+    Why:
+        NAESB timing (live-verified 2026-08-25 03:35 CT — the site served
+        'CycleDesc: EVENING, Post Date: 08/24/2026' while the wall-clock
+        date was already 08/25): each gas day G's cycles post across
+        calendar days G-1 and G —
+
+            TIMELY  ~11:00 CT G-1     -> gas day G (roll forward)
+            EVNG    ~18:45 CT G-1     -> gas day G (roll forward)
+            ITRD1   ~22:00 CT G-1     -> gas day G (roll forward)
+            ITRD2   ~01:30 CT G       -> gas day G (same calendar day)
+            ITRD3   ~09:00 CT G       -> gas day G (same calendar day)
+
+        Stamping payloads with the wall-clock date silently mislabels every
+        pull made before the posting calendar catches up.
+
+    Failure modes:
+        Returns '' when the post date is missing/unparseable — callers must
+        refuse to emit rows rather than guess. ITRD1's prior-evening slot is
+        the standard KM tariff schedule; payloads carry post_date/post_time/
+        posted_cycle verbatim so any deviation stays auditable downstream.
+    """
+    d = _parse_us_date(post_date)
+    if d is None:
+        return ""
+    if cycle_code in ("TIMELY", "EVNG", "ITRD1"):
+        return (d + timedelta(days=1)).isoformat()
+    return d.isoformat()
 
 _TR_RE = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S)
 _TD_RE = re.compile(r"<td[^>]*>(.*?)</td>", re.S)
@@ -262,9 +362,9 @@ def scrape_tenant_cycle(
         data["ctl00$hdnIsDownload"] = "false"
         data["ctl00$" + _PFX + "location"] = "rbDelivery"
         if gas_day is not None:
-            stamp = f"01{gas_day.year}-{gas_day.month}-{gas_day.day}-0-0-0-0"
+            date_stamp = f"01{gas_day.year}-{gas_day.month}-{gas_day.day}-0-0-0-0"
             data[_PFX + "dtePickerBegin_clientState"] = (
-                f'|0|{stamp}|[[[[]],[],[]],[{{}},[]],"{stamp}"]'
+                f'|0|{date_stamp}|[[[[]],[],[]],[{{}},[]],"{date_stamp}"]'
             )
         data[_BTN_X] = "45"
         data[_BTN_Y] = "15"
@@ -285,12 +385,25 @@ def scrape_tenant_cycle(
         context=f"kinder_morgan/{code} POST cycle={cycle_code}",
     )
 
-    label = parse_cycle_label(r2.text)
+    stamp = parse_posting_stamp(r2.text)
+    served_label = (
+        f"CycleDesc:  {stamp['cycle_desc']}"
+        if stamp["cycle_desc"]
+        else parse_cycle_label(r2.text)
+    )
     _, expected_desc = CYCLES[cycle_code]
-    if expected_desc not in label.upper():
+    if not stamp["post_date"] or expected_desc not in served_label.upper():
         raise CyclePinError(
             f"Requested cycle {cycle_code} ({expected_desc}) but server "
-            f"served {label!r} for {code} gas_day={gas_day or 'today'}"
+            f"served {served_label!r} (stamp={stamp}) for {code} gas_day={gas_day or 'today'}"
+        )
+    gas_day_served = derive_gas_day(cycle_code, stamp["post_date"], stamp["post_time"])
+    if gas_day is not None and gas_day_served and gas_day_served != gas_day.isoformat():
+        raise CyclePinError(
+            f"Dated pull unsupported: requested {gas_day.isoformat()} but the "
+            f"served {cycle_code} grid belongs to gas day {gas_day_served} "
+            f"(post date {stamp['post_date']}). Historical backfill must come "
+            "from scheduled daily accumulation, not dated queries."
         )
 
     rows = parse_opavail_grid(r2.text)
@@ -302,8 +415,14 @@ def scrape_tenant_cycle(
         "tenant_code": code,
         "pipeline_prefix": meta["prefix"],
         "gas_day_requested": (gas_day or date.today()).isoformat(),
+        # Authoritative period anchors — derived from the SERVER's own
+        # posting stamp, never the wall clock (see derive_gas_day).
         "cycle": cycle_code,
-        "cycle_label": label,
+        "posted_cycle": stamp["cycle_desc"],
+        "post_date": stamp["post_date"],
+        "post_time": stamp["post_time"],
+        "gas_day_served": gas_day_served,
+        "cycle_label": served_label,
         "row_count": len(rows),
         "data": rows,
     }

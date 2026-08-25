@@ -47,10 +47,30 @@ def _num(text: str) -> float | None:
 
 
 def transform_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    """Convert one raw payload into curated rows for confirmed meters."""
+    """Convert one raw payload into curated rows for confirmed meters.
+
+    Failure modes:
+        Payloads lacking a server-derived ``gas_day_served`` (legacy runs)
+        fall back to ``gas_day_requested`` WITH a warning — wall-clock
+        stamping mislabeled pre-midnight pulls by one gas day (NAESB
+        timing), so unanchored payloads must never pass silently again.
+    """
     prefix = payload.get("pipeline_prefix", "")
     cycle = str(payload.get("cycle") or "best_available").lower()
-    gas_day = str(payload.get("gas_day_requested") or datetime.now(UTC).date().isoformat())
+    # Period comes from the SERVED posting stamp; fall back to an explicit
+    # request only when absent. Never the wall clock.
+    gas_day = str(
+        payload.get("gas_day_served")
+        or payload.get("gas_day_requested")
+        or datetime.now(UTC).date().isoformat()
+    )
+    if not payload.get("gas_day_served"):
+        log.warning(
+            "KM payload %s %s lacks gas_day_served — period falls back to "
+            "gas_day_requested; upgrade the scraper run",
+            payload.get("tenant_code"),
+            cycle,
+        )
     out: list[dict[str, Any]] = []
     fetched = payload.get("fetched_at", "")
 

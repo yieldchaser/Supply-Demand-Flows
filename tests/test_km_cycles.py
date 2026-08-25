@@ -109,6 +109,69 @@ def test_parse_cycle_label_missing_returns_empty() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Posting-stamp parsing + NAESB gas-day derivation
+# ---------------------------------------------------------------------------
+
+
+_LCYCLE_FULL = (
+    '<span id="WebSplitter1_tmpl1_ContentPlaceHolder1_lCycle" class="bodytext">'
+    "CycleDesc:  EVENING | Post Date: 08/24/2026 | Post Time: 6:45 PM</span>"
+)
+
+
+def test_parse_posting_stamp_full() -> None:
+    from scrapers.kinder_morgan import parse_posting_stamp
+
+    stamp = parse_posting_stamp(_LCYCLE_FULL)
+    assert stamp == {
+        "cycle_desc": "EVENING",
+        "post_date": "08/24/2026",
+        "post_time": "6:45 PM",
+    }
+
+
+def test_parse_posting_stamp_missing_fields() -> None:
+    from scrapers.kinder_morgan import parse_posting_stamp
+
+    assert parse_posting_stamp(_WRONG_TENANT) == {
+        "cycle_desc": "",
+        "post_date": "",
+        "post_time": "",
+    }
+
+
+def test_derive_gas_day_timely_evening_roll_forward() -> None:
+    """Timely/Evening posted calendar day P belong to GAS DAY P+1.
+
+    Live-verified 2026-08-25 03:35 CT: site served 'EVENING, Post Date
+    08/24/2026' while the current gas day was already 08/25.
+    """
+    from scrapers.kinder_morgan import derive_gas_day
+
+    assert derive_gas_day("TIMELY", "08/24/2026") == "2026-08-25"
+    assert derive_gas_day("EVNG", "8/24/2026") == "2026-08-25"
+    assert derive_gas_day("TIMELY", "12/31/2026") == "2027-01-01"
+
+
+def test_derive_gas_day_intraday_slots() -> None:
+    """ID1 posts prior evening (rolls); ID2/ID3 post on the gas day."""
+    from scrapers.kinder_morgan import derive_gas_day
+
+    # ITRD1 ~22:00 CT on G-1 -> gas day G
+    assert derive_gas_day("ITRD1", "08/24/2026", "10:14 PM") == "2026-08-25"
+    # ITRD2 ~01:30 CT and ITRD3 ~09:00 CT both ON gas day G
+    assert derive_gas_day("ITRD2", "08/25/2026", "1:30 AM") == "2026-08-25"
+    assert derive_gas_day("ITRD3", "08/25/2026", "9:14 AM") == "2026-08-25"
+
+
+def test_derive_gas_day_unparseable_returns_empty() -> None:
+    from scrapers.kinder_morgan import derive_gas_day
+
+    assert derive_gas_day("TIMELY", "") == ""
+    assert derive_gas_day("TIMELY", "garbage") == ""
+
+
+# ---------------------------------------------------------------------------
 # Grid parsing
 # ---------------------------------------------------------------------------
 
