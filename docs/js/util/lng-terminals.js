@@ -160,19 +160,22 @@ export const LNG_TERMINALS = {
   sabine_pass: {
     id: 'sabine_pass',
     display: 'Sabine Pass',
-    source: 'cheniere',
-    seriesPrefix: 'creole_trail',
-    loc: 'CT200111',
-    flow: 'd',
-    locName: 'Creole Trail – SPLIQ delivery interconnect',
+    // PROMOTED to MEASURED 2026-08-25: NGPL loc 3592 (SABPL/NGPL HENRY HUB
+    // VERMILION) carries a real scheduled quantity at the SPL lateral feed.
+    // The Cheniere OAC proxy is retained as a SECONDARY comparison series.
+    feeds: [
+      { source: 'kinder_morgan', series: 'km_ngpl_sq_3592_d', label: 'NGPL measured' },
+      { source: 'cheniere', series: 'creole_trail_oac_CT200111_d', label: 'OAC proxy' },
+    ],
+    locName: 'SPLIQ — NGPL 3592 measured + Creole Trail proxy',
     nameplate: 4500,
-    signal: 'oac-proxy',
-    cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
-    platformLabel: 'Cheniere LNG Connection',
+    signal: 'sq',
+    cycles: ['id1', 'id2', 'id3'],
+    platformLabel: 'KM pipeline2 + Cheniere LNG Connection',
     platformNote:
-      'Sabine Pass (Cheniere LNG Connection) posts all five NAESB cycles. Flow is INFERRED from capacity consumption — see ⓘ.',
+      'Primary series = MEASURED TSQ at the NGPL interconnect (km_ngpl_sq_3592_d_best). Secondary = Cheniere OAC-implied proxy for comparison. Measured covers only the NGPL lateral of a multi-pipe feed.',
     methodLine:
-      'Implied flow = Design Capacity − Operationally Available at CT200111 (Creole Trail, SPLIQ) · PROXY: Cheniere does not publish Scheduled Quantities',
+      'MEASURED: KM NGPL loc 3592 SABPL/NGPL HENRY HUB VERMILION, delivery · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Secondary: Creole Trail OAC-implied proxy · Partial coverage — other SPL feeds (Transco Z3) not publicly posted',
   },
 
   corpus_christi: {
@@ -188,9 +191,9 @@ export const LNG_TERMINALS = {
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'Cheniere LNG Connection',
     platformNote:
-      'Corpus Christi (Cheniere LNG Connection) posts all five NAESB cycles. Flow is INFERRED from capacity consumption — see ⓘ.',
+      'Corpus Christi (Cheniere LNG Connection) posts all five NAESB cycles. Flow is INFERRED from capacity consumption — see ⓘ. A MEASURED diagnostic series exists (KM TGP Sinton 49861) but is NOT headline: its BEST-AVAILABLE value swung 169,489 → 79,527 Dth/d between recon and live runs (~53%) because per-cycle pinning is unsolved — we cannot yet separate genuine intraday variance from cycle-sampling artifact.',
     methodLine:
-      'Implied flow = Design Capacity − Operationally Available at CC100221 (Corpus Christi, CCLIQ) · PROXY: Cheniere does not publish Scheduled Quantities',
+      'Implied flow = Design Capacity − Operationally Available at CC100221 (Corpus Christi, CCLIQ) · PROXY headline: measured TGP Sinton meter kept as diagnostic until cycle pinning lands',
   },
 
   port_arthur: {
@@ -225,7 +228,7 @@ export const DEFAULT_TERMINAL_ID = 'plaquemines';
  *
  * @type {string[]}
  */
-export const FLEET_PROXY_EXCLUSIONS = ['sabine_pass', 'corpus_christi'];
+export const FLEET_PROXY_EXCLUSIONS = ['corpus_christi'];
 
 /**
  * Resolve the series-id matcher strings for one terminal.

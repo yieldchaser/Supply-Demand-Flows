@@ -1,0 +1,63 @@
+{
+  "source": "kinder_morgan",
+  "pipeline": "Kinder Morgan pipeline2 OpAvail (NGPL / TGP / KMLP)",
+  "series_key_format": "km_{pipeline}_sq_{loc}_d_best",
+  "note": "BEST-AVAILABLE cycle only — per-cycle pinning on the Infragistics dropdown is unsolved. Corpus Christi (49861 Sinton) shows a 53% swing between recon and live runs; treated as diagnostic, not headline.",
+  "kinder_morgan": {
+    "sabine_pass_lng": [
+      {
+        "loc_id": 3592,
+        "loc_name": "SABPL/NGPL HENRY HUB VERMILION",
+        "zone": "05",
+        "flow_ind": "BD",
+        "confidence": "high",
+        "target_terminal": "sabine_pass",
+        "evidence": "Live-fire 2026-08-25: TSQ 480,674 Dth/d; matches SPL lateral feed via NGPL."
+      }
+    ],
+    "corpus_christi_area": [
+      {
+        "loc_id": 49861,
+        "loc_name": "CCCPL/TGP SINTON SAN PATRICIO",
+        "zone": "00",
+        "flow_ind": "BD",
+        "confidence": "high",
+        "target_terminal": "corpus_christi_diagnostic",
+        "evidence": "Cheniere's own pipe as TGP shipper ~20mi from terminal. BEST-AVAILABLE variance: 169,489 (recon) vs 79,527 (live) — diagnostic series."
+      },
+      {
+        "loc_id": 47799,
+        "loc_name": "NMP/TGP GILLRINA ROAD NUECES",
+        "zone": "00",
+        "flow_ind": "BD",
+        "confidence": "candidate",
+        "target_terminal": "corpus_metro",
+        "evidence": "Nueces County regional flow — terminal-bound share unverified."
+      },
+      {
+        "loc_id": 49524,
+        "loc_name": "GULFSTH/TGP COASTAL BEND LNG WHARTO",
+        "zone": "109",
+        "flow_ind": "BD",
+        "confidence": "candidate",
+        "target_terminal": "spl_jv",
+        "evidence": "Gulfstream JV line, Sabine-corridor context."
+      }
+    ],
+    "excluded_meters": [
+      {
+        "loc_id": 44337,
+        "reason": "SABPL/KMLP CALCA is Calcasieu Pass corridor — NOT Sabine Pass. Do not mislabel."
+      }
+    ]
+  },
+  "_meta": {
+    "schema_version": 1,
+    "platform_facts": {
+      "base_url": "https://pipeline2.kindermorgan.com",
+      "auth": "none",
+      "contract": "GET OpAvailPoint.aspx?code={TENANT} -> harvest hidden inputs -> POST echo + btnRetrieve.x/y -> server-rendered grid",
+      "cycle_pinning": "UNSOLVED — ships BEST_AVAILABLE"
+    }
+  }
+}

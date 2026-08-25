@@ -460,6 +460,6 @@ export function renderLngFleetOverview(
   const footnote = document.createElement('p');
   footnote.className = 'fleet-footnote';
   footnote.innerText =
-    'Fleet total excludes Sabine Pass and Corpus Christi (capacity-proxy only — Cheniere does not publish scheduled quantities).';
+    'Fleet total excludes Corpus Christi (capacity-proxy headline; its measured TGP Sinton meter shows a ~53% BEST-AVAILABLE swing until cycle pinning lands, so it ships as diagnostic only). Sabine Pass is now MEASURED via the KM NGPL interconnect — partial coverage (Transco Z3 feed not publicly posted), so its figure is conservative.';
   panelEl.appendChild(footnote);
 }
