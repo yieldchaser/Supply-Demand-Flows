@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,29 @@ from typing import Any
 from scrapers.base.safe_writer import safe_write_json
 
 log = logging.getLogger(__name__)
+
+# Tests (and any ephemeral runner) set this to redirect ALL health output
+# away from the real data/health/ directory. Every HealthWriter honors it via
+# default_health_dir() — this is the single kill-switch for the "test suite
+# clobbers production health files" trap (2026-08-25, caught live by an 88%
+# eia_storage history wipe that an unrelated test had been masking for weeks).
+_HEALTH_DIR_ENV = "BLUETIDE_HEALTH_DIR"
+
+
+def default_health_dir() -> Path:
+    """Resolve the default health directory, honoring ``BLUETIDE_HEALTH_DIR``.
+
+    Why:
+        The real path is ``data/health`` at repo root. When that env var is
+        set (the pytest session fixture sets it to a tmp dir), every writer
+        transparently redirects there instead — so a stray un-patched
+        ``HealthWriter`` in a test can never overwrite production health
+        files. Callers that pass an explicit ``health_dir`` still win.
+    """
+    override = os.environ.get(_HEALTH_DIR_ENV)
+    if override:
+        return Path(override)
+    return Path("data/health")
 
 
 class HealthWriter:
@@ -47,12 +71,15 @@ class HealthWriter:
     def __init__(
         self,
         source_name: str,
-        health_dir: Path = Path("data/health"),
+        health_dir: Path | None = None,
     ) -> None:
         self._source_name = source_name
-        self._health_dir = health_dir
-        self._health_file = health_dir / f"{source_name}.json"
-        self._prev_file = health_dir / f"{source_name}.prev.json"
+        # Resolve the directory at CALL time (not as a default-arg value, which
+        # would bind at import time and miss the BLUETIDE_HEALTH_DIR env var
+        # set by the pytest session fixture). Pass an explicit dir to override.
+        self._health_dir = Path(health_dir) if health_dir is not None else default_health_dir()
+        self._health_file = self._health_dir / f"{source_name}.json"
+        self._prev_file = self._health_dir / f"{source_name}.prev.json"
 
     def _rotate_previous(self) -> None:
         """Copy the current health file to ``.prev.json`` before overwrite."""

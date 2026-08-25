@@ -330,6 +330,12 @@ def build() -> dict[str, Any]:
     }
     safe_write_json(DOCS_DATA_DIR / "manifest.json", manifest)
 
+    # 6. Prune stale bundle artifacts (defense against the docs/data graveyard).
+    #    Old bundle.{HASH}.json, src.*.{HASH}.json and index.{HASH}.json pile up
+    #    on every rebuild (~4.6 GB accumulated across 144 hashes by 2026-08-25).
+    #    Keep the current hash plus KEEP_PREVIOUS prior hashes; delete the rest.
+    _prune_stale_bundles(DOCS_DATA_DIR, bundle_hash, keep_previous=2)
+
     return {
         "generated_at": bundle["generated_at"],
         "hash": bundle_hash,
@@ -337,6 +343,62 @@ def build() -> dict[str, Any]:
         "index_url": index_name,
         "sources_count": len(bundle["sources"]),
     }
+
+
+# Number of prior bundle hashes to retain alongside the current one. The
+# frontend hard-codes nothing per-hash (it loads whatever manifest.json points
+# at), so we only need the live hash + a small rollback window.
+KEEP_PREVIOUS = 2
+
+
+def _prune_stale_bundles(data_dir: Path, current_hash: str, keep_previous: int = KEEP_PREVIOUS) -> int:
+    """Delete bundle.{h}.json / src.*.{h}.json / index.{h}.json for old hashes.
+
+    What:
+        Scans docs/data for cache-busted artifacts, groups them by the 8-char
+        content hash embedded in the filename, keeps the current hash plus the
+        ``keep_previous`` most-recently-modified hashes, and removes the rest.
+
+    Returns:
+        Count of files removed.
+
+    Why:
+        Publishing is frequent; without pruning the directory grows unbounded
+        (144 hashes / 4.6 GB accumulated before this guard). The repo .gitignore
+        should exclude these from git — pruned files are removed from disk here.
+    """
+    import re
+
+    pattern = re.compile(r"(?:bundle|src\.[^.]+|index)\.([0-9a-f]{8})\.json$")
+    by_hash: dict[str, list[Path]] = {}
+    for p in data_dir.glob("*.json"):
+        m = pattern.search(p.name)
+        if not m:
+            continue
+        by_hash.setdefault(m.group(1), []).append(p)
+
+    keep = {current_hash} if current_hash in by_hash else set()
+    # Rank remaining hashes by newest mtime; keep the top `keep_previous`.
+    ranked = sorted(
+        (h for h in by_hash if h != current_hash),
+        key=lambda h: max(p.stat().st_mtime_ns for p in by_hash[h]),
+        reverse=True,
+    )
+    keep.update(ranked[:keep_previous])
+
+    removed = 0
+    for h, files in by_hash.items():
+        if h in keep:
+            continue
+        for f in files:
+            try:
+                f.unlink()
+                removed += 1
+            except OSError:
+                pass
+    if removed:
+        print(f"Pruned {removed} stale bundle artifacts (kept {len(keep)} hashes)")
+    return removed
 
 
 if __name__ == "__main__":
