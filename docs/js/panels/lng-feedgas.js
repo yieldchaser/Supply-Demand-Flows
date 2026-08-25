@@ -99,13 +99,23 @@ function buildFeedCycleMaps(rows, seriesStem) {
 export function buildMultiFeedData(bundle, t) {
   const feedLabels = [];
   const feedMaps = [];
+  /** Labels that may enter the summed flow series ('proxy' shows but never sums). */
+  const summableLabels = new Set();
   for (const feed of t.feeds || []) {
+    // 'comparison' feeds are cross-checks — never rendered as flow at all
+    // (they stay documented in registry notes + card caveats).
+    const kind = /** @type {any} */ (feed).kind;
+    if (kind === 'comparison') continue;
     const src = bundle.sources?.[feed.source];
     if (!src || !src.data) continue;
     const map = buildFeedCycleMaps(src.data, feed.series);
     if (Object.keys(map).length === 0) continue;
     feedLabels.push(feed.label);
     feedMaps.push({ label: feed.label, map });
+    // 'measured-partial' and default feeds enter sums; 'proxy' is rendered
+    // SIDE BY SIDE with measured feeds but never added to any total —
+    // summing an estimate into a measurement would fabricate coverage.
+    if (kind !== 'proxy') summableLabels.add(feed.label);
   }
 
   /** @type {Object<string, Object<string, number>>} */
@@ -139,8 +149,10 @@ export function buildMultiFeedData(bundle, t) {
     const feeds = rowsByDate[dateStr];
     if (Object.keys(feeds).length === 0) return;
     let total = 0;
-    Object.values(feeds).forEach((v) => {
-      total += v;
+    Object.entries(feeds).forEach(([label, v]) => {
+      // Only summable feeds count toward the total; a 'proxy' feed present
+      // that day does not make the day summable-by-proxy.
+      if (summableLabels.has(label)) total += v;
     });
     dailySeries.push({ dateStr, date: new Date(dateStr), value: total });
   });

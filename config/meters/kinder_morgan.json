@@ -1,8 +1,19 @@
 {
   "source": "kinder_morgan",
   "pipeline": "Kinder Morgan pipeline2 OpAvail (NGPL / TGP / KMLP)",
-  "series_key_format": "km_{pipeline}_sq_{loc}_d_best",
-  "note": "BEST-AVAILABLE cycle only — per-cycle pinning on the Infragistics dropdown is unsolved. Corpus Christi (49861 Sinton) shows a 53% swing between recon and live runs; treated as diagnostic, not headline.",
+  "series_key_format": "km_{pipeline}_sq_{loc}_{flow}_{cycle}",
+  "note": "Per-cycle pinned since 2026-08-25 (Infragistics clientState delta + AJAX markers). Gas days anchored to the SERVED posting stamp (NAESB roll-forward: Timely/Evening/ID1 posted day P -> gas day P+1; ID2/ID3 same-day) — never the wall clock. Corpus Christi promoted to MEASURED via Cheniere published SQ; KM meters ship as cross-checks/diagnostics.",
+  "scheduling": {
+    "naesb_posting_clock_ct": {
+      "TIMELY": "~11:00 day G-1",
+      "EVNG": "~18:45 day G-1",
+      "ITRD1": "~22:00 day G-1",
+      "ITRD2": "~01:30 day G",
+      "ITRD3": "~09:00 day G"
+    },
+    "workflow_crons_utc": ["55 15 * * *", "45 18 * * *", "45 23 * * *"],
+    "rationale": "Primary run 15:55 UTC (10:55 CT next gas day) lands AFTER ITRD3 posts (~09:00 CT on gas day G), so all five cycles of the completed gas day are captured in one pass. 18:45/23:45 UTC runs catch ITRD2 and any late revisions intraday."
+  },
   "kinder_morgan": {
     "sabine_pass_lng": [
       {
@@ -30,9 +41,9 @@
         "loc_name": "NMP/TGP GILLRINA ROAD NUECES",
         "zone": "00",
         "flow_ind": "BD",
-        "confidence": "candidate",
-        "target_terminal": "corpus_metro",
-        "evidence": "Nueces County regional flow — terminal-bound share unverified."
+        "confidence": "excluded_from_feedgas",
+        "target_terminal": "corpus_metro_demand",
+        "evidence": "VERDICT 2026-08-25: Corpus-METRO demand, NOT terminal-bound feedgas. (1) Design=Operating=OAC=512,500 Dth/d with TSQ=0 across every cycle/day sampled (8/21-8/25) while CCPL measured SQ shows ~1.8M Dth/d actually entering the terminal — a real feedgas meter would co-move with terminal ops as Sinton's did. (2) Nueces County (zone 00) is the Corpus Christi metro/industrial market itself. (3) CC200221 already measures FULL terminal inflow — adding Gillrina to any feedgas sum would double-count or fabricate coverage. Emitted as a metro-demand diagnostic series only."
       },
       {
         "loc_id": 49524,

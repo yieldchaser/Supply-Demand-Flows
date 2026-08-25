@@ -1,9 +1,12 @@
 name: Kinder Morgan OpAvail
 on:
   schedule:
-    - cron: '45 13 * * *'
-    - cron: '45 18 * * *'
-    - cron: '45 23 * * *'
+    # NAESB posting clock (CT -> UTC +5): primary run AFTER ITRD3 posts
+    # (~09:00 CT on gas day G) so all five cycles land; two later runs catch
+    # ITRD2 and late revisions. Times documented in config/meters/kinder_morgan.json.
+    - cron: '55 15 * * *' # 10:55 CT — post-ITRD3, full five-cycle capture
+    - cron: '45 18 * * *' # 13:45 CT — ITRD2 landed ~01:30 CT
+    - cron: '45 23 * * *' # 18:45 CT — evening revisions
   workflow_dispatch:
 
 concurrency:

@@ -16,8 +16,8 @@ import {
   LNG_TERMINALS,
   LNG_FLEET_ORDER,
   FLEET_PROXY_EXCLUSIONS,
+  COMPARISON_FEED_EXCLUSIONS,
   DEFAULT_TERMINAL_ID,
-  terminalSeriesPrefixes,
 } from '../util/lng-terminals.js';
 import { dth_to_mmcf, get_utilization_level } from '../util/lng-metrics.js';
 
@@ -55,7 +55,8 @@ export function cyclePriority(cycle) {
  * @returns {Object<string, Object<string, number>>}
  */
 export function buildSqCycleMaps(rows, t) {
-  const { sqPrefix } = terminalSeriesPrefixes(t);
+  const tAny = /** @type {any} */ (t);
+  const sqPrefix = `${tAny.seriesPrefix}_sq_${String(tAny.loc).toLowerCase()}_${tAny.flow || 'd'}_`;
   const byDate = {};
   rows.forEach((r) => {
     // Case-insensitive: some curated ids keep uppercase loc tokens
@@ -172,10 +173,20 @@ export function buildDailyFromCycles(byDate) {
  *   wow?: {delta: number, pct: number}, days?: number}}
  */
 export function terminalSummary(bundle, t) {
-  // Multi-feed terminals: combine per-feed daily series (sum of feeds).
+  // Multi-feed terminals: combine per-feed daily series. Feeds marked
+  // kind:'comparison' (cross-checks) and kind:'proxy' (estimates) never
+  // enter the card's number — a partial measurement plus a full-terminal
+  // estimate summed together would fabricate coverage.
   if (Array.isArray(t.feeds) && t.feeds.length > 0) {
+    const summable = t.feeds.filter((f) => {
+      const kind = /** @type {any} */ (f).kind;
+      if (kind === 'comparison' || kind === 'proxy') return false;
+      return !COMPARISON_FEED_EXCLUSIONS.some((stem) =>
+        f.series.toLowerCase().startsWith(stem)
+      );
+    });
     const feedDailies = [];
-    for (const feed of t.feeds) {
+    for (const feed of summable) {
       const d = buildFeedDaily(bundle, feed);
       if (d.length) feedDailies.push(d);
     }
@@ -352,17 +363,18 @@ export function renderLngFleetOverview(
     });
   });
 
-  // Aggregate over MEASURED terminals only (excludes oac-proxy + offline).
+  // Aggregate over FULLY-MEASURED terminals only (excludes partial-coverage
+  // terminals + offline). Each excluded terminal is named in the caveats.
   let totalLatest = 0;
   let totalNameplate = 0;
-  let counted = 0;
+  const countedIds = [];
   summaries.forEach(({ t, s }) => {
     if (t.operational === false) return;
     if (FLEET_PROXY_EXCLUSIONS.includes(t.id)) return;
     if (!s.ok) return;
     totalLatest += s.latest;
     totalNameplate += t.nameplate;
-    counted += 1;
+    countedIds.push(t.id);
   });
   const fleetPct = totalNameplate > 0 ? (totalLatest / totalNameplate) * 100 : 0;
 
@@ -375,8 +387,9 @@ export function renderLngFleetOverview(
     <h2 class="fleet-title">US LNG Export Fleet · Feedgas</h2>
     <p class="fleet-aggregate num">
       Total scheduled: <strong>${totalLatest.toLocaleString(undefined, { maximumFractionDigits: 0 })} MMcf/d</strong>
-      across ${counted} terminals ·
-      ${fleetPct.toFixed(1)}% of ${totalNameplate.toLocaleString()} MMcf/d measured-fleet nameplate
+      across ${countedIds.length} measured terminals ·
+      ${fleetPct.toFixed(1)}% of ${totalNameplate.toLocaleString()} MMcf/d fleet nameplate
+      (Sabine Pass counted at its measured laterals only — ~40% coverage, see caveat)
     </p>
   `;
   panelEl.appendChild(header);
@@ -456,10 +469,40 @@ export function renderLngFleetOverview(
 
   panelEl.appendChild(grid);
 
-  // ---- Footnote ----
+  // ---- Coverage caveats — PROMINENT, above the fine print ----
+  // A measured-but-partial number presented as a terminal total is worse
+  // than an honest proxy. Sabine's caveat renders at the same visual level
+  // as Freeport's KMTP note on the hero panel: its own callout block.
+  const caveats = document.createElement('div');
+  caveats.className = 'fleet-caveats';
+  const sabineCaveat = document.createElement('p');
+  sabineCaveat.className = 'fleet-footnote fleet-footnote--caveat';
+  sabineCaveat.innerHTML =
+    '<strong>⚠ Sabine Pass is measured-but-partial.</strong> Its figures sum the two ' +
+    'publicly-visible laterals — NGPL 3592 (~470 MMcf/d) + Creole Trail CT200111 (~1,408 MMcf/d), ' +
+    'both MEASURED — roughly 40% of the 4,500 MMcf/d terminal. Transco Z3 and other SPL feeds do ' +
+    'not publicly post, so terminal-wide feedgas cannot be measured from public data. The former ' +
+    '"OAC proxy implies ~1,408 full-terminal" framing was retired 2026-08-25: design − OAC equals ' +
+    'published SQ at CT200111 identically, so the proxy was that lateral\u2019s flow restated, never a ' +
+    'terminal estimate. Sabine stays in the fleet aggregate at its measured-lateral sum, clearly labeled partial.';
+  caveats.appendChild(sabineCaveat);
+  const freeportCaveat = document.createElement('p');
+  freeportCaveat.className = 'fleet-footnote';
+  freeportCaveat.innerHTML =
+    '<strong>Freeport</strong> figures are interstate-visible feedgas only — KMTP ' +
+    '(intrastate) is not publicly posted, so totals are conservative.';
+  caveats.appendChild(freeportCaveat);
+  panelEl.appendChild(caveats);
+
+  // ---- Fine print ----
   const footnote = document.createElement('p');
   footnote.className = 'fleet-footnote';
   footnote.innerText =
-    'Fleet total excludes Corpus Christi (capacity-proxy headline; its measured TGP Sinton meter shows a ~53% BEST-AVAILABLE swing until cycle pinning lands, so it ships as diagnostic only). Sabine Pass is now MEASURED via the KM NGPL interconnect — partial coverage (Transco Z3 feed not publicly posted), so its figure is conservative.';
+    'Fleet total sums measured feedgas: every terminal above is measured at its terminal or lateral interconnects. '
+    + 'Corpus Christi was promoted to MEASURED 2026-08-25 — Cheniere publishes real Scheduled Quantities at CC200221 '
+    + '(the capacity-proxy framing is retired; cycle pinning showed per-cycle values are stable — the historic '
+    + '169k/79k swing was cycle sampling). Its TGP Sinton meter (49861) ships as an independent cross-check only. '
+    + 'Gillrina Road NUECES (TGP 47799) is Corpus-metro demand, not terminal-bound feedgas — excluded from all feedgas sums. '
+    + 'Sabine Pass is measured at ~40% of nameplate (two public laterals); the invisible share is Transco Z3 + unposted feeds.';
   panelEl.appendChild(footnote);
 }

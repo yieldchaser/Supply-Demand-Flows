@@ -1,6 +1,6 @@
 {
   "source": "cheniere",
-  "note": "Cheniere does not post Scheduled Quantities; OAC (qty_AVAIL) is the primary signal and sched_QTY is captured as a secondary series. Do not normalize CTPL (~650,000 Dth/d design) together with CCPL (~35,000+ Dth/d design).",
+  "note": "Cheniere DOES publish Scheduled Quantities (schedD_QTY) on its LNG Connection site — captured as _sq_ series since first scrape and confirmed nonzero for 90+ days (2026-08-25 audit). SQ at the terminal interconnects is now the PRIMARY signal: Creole Trail CT200111_d measures Sabine's SPL lateral; Corpus CC200221_d measures full Corpus inflow. OAC remains a proxy/secondary signal. Do not normalize CTPL (~650,000 Dth/d design) together with CCPL (~35,000+ Dth/d design).",
   "cheniere": {
     "creole_trail_sabine_pass": {
       "tsp_no": 200,
@@ -29,6 +29,13 @@
           "flow_ind": "R",
           "confidence": "high",
           "role": "LNG terminal receipt interconnect"
+        },
+        {
+          "loc_id": "CC200221",
+          "loc_name": "CC200221-CORPUS CHRISTI-CCLIQ-D",
+          "flow_ind": "D",
+          "confidence": "high",
+          "role": "LNG terminal delivery interconnect — PUBLISHED SQ measures full-terminal inflow; primary Corpus headline series (promoted 2026-08-25)"
         }
       ]
     }

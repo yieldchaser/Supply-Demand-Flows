@@ -33,11 +33,17 @@
  * @property {string} [platformNote]   — per-terminal cycle-publications note
  * @property {string} [platformLabel]  — short upstream platform name
  * @property {string} [methodLine]     — footer methodology sentence
- * @property {Array<{source: string, series: string, label: string}>} [feeds]
+ * @property {Array<{source: string, series: string, label: string, kind?: string, note?: string}>} [feeds]
  *   — MULTI-FEED terminals only: each pipeline that feeds the terminal, with
  *   the exact series-id stem (up to, but excluding, the cycle token) and a
  *   display label. When present, `feeds` supersedes the single-source
- *   fields for data extraction; the hero renders one stacked area per feed.
+ *   fields for data extraction. `kind` marks feed semantics:
+ *     'measured'        — full-terminal measurement, enters sums
+ *     'measured-partial'— real measurement of ONE feed; terminal is
+ *                         partial-coverage (see FLEET_PROXY_EXCLUSIONS)
+ *     'proxy'           — inferred estimate shown alongside measured feeds
+ *     'comparison'      — cross-check only; never summed into any headline
+ *   Feeds with kind 'comparison' are excluded from card/hero aggregation.
  */
 
 /**
@@ -160,40 +166,79 @@ export const LNG_TERMINALS = {
   sabine_pass: {
     id: 'sabine_pass',
     display: 'Sabine Pass',
-    // PROMOTED to MEASURED 2026-08-25: NGPL loc 3592 (SABPL/NGPL HENRY HUB
-    // VERMILION) carries a real scheduled quantity at the SPL lateral feed.
-    // The Cheniere OAC proxy is retained as a SECONDARY comparison series.
+    // MEASURED-BUT-PARTIAL (2026-08-25 audit): every VISIBLE lateral is
+    // genuinely measured — NGPL 3592 (~470 MMcf/d) + Cheniere's own
+    // Creole Trail CT200111 published SQ (~1,408 MMcf/d). The old
+    // "OAC proxy implies full-terminal ~1,408" framing was WRONG:
+    // design − OAC equals schedD_QTY identically at CT200111, so the
+    // proxy was just this lateral's flow restated, never a terminal
+    // estimate. The true unknown is Transco Z3 + other unposted feeds
+    // (~half of a 4,500 MMcf/d terminal). Measured laterals are summed;
+    // the card/hero label says what fraction of nameplate is visible.
     feeds: [
-      { source: 'kinder_morgan', series: 'km_ngpl_sq_3592_d', label: 'NGPL measured' },
-      { source: 'cheniere', series: 'creole_trail_oac_CT200111_d', label: 'OAC proxy' },
+      {
+        source: 'kinder_morgan',
+        series: 'km_ngpl_sq_3592_d',
+        label: 'NGPL lateral (measured)',
+        kind: 'measured-partial',
+        note: 'Real TSQ at the NGPL interconnect.',
+      },
+      {
+        source: 'cheniere',
+        series: 'creole_trail_sq_CT200111_d',
+        label: 'Creole Trail lateral (measured)',
+        kind: 'measured-partial',
+        note: 'Cheniere-published TSQ at SPLIQ. Supersedes the retired OAC-proxy framing (identical values, better provenance).',
+      },
     ],
-    locName: 'SPLIQ — NGPL 3592 measured + Creole Trail proxy',
+    locName: 'SPL laterals — NGPL 3592 + Creole Trail CT200111 (both measured)',
     nameplate: 4500,
     signal: 'sq',
     cycles: ['id1', 'id2', 'id3'],
     platformLabel: 'KM pipeline2 + Cheniere LNG Connection',
     platformNote:
-      'Primary series = MEASURED TSQ at the NGPL interconnect (km_ngpl_sq_3592_d_best). Secondary = Cheniere OAC-implied proxy for comparison. Measured covers only the NGPL lateral of a multi-pipe feed.',
+      'MEASURED-BUT-PARTIAL: figures sum the two publicly-visible laterals (~1.88 Bcf/d combined, roughly 40% of the 4,500 MMcf/d terminal). Transco Z3 and other SPL feeds do not publicly post (Transco 1Line SPA migration shelved that scraper), so terminal-wide feedgas is not measurable from public data. Never present the visible-lateral sum as the terminal total.',
     methodLine:
-      'MEASURED: KM NGPL loc 3592 SABPL/NGPL HENRY HUB VERMILION, delivery · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Secondary: Creole Trail OAC-implied proxy · Partial coverage — other SPL feeds (Transco Z3) not publicly posted',
+      'MEASURED laterals: KM NGPL loc 3592 + Cheniere Creole Trail CT200111 (published SQ) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · COVERAGE GAP: Transco Z3 + other SPL feeds not public — figure undercounts the 4,500 MMcf/d terminal by the invisible share · Former OAC-proxy framing retired 2026-08-25 (design−OAC ≡ SQ at CT200111)',
   },
 
   corpus_christi: {
     id: 'corpus_christi',
     display: 'Corpus Christi',
-    source: 'cheniere',
-    seriesPrefix: 'corpus_christi',
-    loc: 'CC100221',
-    flow: 'd',
-    locName: 'Corpus Christi – CCLIQ delivery interconnect (CC200221 class)',
+    // PROMOTED to MEASURED 2026-08-25: Cheniere's own LNG Connection site
+    // PUBLISHES Scheduled Quantities (schedD_QTY) — the "no public SQ"
+    // premise behind the oac-proxy holding was wrong. corpus_christi_sq_
+    // CC200221_d carries 90+ days of full-terminal history (median
+    // 2.46M Dth/d ≈ 100% of nameplate) and cross-corroborates with KM's
+    // independent TGP Sinton meter (identical 169,489 Dth/d on overlap).
+    // Cycle pinning resolved the old "169k vs 79k" swing as cycle-sampling:
+    // per-cycle values are stable; the 08-22 ~50k drop was a genuine
+    // mid-day revision.
+    feeds: [
+      {
+        source: 'cheniere',
+        series: 'corpus_christi_sq_CC200221_d',
+        label: 'CCPL measured',
+        kind: 'measured',
+        note: 'Cheniere LNG Connection published TSQ at CCLIQ (full terminal).',
+      },
+      {
+        source: 'kinder_morgan',
+        series: 'km_tgp_sq_49861_d',
+        label: 'TGP Sinton comparison',
+        kind: 'comparison',
+        note: 'Independent interstate meter ~20 mi from the terminal. Currently posting TSQ=0 across cycles/days while the terminal runs — treated as a cross-check, never summed.',
+      },
+    ],
+    locName: 'CCLIQ measured + TGP Sinton cross-check',
     nameplate: 2400,
-    signal: 'oac-proxy',
+    signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
-    platformLabel: 'Cheniere LNG Connection',
+    platformLabel: 'Cheniere LNG Connection + KM pipeline2',
     platformNote:
-      'Corpus Christi (Cheniere LNG Connection) posts all five NAESB cycles. Flow is INFERRED from capacity consumption — see ⓘ. A MEASURED diagnostic series exists (KM TGP Sinton 49861) but is NOT headline: its BEST-AVAILABLE value swung 169,489 → 79,527 Dth/d between recon and live runs (~53%) because per-cycle pinning is unsolved — we cannot yet separate genuine intraday variance from cycle-sampling artifact.',
+      'Corpus Christi headline = MEASURED published TSQ at CCPL interconnect CC200221 (all five cycles). The earlier capacity-proxy framing is retired: schedD_QTY is published on lngconnection.cheniere.com. TGP Sinton (49861) ships as a secondary comparison only.',
     methodLine:
-      'Implied flow = Design Capacity − Operationally Available at CC100221 (Corpus Christi, CCLIQ) · PROXY headline: measured TGP Sinton meter kept as diagnostic until cycle pinning lands',
+      'MEASURED: Cheniere CCPL published TSQ at CC200221 (CCLIQ delivery), all cycles · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Cross-check: KM TGP Sinton 49861 (independent meter) · Former OAC-proxy framing retired 2026-08-25 after cycle pinning showed per-cycle stability',
   },
 
   port_arthur: {
@@ -223,12 +268,27 @@ export const LNG_FLEET_ORDER = [
 export const DEFAULT_TERMINAL_ID = 'plaquemines';
 
 /**
- * Terminals whose numbers are inferred proxies and therefore EXCLUDED from
- * the fleet aggregate total (footnoted in the UI).
+ * Fleet aggregate semantics (2026-08-25):
+ *   The headline total sums terminals whose number is genuinely MEASURED.
+ *   A terminal with partial measured coverage stays IN the sum at its
+ *   measured-lateral value but must be labeled partial (see the Sabine
+ *   caveat in lng-fleet-overview) — silently presenting a partial sum as a
+ *   terminal total is the failure mode these registries exist to prevent.
+ *
+ *   - corpus_christi: fully measured via Cheniere published SQ at CC200221.
+ *   - sabine_pass: measured laterals summed (~40% of nameplate), labeled
+ *     partial everywhere it renders.
  *
  * @type {string[]}
  */
-export const FLEET_PROXY_EXCLUSIONS = ['corpus_christi'];
+export const FLEET_PROXY_EXCLUSIONS = [];
+
+/** Feeds that must NEVER enter any summed headline (comparison-only views). */
+export const COMPARISON_FEED_EXCLUSIONS = [
+  // KM TGP Sinton (49861): independent cross-check of Corpus CCPL; currently
+  // posting TSQ=0 across cycles/days while the terminal runs near nameplate.
+  'km_tgp_sq_49861_d',
+];
 
 /**
  * Resolve the series-id matcher strings for one terminal.

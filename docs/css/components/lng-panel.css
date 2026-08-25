@@ -390,6 +390,30 @@
   color: var(--text-tertiary, #6b7280);
 }
 
+/* Prominent coverage caveat — same visual weight as the hero's KMTP note.
+   A measured-but-partial number presented as a total is worse than an
+   honest proxy, so the Sabine coverage gap gets its own callout block. */
+.fleet-caveats {
+  margin-top: var(--space-3, 12px);
+  padding: 0 var(--space-4, 16px);
+}
+
+.fleet-footnote--caveat {
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.5;
+  color: var(--color-text-muted, #9ca3af);
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-left: 3px solid rgba(251, 191, 36, 0.6);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.fleet-footnote--caveat strong {
+  color: rgba(251, 191, 36, 0.95);
+}
+
 /* Per-feed breakdown line under the KPI strip (multi-feed terminals) */
 .feed-breakdown {
   margin-top: var(--space-2, 8px);
