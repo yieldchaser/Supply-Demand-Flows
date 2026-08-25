@@ -8,11 +8,11 @@ Boots the real site from a local http.server, captures:
 
 from __future__ import annotations
 
+import functools
 import http.server
 import json
 import socketserver
 import threading
-import functools
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
