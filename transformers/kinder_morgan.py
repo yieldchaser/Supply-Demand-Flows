@@ -1,4 +1,11 @@
-"""Transformer: KM raw payloads -> curated parquet (flow-tokened series)."""
+"""Update the transformer to emit real cycle tokens from raw payloads.
+
+The scraper now pins cycles, so payloads carry cycle=TIMELY/EVNG/ITRD1-3
+(plus legacy BEST_AVAILABLE). Series keys become
+    km_{pipeline}_sq_{loc}_{flow}_{cycle}
+with the gas day taken from the payload (gas_day_requested) rather than
+today's wall clock — historical pulls land on their true period.
+"""
 
 from __future__ import annotations
 
@@ -42,6 +49,8 @@ def _num(text: str) -> float | None:
 def transform_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Convert one raw payload into curated rows for confirmed meters."""
     prefix = payload.get("pipeline_prefix", "")
+    cycle = str(payload.get("cycle") or "best_available").lower()
+    gas_day = str(payload.get("gas_day_requested") or datetime.now(UTC).date().isoformat())
     out: list[dict[str, Any]] = []
     fetched = payload.get("fetched_at", "")
 
@@ -53,14 +62,13 @@ def transform_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
         tsq_dth = _num(row.get("total_scheduled_quantity"))
         if tsq_dth is None:
             continue
-        # BEST AVAILABLE cycle — no per-cycle pinning yet.
-        series_id = f"km_{conf['pipeline']}_sq_{loc}_d_best"
+        series_id = f"km_{conf['pipeline']}_sq_{loc}_d_{cycle}"
         out.append(
             {
                 "source": SOURCE_NAME,
                 "series_id": series_id,
-                "series_name": f"KM {conf['pipeline'].upper()} TSQ {conf['label']} [d] (best)",
-                "period": datetime.now(UTC).date().isoformat(),
+                "series_name": f"KM {conf['pipeline'].upper()} TSQ {conf['label']} [d] ({cycle})",
+                "period": gas_day,
                 "value": round(tsq_dth / CONV, 1),
                 "unit": "MMcf/d",
                 "region": "US",

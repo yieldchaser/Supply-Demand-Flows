@@ -1,4 +1,4 @@
-"""Tests for the Kinder Morgan scraper + transformer."""
+"""Update legacy transformer tests for cycle-tokened series ids."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from scrapers.base.identity import TenantFallbackError
-from scrapers.kinder_morgan import parse_opavail_grid, scrape_tenant
+from scrapers.kinder_morgan import parse_opavail_grid, scrape_tenant_best_available
 from transformers.kinder_morgan import transform_payload
 
 # Real grid shape (live-fire verified 2026-08-25 from CI runners).
@@ -59,7 +59,7 @@ class TestTenantFallbackTrap:
 
         monkeypatch.setattr(km.httpx, "Client", _FakeClientFactory)
         with pytest.raises(TenantFallbackError):
-            scrape_tenant("NGPL")
+            scrape_tenant_best_available("NGPL")
 
 
 class _FakeClientFactory:
@@ -93,6 +93,8 @@ class TestTransformPayload:
     def test_only_confirmed_meters_emitted(self) -> None:
         payload = {
             "pipeline_prefix": "ngpl",
+            "cycle": "BEST_AVAILABLE",
+            "gas_day_requested": "2026-08-25",
             "fetched_at": "2026-08-25T00:00:00Z",
             "data": [
                 {
@@ -108,7 +110,8 @@ class TestTransformPayload:
         }
         rows = transform_payload(payload)
         assert len(rows) == 1
-        assert rows[0]["series_id"] == "km_ngpl_sq_3592_d_best"
+        # Cycle token lowercased with underscore; flow leg d.
+        assert rows[0]["series_id"] == "km_ngpl_sq_3592_d_best_available"
         assert rows[0]["value"] == round(472702 / (1.025 * 1000), 1)
 
     def test_kmlp_44337_never_emitted(self) -> None:
@@ -121,10 +124,11 @@ class TestTransformPayload:
     def test_tgp_meter_maps_to_corpus(self) -> None:
         payload = {
             "pipeline_prefix": "tgp",
+            "cycle": "BEST_AVAILABLE",
             "data": [{"loc": "49861", "total_scheduled_quantity": "169,489"}],
         }
         rows = transform_payload(payload)
-        assert rows[0]["series_id"] == "km_tgp_sq_49861_d_best"
+        assert rows[0]["series_id"] == "km_tgp_sq_49861_d_best_available"
 
 
 def test_raw_payload_roundtrip(tmp_path: Path) -> None:
