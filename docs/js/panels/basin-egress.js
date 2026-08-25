@@ -11,10 +11,16 @@
  *   - Headline total uses ONLY high-confidence meters; medium-confidence
  *     meters appear in the corridor table flagged, excluded from the
  *     headline, with the confidence split stated in the footnote.
- *   - Congestion = TSQ ÷ operating capacity per corridor. Gulf South's OAC
- *     posting carries zone-level (not meter-level) operating capacity, so
- *     congestion renders as "capacity data unavailable" rather than fake
- *     numbers — until zone OAC lands in curated, only flow trends show.
+ *   - CAPACITY SEMANTICS (corrected 2026-08-25): Gulf South's OAC posting is
+ *     a RESIDUAL — posted capacity minus scheduled flow (Lonewa
+ *     Pearson(TSQ,OAC) = −1.0000; TSQ+OAC constant). Therefore:
+ *       * TSQ ÷ operating capacity is INVALID and is never computed;
+ *       * share-in-use = TSQ ÷ (TSQ + OAC) is bounded and comparable across
+ *         corridors (labeled "share of posted capacity in use");
+ *       * the OAC LEVEL itself carries the real constraint signal and is
+ *         drawn as dashed per-corridor capacity lines.
+ *   - LNG terminal utilization vs published NAMEPLATE elsewhere on this
+ *     dashboard uses a true denominator and is unaffected.
  *
  * Reuses panel-base chrome, kpi-card, the LNG utilization color ladder,
  * gas-year x-axis, and design tokens. No new visual style.
@@ -23,7 +29,7 @@
 import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
-import { dth_to_mmcf, get_utilization_level } from '../util/lng-metrics.js';
+import { dth_to_mmcf } from '../util/lng-metrics.js';
 import {
   BASIN_SOURCE,
   CORRIDORS,
@@ -52,12 +58,12 @@ const CORRIDOR_COLORS = [
  *   legs post, prefers the leg matching the meter's declared flow direction,
  *   else the larger value (for "?" meters usually only one leg is active).
  *
- * @param {Array<{series_id: string, period: string, value: number}>} rows - bundle source rows
+ * @param {Array<{series_id: string, period: string, value: number}>} rows
  * @param {number} loc - meter location id
  * @param {'D'|'R'|'?'} declaredFlow - meter's classified flow direction
  * @returns {Object<string, number>} dateStr -> Dth/d
  */
-function buildDailyByMeter(rows, loc, declaredFlow) {
+export function buildDailyByMeter(rows, loc, declaredFlow) {
   const prefix = `${BASIN_SOURCE}_sq_${loc}_`.toLowerCase();
   // dateStr -> {rank, value}
   const best = {};
@@ -75,6 +81,41 @@ function buildDailyByMeter(rows, loc, declaredFlow) {
       best[r.period] = { rank, value: val };
     }
   });
+  const out = {};
+  Object.keys(best).forEach((dateStr) => {
+    out[dateStr] = best[dateStr].value;
+  });
+  return out;
+}
+
+/**
+ * Build daily final-cycle series per meter for a given quantity kind
+ * ('sq' or 'oac'): dateStr -> Dth value.
+ *
+ * What:
+ *   Matches "{source}_{kind}_{loc}_d_{cycle}" series ids and keeps the
+ *   freshest cycle per gas day. Used for the SQ flow series and — new —
+ *   the parallel OAC level series feeding share-in-use + capacity lines.
+ *
+ * @param {Array<{series_id: string, period: string, value: number}>} rows
+ * @param {number} loc - meter location id
+ * @param {'sq'|'oac'} kind - quantity kind to extract
+ * @returns {Object<string, number>} dateStr -> Dth/d
+ */
+export function buildDailyByKind(rows, loc, kind) {
+  const prefix = `${BASIN_SOURCE}_${kind}_${loc}_`.toLowerCase();
+  const best = {};
+  rows.forEach((r) => {
+    const sid = String(r.series_id).toLowerCase();
+    if (!sid.startsWith(prefix)) return;
+    const parts = sid.slice(prefix.length).split('_');
+    if (parts.length !== 2 || parts[0] !== 'd') return;
+    const rank = CYCLE_RANK[parts[1]];
+    if (rank === undefined) return;
+    const cur = best[r.period];
+    if (!cur || rank > cur.rank) best[r.period] = { rank, value: Number(r.value) };
+  });
+  /** @type {Object<string, number>} */
   const out = {};
   Object.keys(best).forEach((dateStr) => {
     out[dateStr] = best[dateStr].value;
@@ -102,14 +143,29 @@ function shouldReplaceLeg(cur, newVal, declaredFlow, row) {
 /**
  * Compute per-corridor and headline aggregates over common dates.
  *
+ * What:
+ *   Builds the SQ daily series per meter (flow-aware), plus a parallel OAC
+ *   daily series for meters that also post operationally-available capacity.
+ *   Emits per-day corridor sums split into:
+ *     byCorridorSqShared / byCorridorOac — sums over meters carrying BOTH
+ *     signals (the only valid population for share-of-capacity-in-use), and
+ *     oacLevelByCorridor — raw posted-capacity level (top corridors).
+ *
  * @param {Array<Object>} rows - bundle source rows
- * @returns {{daily: Array<{dateStr: string, date: Date, byCorridor: Object<string, number>, highTotal: number, allTotal: number}>, latest: Object|null}}
+ * @returns {{daily: Array<{dateStr: string, date: Date, byCorridor: Object<string, number>, highTotal: number, allTotal: number, byCorridorSqShared: Object<string, number>, byCorridorOac: Object<string, number>, oacLevelByCorridor: Object<string, number>}>, latest: Object|null}}
  */
-function buildEgressSeries(rows) {
+export function buildEgressSeries(rows) {
   const byMeter = new Map(); // loc -> {daily: Map<dateStr, dth>, meter}
   EGRESS_METERS.forEach((m) => {
     const daily = buildDailyByMeter(rows, m.loc, m.flow);
     if (Object.keys(daily).length > 0) byMeter.set(m.loc, { daily, meter: m });
+    // Parallel OAC series (final cycle id3) for meters that post one.
+    const oacDaily = buildDailyByKind(rows, m.loc, 'oac');
+    if (Object.keys(oacDaily).length > 0) {
+      const entry = byMeter.get(m.loc);
+      if (entry) entry.oacDaily = oacDaily;
+      else byMeter.set(m.loc, { daily: {}, meter: m, oacDaily });
+    }
   });
 
   const dates = new Set();
@@ -118,16 +174,45 @@ function buildEgressSeries(rows) {
 
   const daily = sortedDates.map((dateStr) => {
     const byCorridor = {};
+    const byCorridorSqShared = {};
+    const byCorridorOac = {};
+    const oacLevelByCorridor = {};
     let highTotal = 0;
     let allTotal = 0;
-    byMeter.forEach(({ daily: m, meter }) => {
+    byMeter.forEach(({ daily: m, oacDaily, meter }) => {
       const v = m[dateStr];
-      if (v === undefined) return;
-      byCorridor[meter.corridor] = (byCorridor[meter.corridor] || 0) + v;
-      allTotal += v;
-      if (meter.inHeadline) highTotal += v;
+      if (v !== undefined) {
+        byCorridor[meter.corridor] = (byCorridor[meter.corridor] || 0) + v;
+        allTotal += v;
+        if (meter.inHeadline) highTotal += v;
+      }
+      // Share-in-use population: meters with BOTH sq and oac on this day.
+      if (oacDaily) {
+        const oacV = oacDaily[dateStr];
+        if (oacV !== undefined && v !== undefined) {
+          byCorridorSqShared[meter.corridor] =
+            (byCorridorSqShared[meter.corridor] || 0) + v;
+          byCorridorOac[meter.corridor] = (byCorridorOac[meter.corridor] || 0) + oacV;
+        }
+        // Capacity LEVEL for the corridor = max posted OAC among its meters
+        // (a corridor's posted capacity is its binding — largest — offer).
+        if (oacV !== undefined) {
+          const cur = oacLevelByCorridor[meter.corridor];
+          oacLevelByCorridor[meter.corridor] =
+            cur === undefined ? oacV : Math.max(cur, oacV);
+        }
+      }
     });
-    return { dateStr, date: new Date(`${dateStr}T00:00:00Z`), byCorridor, highTotal, allTotal };
+    return {
+      dateStr,
+      date: new Date(`${dateStr}T00:00:00Z`),
+      byCorridor,
+      highTotal,
+      allTotal,
+      byCorridorSqShared,
+      byCorridorOac,
+      oacLevelByCorridor,
+    };
   });
 
   const latest = daily.length > 0 ? daily[daily.length - 1] : null;
@@ -226,11 +311,11 @@ export function renderBasinEgressPanel(panelEl, bundle) {
   bodyEl.appendChild(tableEl);
   renderCorridorTable(tableEl, source.data, daily);
 
-  // ── Congestion strip + footnote ──
+  // ── Share-of-posted-capacity strip + footnote ──
   const congEl = document.createElement('div');
   congEl.className = 'basin-egress-congestion';
   bodyEl.appendChild(congEl);
-  renderCongestionStrip(congEl);
+  renderCongestionStrip(congEl, daily, CORRIDORS);
 
   const footEl = document.createElement('p');
   footEl.className = 'basin-egress-footnote';
@@ -240,7 +325,9 @@ export function renderBasinEgressPanel(panelEl, bundle) {
     `Headline totals use ${highCount} high-confidence meters only. ` +
     `${medCount} medium-confidence meters appear in the table flagged "med" and are excluded from the headline. ` +
     `Classification: config/meters/classification.json (deterministic rule engine, no guessed classes). ` +
-    `Congestion needs operating-capacity postings for these zones — not yet in curated; renders when zone OAC lands.`;
+    `Capacity note: Gulf South's Operationally Available Capacity is a residual (posted capacity − scheduled flow), ` +
+    `so it can never be used as a utilization denominator — the strip above reports share of posted capacity in use, ` +
+    `and the chart's capacity line tracks posted-capacity level (maintenance/constraint signal).`;
   bodyEl.appendChild(footEl);
 }
 
@@ -411,6 +498,60 @@ function drawCorridorChart(container, daily) {
     .style('stroke', 'var(--blue-flame)')
     .attr('stroke-width', 2)
     .attr('stroke-linecap', 'round');
+
+  // ── Posted-capacity (OAC) level lines — top 5 corridors by latest OAC. ──
+  // The genuinely NEW signal: posted-capacity swings are maintenance /
+  // constraint events invisible in the flow stack. Rendered as thin dashed
+  // lines in each corridor's color, on the same gas-year axis.
+  const oacRanked = [...currentYearRows]
+    .reverse()
+    .map((r) => r.oacLevelByCorridor || {})
+    .find((o) => Object.keys(o).length > 0);
+  if (oacRanked) {
+    const topOacCorridors = Object.keys(oacRanked)
+      .sort((a, b) => (oacRanked[b] || 0) - (oacRanked[a] || 0))
+      .slice(0, 5);
+    topOacCorridors.forEach((corridorKey, oi) => {
+      const corridor = CORRIDORS.find((c) => c.key === corridorKey);
+      if (!corridor) return;
+      const pts = currentYearRows
+        .filter((r) => r.oacLevelByCorridor && r.oacLevelByCorridor[corridorKey] !== undefined)
+        .map((r) => ({ dayIndex: r.dayIndex, v: r.oacLevelByCorridor[corridorKey] }));
+      if (pts.length < 2) return;
+      const lineGen = d3
+        .line()
+        .x((d) => x(d.dayIndex))
+        .y((d) => y(dth_to_mmcf(d.v)))
+        .curve(d3.curveMonotoneX);
+      g.append('path')
+        .datum(pts)
+        .attr('d', lineGen)
+        .attr('fill', 'none')
+        .attr('stroke', CORRIDOR_COLORS[activeCorridors.findIndex((c) => c.key === corridorKey) % CORRIDOR_COLORS.length].line)
+        .attr('stroke-opacity', 0.85 - oi * 0.12)
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '4 4');
+      // Small label at line end.
+      const lastPt = pts[pts.length - 1];
+      g.append('text')
+        .attr('x', x(lastPt.dayIndex) + 6)
+        .attr('y', y(dth_to_mmcf(lastPt.v)) + 3)
+        .attr('font-size', '7.5px')
+        .attr('font-family', 'var(--font-mono)')
+        .style('fill', 'rgba(255,255,255,0.5)')
+        .text(`cap ${corridor.label.split(' ')[0]}`);
+    });
+
+    // Capacity-line legend note.
+    g.append('text')
+      .attr('x', width)
+      .attr('y', -8)
+      .attr('text-anchor', 'end')
+      .attr('font-size', '8px')
+      .attr('font-family', 'var(--font-sans)')
+      .style('fill', 'rgba(255,255,255,0.45)')
+      .text('dashed = posted capacity level (top 5 corridors)');
+  }
 
   const lastRow = currentYearRows[currentYearRows.length - 1];
   if (lastRow) {
@@ -608,34 +749,120 @@ function renderCorridorTable(container, rows, daily) {
 }
 
 /**
- * Congestion indicator strip.
+ * Share-of-posted-capacity strip.
  *
- * TSQ ÷ operating capacity needs OAC postings for the egress zones. Gulf
- * South currently ships SQ-only into curated (no _oac_ series), so the strip
- * renders the honest state: methodology + what unlocks it. The color ladder
- * (get_utilization_level) is already wired here — when zone OAC arrives the
- * bars light up with zero further design work.
+ * Replaces the retired TSQ ÷ operating-capacity design — Gulf South's OAC is
+ * a residual (posted capacity − scheduled flow), making that ratio invalid
+ * (see shareInUsePct for the full invalidation note).
  *
  * @param {HTMLElement} container
  */
-function renderCongestionStrip(container) {
+/**
+ * Share-in-use per corridor: TSQ ÷ (TSQ + OAC), bounded [0, 1].
+ *
+ * WHY NOT TSQ ÷ OPERATING CAPACITY (invalidated 2026-08-25):
+ *   Gulf South's "Operationally Available Capacity" is a RESIDUAL —
+ *   posted capacity minus scheduled flow — so TSQ/OAC divides flow by its
+ *   own complement and produces absurd multiples (Lonewa median 3.8×,
+ *   max 11.4×; Pearson(TSQ, OAC) = −1.0000). TSQ+OAC ≡ posted capacity,
+ *   so TSQ/(TSQ+OAC) is the honest, always-bounded share of posted
+ *   capacity in use.
+ *
+ * HONESTY NOTE: Spearman(share, volume) = 0.999 on this data — the metric
+ * ranks days identically to volume. It adds comparable units across
+ * corridors, not new information. It is labeled "share of posted capacity
+ * in use", never "utilization". The genuinely NEW signal is the OAC LEVEL
+ * itself (posted-capacity swings are maintenance/constraint events), which
+ * renders as the corridor capacity line in drawCorridorChart.
+ *
+ * @param {number} tsqDth - latest final-cycle TSQ for the corridor (Dth/d)
+ * @param {number} oacDth - matching operationally-available capacity (Dth/d)
+ * @returns {number|null} percent in [0,100], or null when inputs are absent
+ */
+export function shareInUsePct(tsqDth, oacDth) {
+  if (tsqDth == null || oacDth == null) return null;
+  const denom = tsqDth + oacDth;
+  if (!(denom > 0)) return null;
+  return (tsqDth / denom) * 100;
+}
+
+/**
+ * Congestion strip — share of posted capacity in use, per corridor.
+ *
+ * Replaces the retired TSQ÷operating-capacity design (see shareInUsePct).
+ *
+ * @param {HTMLElement} container
+ * @param {Array<{dateStr: string, byCorridorOac: Object<string, number>}>} daily
+ * @param {Array<{key: string, label: string}>} corridors
+ */
+function renderCongestionStrip(container, daily, corridors) {
   const levels = [
-    { range: '<40%', label: 'low', cls: 'utilization-gray' },
-    { range: '40–75%', label: 'normal', cls: 'utilization-green' },
-    { range: '75–92%', label: 'high', cls: 'utilization-amber' },
-    { range: '>92%', label: 'near saturation', cls: 'utilization-red' },
+    { range: '<60%', label: 'light', cls: 'utilization-gray' },
+    { range: '60–80%', label: 'moderate', cls: 'utilization-green' },
+    { range: '80–92%', label: 'heavy', cls: 'utilization-amber' },
+    { range: '>92%', label: 'saturated', cls: 'utilization-red' },
   ];
+  // Walk back to the most recent gas day where corridors posted BOTH signals
+  // (OAC typically lags SQ by one day — never mix days across the ratio).
+  let refDay = null;
+  for (let i = daily.length - 1; i >= 0; i--) {
+    const o = daily[i].byCorridorOac || {};
+    const s = daily[i].byCorridorSqShared || {};
+    if (Object.keys(o).length > 0 && Object.keys(s).length > 0) {
+      refDay = daily[i];
+      break;
+    }
+  }
+  const lastOac = refDay ? refDay.byCorridorOac : {};
+
+  const rowsHtml = corridors
+    .map((c) => {
+      // Corridor-level share uses only meters that carry BOTH sq and oac.
+      const tsqSum = refDay ? refDay.byCorridorSqShared[c.key] : undefined;
+      const oacSum = lastOac[c.key];
+      if (tsqSum == null || oacSum == null) return '';
+      const pct = shareInUsePct(tsqSum, oacSum);
+      if (pct == null) return '';
+      const level =
+        pct < 60 ? levels[0] : pct < 80 ? levels[1] : pct <= 92 ? levels[2] : levels[3];
+      return (
+        `<div class="congestion-row">` +
+        `<span class="congestion-row__name">${c.label}</span>` +
+        `<span class="congestion-chip ${level.cls}"><b>${pct.toFixed(1)}%</b> ${level.label}</span>` +
+        `</div>`
+      );
+    })
+    .filter(Boolean)
+    .join('');
+
+  const asOf = refDay
+    ? new Date(`${refDay.dateStr}T00:00:00Z`).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      })
+    : null;
+  const body =
+    rowsHtml ||
+    '<p class="congestion-note">No corridor currently posts both scheduled flow ' +
+    'and operationally-available capacity on the same day.</p>';
+
   container.innerHTML = `
     <div class="congestion-header">
-      <h3>Corridor Congestion — TSQ ÷ Operating Capacity</h3>
-      <span class="congestion-status congestion-status--pending">capacity data unavailable</span>
+      <h3>Corridors — Share of Posted Capacity in Use</h3>
+      <span class="congestion-status congestion-status--pending">TSQ ÷ (TSQ + OAC)${
+        asOf ? ` · as of ${asOf}` : ''
+      }</span>
     </div>
     <div class="congestion-ladder">
       ${levels.map((l) => `<span class="congestion-chip ${l.cls}"><b>${l.range}</b> ${l.label}</span>`).join('')}
     </div>
+    ${body}
     <p class="congestion-note">
-      Utilization per corridor computes once Gulf South posts operationally-available
-      capacity for the egress zones into curated (SQ-only today). Near-100% corridors are
-      where basis blows out — this strip is the early-warning slot.
+      Gulf South's Operationally Available Capacity is a RESIDUAL (posted capacity −
+      scheduled flow), so TSQ ÷ operating capacity is mathematically meaningless here —
+      it read up to 11× on Lonewa before being retired 2026-08-25. This metric is the
+      share of POSTED capacity in use; it ranks days like volume does and adds comparable
+      units across corridors, not new signal. The real capacity signal is the OAC level
+      line in the chart above — swings there are maintenance/constraint events.
     </p>`;
 }

@@ -52,18 +52,23 @@ jobs:
             echo "latest_date=$LATEST" >> $GITHUB_OUTPUT
           fi
 
-      - name: Transform raw → curated
+      - name: Transform raw → curated (accumulate ALL retained raw files)
         if: steps.scrape.outputs.status == 'ok'
         run: |
           python -c "
           from pathlib import Path
           import json
           from transformers.eia_storage import transform
-          latest = sorted(Path('data/raw/eia_storage').rglob('*.json'))[-1]
           out = Path('data/curated/eia_storage.parquet')
           out.parent.mkdir(parents=True, exist_ok=True)
-          result = transform(latest, out)
-          print(json.dumps(result, indent=2, default=str))
+          # Accumulate EVERY retained raw file, oldest first. merge_into_curated
+          # dedups on (series_id, period) keeping the freshest ingest, and its
+          # shrink-guard makes a thin-raw rebuild fail loudly instead of
+          # silently truncating history (2026-08-25 incident).
+          files = sorted(Path('data/raw/eia_storage').rglob('*.json'))
+          for f in files:
+              result = transform(f, out)
+              print(f.name, json.dumps(result, default=str))
           "
 
       - name: Commit new data

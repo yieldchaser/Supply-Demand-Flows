@@ -65,11 +65,21 @@ sources:
   eia_storage:
     parquet: data/curated/eia_storage.parquet
     health_file: data/health/eia_storage.json
-    skip_checks: [flow_legs]   # series_id is a single aggregate ('storage') — uniqueness is per (name, period)
+    skip_checks: [flow_legs]   # series are per-region aggregates; uniqueness is per (name, period)
     staleness:
       warn_days: 9            # weekly Thursday release with multi-day lag
-      fail_days: 18
+      fail_days: 18           # >14d stale on a core source must page (brief: FAIL >14 days)
     unit_expected: Bcf        # weekly lower-48 stocks in Bcf
+    mode: accumulation        # rows only ever grow; enables flat-run divergence arm
+    # Sixth silent-loss incident (2026-08-25): a rebuild-from-thin-raw cut
+    # this source 3600→408 rows. The global coverage_drop_fail_pct (20%)
+    # plus shrinkage/divergence arms now apply; nothing may silently drop
+    # more than a fifth of its rows between monitored runs.
+    bands:
+      - label: storage_lower48_plausible
+        series_glob: "storage_lower48"
+        min: 0.0
+        max: 6000.0           # Bcf; observed max ~3960 — headroom for growth
 
   eia_lng_exports:
     parquet: data/curated/eia_lng_exports.parquet
@@ -183,7 +193,7 @@ sources:
     parquet: data/curated/kinder_morgan.parquet
     health_file: data/health/kinder_morgan.json  # created by CI on first scheduled run
     staleness: {warn_days: 2, fail_days: 4}  # BEST-AVAILABLE snapshot, ~3x daily
-    unit_expected: MMcf/d
+    unit_expected: Dth/d      # raw values since 2026-08-25 (rule 5: frontend converts)
     mode: accumulation
     negative_values_fail: true
     # Confirmed LNG-bound meters only (Sabine recon + CI live-fire 2026-08-25).

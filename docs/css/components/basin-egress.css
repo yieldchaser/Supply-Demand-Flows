@@ -123,3 +123,24 @@
     font-size: 12px;
   }
 }
+
+/* Share-of-posted-capacity rows (replaces retired congestion bars). */
+.congestion-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.congestion-row:last-of-type {
+  border-bottom: none;
+}
+
+.congestion-row__name {
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
