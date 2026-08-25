@@ -1,4 +1,4 @@
-import { loadBundle } from './data/bundle-loader.js';
+import { loadBundle, ensureSource } from './data/bundle-loader.js';
 import { renderHeader } from './components/header.js';
 import { renderHealthStrip } from './components/health-strip.js';
 import { renderFooter } from './components/footer.js';
@@ -48,35 +48,93 @@ async function safeRender(name, renderFn) {
   }
 }
 
+/**
+ * Render the panels of one data section after lazily loading its sources.
+ *
+ * @param {any} bundle
+ * @param {string|string[]} sourceKeys - sources this section needs
+ * @param {string} sectionName - for logging / error surfaces
+ * @param {Function} renderFn - sync render closure over the bundle
+ */
+async function lazySection(bundle, sourceKeys, sectionName, renderFn) {
+  const keys = Array.isArray(sourceKeys) ? sourceKeys : [sourceKeys];
+  try {
+    await Promise.all(keys.map((k) => ensureSource(bundle, k)));
+  } catch (err) {
+    console.error(`[${sectionName}] source load failed:`, err);
+  }
+  await safeRender(sectionName, renderFn);
+}
+
+/** Sources needed by each dashboard section (bundle.sources keys). */
+const SECTIONS = {
+  storage: ['eia_storage', 'eia_supply'],
+  balance: ['eia_supply'],
+  rigs: ['baker_hughes_weekly'],
+  basins: ['baker_hughes_weekly'],
+  'basin-table': ['baker_hughes_weekly'],
+  'basin-scatter': ['baker_hughes_weekly'],
+  'basin-share': ['baker_hughes_weekly'],
+  'basin-extremes': ['baker_hughes_weekly'],
+  divergence: ['eia_storage', 'gie_agsi'],
+  'eu-storage': ['gie_agsi'],
+  'lng-total': ['eia_lng_exports'],
+  'lng-shares': ['eia_lng_exports'],
+  lng: [
+    'quorum',
+    'gulf_south',
+    'enbridge',
+    'gasnom',
+    'bhe',
+    'cheniere',
+    'kinder_morgan',
+  ],
+  'basin-egress': ['gulf_south'],
+};
+
 async function main() {
+  // Boot parses CORE sources only (~1 MB combined): header + health strip +
+  // the first paint sections. Everything else loads per-section below.
   const bundle = await loadBundle();
 
   renderHeader(bundle);
   renderHealthStrip(bundle);
 
   // EIA panels — live charts
-  await safeRender('storage',     () => renderStoragePanel(document.getElementById('panel-storage'), bundle));
-  await safeRender('balance',     () => renderBalancePanel(document.getElementById('panel-balance'), bundle));
+  await lazySection(bundle, SECTIONS.storage, 'storage', () =>
+    renderStoragePanel(document.getElementById('panel-storage'), bundle));
+  await lazySection(bundle, SECTIONS.balance, 'balance', () =>
+    renderBalancePanel(document.getElementById('panel-balance'), bundle));
 
   // Baker Hughes panels — live charts
-  await safeRender('rigs',        () => renderRigsPanel(document.getElementById('panel-rigs'), bundle));
-  await safeRender('basins',      () => renderBasinsPanel(document.getElementById('panel-basins'), bundle));
+  await lazySection(bundle, SECTIONS.rigs, 'rigs', () =>
+    renderRigsPanel(document.getElementById('panel-rigs'), bundle));
+  await lazySection(bundle, SECTIONS.basins, 'basins', () =>
+    renderBasinsPanel(document.getElementById('panel-basins'), bundle));
 
   // Interlude: Transatlantic Storage Divergence (cross-source derived metric)
-  await safeRender('divergence',  () => renderDivergencePanel(document.getElementById('panel-divergence'), bundle));
+  await lazySection(bundle, SECTIONS.divergence, 'divergence', () =>
+    renderDivergencePanel(document.getElementById('panel-divergence'), bundle));
 
   // Section 2: Basin Momentum Deep
-  await safeRender('basin-table',    () => renderBasinTable(document.getElementById('panel-basin-table'), bundle));
-  await safeRender('basin-scatter',  () => renderBasinScatter(document.getElementById('panel-basin-scatter'), bundle));
-  await safeRender('basin-share',    () => renderBasinShare(document.getElementById('panel-basin-share'), bundle));
-  await safeRender('basin-extremes', () => renderBasinExtremes(document.getElementById('panel-basin-extremes'), bundle));
+  await lazySection(bundle, SECTIONS['basin-table'], 'basin-table', () =>
+    renderBasinTable(document.getElementById('panel-basin-table'), bundle));
+  await lazySection(bundle, SECTIONS['basin-scatter'], 'basin-scatter', () =>
+    renderBasinScatter(document.getElementById('panel-basin-scatter'), bundle));
+  await lazySection(bundle, SECTIONS['basin-share'], 'basin-share', () =>
+    renderBasinShare(document.getElementById('panel-basin-share'), bundle));
+  await lazySection(bundle, SECTIONS['basin-extremes'], 'basin-extremes', () =>
+    renderBasinExtremes(document.getElementById('panel-basin-extremes'), bundle));
 
   // Section 3: European Storage Context
-  await safeRender('eu-storage',  () => renderEuStoragePanel(document.getElementById('panel-eu-storage'), bundle));
+  await lazySection(bundle, SECTIONS['eu-storage'], 'eu-storage', () =>
+    renderEuStoragePanel(document.getElementById('panel-eu-storage'), bundle));
 
   // Section 4: US LNG Exports Tracker
-  await safeRender('lng-total',   () => renderLngTotalPanel(document.getElementById('panel-lng-total'), bundle));
-  await safeRender('lng-shares',  () => renderLngSharesPanel(document.getElementById('panel-lng-shares'), bundle));
+  await lazySection(bundle, SECTIONS['lng-total'], 'lng-total', () =>
+    renderLngTotalPanel(document.getElementById('panel-lng-total'), bundle));
+  await lazySection(bundle, SECTIONS['lng-shares'], 'lng-shares', () =>
+    renderLngSharesPanel(document.getElementById('panel-lng-shares'), bundle));
 
   // Section 5: LNG Feedgas Observatory — fleet grid ABOVE the hero panel.
   // Both share selection state: clicking a fleet card re-renders the hero
@@ -99,10 +157,10 @@ async function main() {
       onSelect: handleSelect,
     });
   }
-  await safeRender('lng-fleet', () => renderLngSection());
+  await lazySection(bundle, SECTIONS.lng, 'lng-fleet', () => renderLngSection());
 
   // Section 6: Basin Egress — the supply-side counterpart to LNG feedgas.
-  await safeRender('basin-egress', () =>
+  await lazySection(bundle, SECTIONS['basin-egress'], 'basin-egress', () =>
     renderBasinEgressPanel(document.getElementById('panel-basin-egress'), bundle)
   );
 
@@ -111,8 +169,8 @@ async function main() {
 
 main().catch((err) => {
   // This catch now only fires for boot-critical failures:
-  // bundle load failure, manifest 404, or JSON parse errors.
-  // Individual panel errors are caught by safeRender above.
+  // manifest/index/core-source load failure or JSON parse errors.
+  // Individual section errors are caught by safeRender above.
   console.error('Blue Tide boot failure:', err);
   document.body.innerHTML = `
     <div class="boot-error">

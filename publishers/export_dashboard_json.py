@@ -214,7 +214,7 @@ def prune_to_relevant_meters(df: pd.DataFrame, source_key: str) -> pd.DataFrame:
     return kept
 
 
-def build() -> dict:
+def build() -> dict[str, Any]:
     """
     Aggregation logic for building the dashboard bundle.
     """
@@ -283,9 +283,48 @@ def build() -> dict:
     hashed_name = f"bundle.{bundle_hash}.json"
     safe_write_text(DOCS_DATA_DIR / hashed_name, bundle_json)
 
-    # Manifest
+    # Per-source shards + index manifest (lazy loading).
+    #
+    # Why: measured client cost of the monolithic bundle (2026-08-25,
+    # scripts/measure_bundle_parse.py, headless Chromium @4x CPU throttle)
+    # was ~2.6 s JSON.parse and ~500 MB heap for 267k rows. The frontend
+    # therefore boots on CORE sources only and fetches/parses each remaining
+    # source shard on demand (docs/js/data/bundle-loader.js). The monolithic
+    # bundle stays for compatibility and as the integrity reference.
+    index_sources: dict[str, dict[str, Any]] = {}
+    bundle_sources = bundle["sources"]
+    for source_key in list(bundle_sources):
+        entry = bundle_sources[source_key]
+        shard_json = json.dumps(entry, separators=(",", ":"), ensure_ascii=False, default=_json_default)
+        shard_name = f"src.{source_key}.{bundle_hash}.json"
+        safe_write_text(DOCS_DATA_DIR / shard_name, shard_json)
+        index_sources[source_key] = {
+            "file": shard_name,
+            "rows": int(entry.get("row_count") or 0),
+            "latest_period": entry.get("latest_period"),
+        }
+
+    #: Sources parsed during boot (small, power above-the-fold panels).
+    #: Everything else loads lazily on first panel access.
+    core_sources = ["eia_storage", "eia_supply", "baker_hughes_weekly"]
+
+    index = {
+        "bundle_url": hashed_name,
+        "generated_at": bundle["generated_at"],
+        "hash": bundle_hash,
+        "core": [k for k in core_sources if k in index_sources],
+        "sources": index_sources,
+    }
+    index_name = f"index.{bundle_hash}.json"
+    safe_write_text(
+        DOCS_DATA_DIR / index_name,
+        json.dumps(index, separators=(",", ":"), ensure_ascii=False, default=_json_default),
+    )
+
+    # Manifest (unchanged shape + index pointer)
     manifest = {
         "bundle_url": hashed_name,
+        "index_url": index_name,
         "generated_at": bundle["generated_at"],
         "hash": bundle_hash,
     }
@@ -295,6 +334,7 @@ def build() -> dict:
         "generated_at": bundle["generated_at"],
         "hash": bundle_hash,
         "bundle_url": hashed_name,
+        "index_url": index_name,
         "sources_count": len(bundle["sources"]),
     }
 
