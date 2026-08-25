@@ -1,15 +1,13 @@
-name: KM Probe 1
+name: KM Probe 2
 on:
   workflow_dispatch:
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
         with:
-          python-version: "3.12"
-      - run: pip install httpx
-      - name: Run probe
+          ref: recon/sabine-corpus
+      - name: List recon branch files
         run: |
-          echo "CmltcG9ydCBodHRweCwgcmUKCkJBU0UgPSAiaHR0cHM6Ly9waXBlbGluZTIua2luZGVybW9yZ2FuLmNvbSIKVUEgPSB7IlVzZXItQWdlbnQiOiAiTW96aWxsYS81LjAgKFgxMTsgTGludXggeDg2XzY0KSBBcHBsZVdlYktpdC81MzcuMzYgKEtIVE1MLCBsaWtlIEdlY2tvKSBDaHJvbWUvMTI0LjAgU2FmYXJpLzUzNy4zNiJ9CgojIHRlbmFudCBwYWdlIHBhdGhzIGZyb20gdGhlIFNhYmluZSByZWNvbgp0ZW5hbnRzID0gewogICAgIk5HUEwiOiAiL05hdmlnYXRpb24vR29Ub1BQLmFzcHg/Q29kZT1OR1BMIiwKICAgICJUR1AiOiAiL05hdmlnYXRpb24vR29Ub1BQLmFzcHg/Q29kZT1UR1AiLAogICAgIktNTFAiOiAiL05hdmlnYXRpb24vR29Ub1BQLmFzcHg/Q29kZT1LTUxQIiwKfQp3aXRoIGh0dHB4LkNsaWVudChoZWFkZXJzPVVBLCB0aW1lb3V0PTYwLjAsIGZvbGxvd19yZWRpcmVjdHM9VHJ1ZSkgYXMgYzoKICAgIGZvciBuYW1lLCBwYXRoIGluIHRlbmFudHMuaXRlbXMoKToKICAgICAgICB0cnk6CiAgICAgICAgICAgIHIgPSBjLmdldChCQVNFICsgcGF0aCkKICAgICAgICAgICAgdGl0bGUgPSByZS5zZWFyY2gociI8dGl0bGU+KC4qPyk8L3RpdGxlPiIsIHIudGV4dCwgcmUuUykKICAgICAgICAgICAgcHJpbnQoIj09IiwgbmFtZSwgIi0+Iiwgci5zdGF0dXNfY29kZSwgInwgbGVuOiIsIGxlbihyLnRleHQpLCAifCB0aXRsZToiLCAodGl0bGUuZ3JvdXAoMSkuc3RyaXAoKVs6ODBdIGlmIHRpdGxlIGVsc2UgIj8iKSkKICAgICAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICAgICAgICAgIHByaW50KCI9PSIsIG5hbWUsICJFUlIiLCB0eXBlKGUpLl9fbmFtZV9fLCBzdHIoZSlbOjEwMF0pCg==" | base64 -d > /tmp/probe.py
-          python /tmp/probe.py
+          git ls-tree -r --name-only HEAD | head -40
