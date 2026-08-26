@@ -55,7 +55,29 @@ log = logging.getLogger(__name__)
 RAW_DIR = Path("data/raw/bhe")
 CURATED_PATH = Path("data/curated/bhe.parquet")
 
+#: EGTS rows keep the legacy ``egts`` prefix (series continuity); CPL's own
+#: postings (tsp == "cpl" in the raw payload) emit ``cpl``-prefixed series.
 SERIES_PREFIX = "egts"
+CPL_SERIES_PREFIX = "cpl"
+
+#:
+#: CPL feedgas meter table — which of Cove Point LP's own posted locations
+#: count as THIRD-PARTY FEEDGAS receipts. The Coastal Bend lesson: a
+#: plausible-looking high-volume meter is not automatically feedgas.
+#:
+#: - 45001 TRANSCO PLEASANT VALLEY  — Transco Z6 receipts. YES.
+#: - 37001 COLUMBIA LOUDOUN         — TCO Columbia Gas receipts. YES.
+#: - 47001 EGTS LOUDOUN             — EGTS receipts (CPL-side view of the
+#:   same physical flow our EGTS-40704 series measures). YES, but EXCLUDED
+#:   FROM SUMS to avoid double-counting with the egts_-prefixed series.
+#: - 10002 CVP STORAGE POINT        — LNG tank storage cycling: gas already
+#:   AT the terminal being re-injected for sendout. NOT new feedgas. NO.
+#: - 10001 COVE POINT PLANT         — plant SENDOUT to market (SI/D legs):
+#:   output, not input. NEVER in a receipt sum.
+#: - 37002 TCO/CP LOUDOUN COMMISSIONING — twin of 37001; TSQ=0 across the
+#:   entire retained history so far. Excluded until it posts nonzero.
+CPL_FEEDGAS_LOCS = frozenset({"45001", "37001"})
+CPL_ALL_KNOWN_LOCS = frozenset({"45001", "37001", "47001", "10002", "10001", "37002"})
 
 
 def _parse_posted_at(posted_at: str) -> datetime:
@@ -102,21 +124,41 @@ def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
 
     cycle_token: str = str(payload.get("cycle") or "UNKNOWN").lower()
     posted_at_raw: str = str(payload.get("posted_at") or "")
+    tsp: str = str(payload.get("tsp") or "egts").strip().lower()
     raw_rows: list[dict[str, Any]] = payload.get("data", []) or []
+
+    # CPL payloads (the terminal's OWN postings) carry a DIFFERENT meter
+    # table than EGTS interconnects: every loc is Cove Point LP's facility,
+    # and only 45001/37001 are genuine third-party feedgas receipts. The
+    # old EGTS rule (Interconnect == COVE POINT LNG LP + loc 40704) does
+    # not apply — on CPL's side the interconnect column names the FEEDER.
+    is_cpl = tsp == CPL_SERIES_PREFIX
+    prefix = CPL_SERIES_PREFIX if is_cpl else SERIES_PREFIX
+    label_source = "CPL" if is_cpl else "EGTS"
 
     out: list[dict[str, Any]] = []
     for row in raw_rows:
         if not isinstance(row, dict):
             continue
         clean_row = {k: str(v or "") for k, v in row.items()}
-        # Cove Point meter = Loc 40704 + Interconnect "COVE POINT LNG LP",
-        # EITHER flow leg (both are real postings of the same meter).
-        if clean_row.get(COL_INTERCONNECT, "").strip().upper() != COVE_POINT_INTERCONNECT:
-            continue
-        if str(row.get(COL_LOC) or "").strip() != str(COVE_POINT_LOC):
-            continue
-
         loc_id = str(row.get(COL_LOC) or "").strip()
+        flow = str(row.get(COL_FLOW_IND) or "").strip().lower() or "u"
+
+        if is_cpl:
+            # Feedgas receipts ONLY (see CPL_FEEDGAS_LOCS docstring for the
+            # per-meter verdicts). Storage cycling (10002), plant sendout
+            # (10001), the EGTS twin (47001 — already measured as egts_sq_
+            # 40704 without double-counting), and the dormant commissioning
+            # meter (37002) never enter the series set.
+            if loc_id not in CPL_FEEDGAS_LOCS:
+                continue
+        else:
+            # EGTS view: the single Cove Point feedgas anchor.
+            if clean_row.get(COL_INTERCONNECT, "").strip().upper() != COVE_POINT_INTERCONNECT:
+                continue
+            if loc_id != str(COVE_POINT_LOC):
+                continue
+
         loc_name = str(row.get(COL_LOC_NAME) or "").strip() or loc_id
         period_raw = str(row.get(COL_GAS_DAY) or "").strip()
         # Eff Gas Day arrives as MM/DD/YYYY in EGTS blobs.
@@ -127,13 +169,6 @@ def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
         # The CSV's own CycleDesc is authoritative when present; the file's
         # subject-derived cycle token covers legacy single-posting days.
         cycle = _cycle_token(csv_cycle) or cycle_token
-
-        # Flow direction (R/D) is part of the series identity. Cove Point's
-        # meter posts BOTH legs with different quantities (R≈0, D=the
-        # scheduled volume); keeping only the configured leg silently
-        # dropped the other and made the surviving value depend on which
-        # leg happened to be seen.
-        flow = str(row.get(COL_FLOW_IND) or "").strip().lower() or "u"
 
         posted_dt = _parse_posted_at(posted_at_raw)
 
@@ -148,8 +183,8 @@ def _rows_from_file(path: Path, ingested_at: str) -> list[dict[str, Any]]:
             out.append(
                 {
                     "source": "bhe",
-                    "series_id": f"{SERIES_PREFIX}_{kind}_{loc_id}_{flow}_{cycle}",
-                    "series_name": f"EGTS {label} {loc_name} [{flow.upper()}] ({cycle.upper()})",
+                    "series_id": f"{prefix}_{kind}_{loc_id}_{flow}_{cycle}",
+                    "series_name": f"{label_source} {label} {loc_name} [{flow.upper()}] ({cycle.upper()})",
                     "period": period,
                     "value": val,
                     "unit": "Dth/d",

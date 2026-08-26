@@ -39,7 +39,14 @@ from scrapers.base.identity import assert_response_identity
 log = logging.getLogger(__name__)
 
 SOURCE_NAME = "bhe"
-TSP_SLUG = "egts"  # EGTS carries Cove Point feedgas; /api/{cpl|cgt} exist but are not used
+#: BHE GT&S infopost hosts several pipelines under one API family:
+#: ``egts`` (Eastern Gas Transmission & Storage — carries Cove Point
+#: feedgas interconnects) and ``cpl`` (Cove Point LNG LP's OWN postings,
+#: which enumerate receipts from ALL feeders: Transco Pleasant Valley,
+#: Columbia/TCO Loudoun, EGTS itself, and CPL storage). Both are scraped
+#: since 2026-08-26; raw filenames carry the tsp so they never collide.
+TSP_SLUG = "egts"
+CPL_TSP_SLUG = "cpl"
 RAW_DIR = "data/raw/bhe"
 
 INFOPOST_BASE_URL = "https://infopost.bhegts.com"
@@ -137,27 +144,30 @@ def extract_csv_postings(payload: dict[str, Any] | list[Any]) -> list[dict[str, 
     return out
 
 
-def parse_oac_csv(csv_text: str) -> list[dict[str, str]]:
-    """Parse an EGTS OAC CSV blob into clean dicts, stripping whitespace.
+def parse_oac_csv(csv_text: str, tsp: str = TSP_SLUG) -> list[dict[str, str]]:
+    """Parse a BHE infopost OAC CSV blob into clean dicts, stripping whitespace.
 
     What:
         Mirrors the Gulf South parser: strips keys/values, drops rows without
         a ``Loc`` so header/placeholder rows never enter the raw payloads.
 
         Tenant-fallback guard (KM pipeline2 lesson): the CSV's ``TSP Name``
-        column must identify EGTS before any row is returned — infopost
-        serves multiple pipelines from the same API family, and a wrong-pipe
-        response parses cleanly but mislabels every row.
+        column must identify the *requested* pipeline before any row is
+        returned — infopost serves multiple pipelines from the same API
+        family, and a wrong-pipe response parses cleanly but mislabels every
+        row. ``egts`` matches its own name; ``cpl`` blobs are served with
+        ``TSP Name = COVE POINT LNG LP`` (the terminal operator itself).
 
     Failure modes:
         Rows with missing ``Loc`` are skipped; a malformed header surfaces as
         an empty list rather than an exception. A response whose TSP Name
-        does not match EGTS raises :class:`TenantFallbackError`.
+        does not match the requested tsp raises :class:`TenantFallbackError`.
     """
+    expected_name = "COVE POINT LNG LP" if tsp == CPL_TSP_SLUG else "EGTS"
     assert_response_identity(
-        expected="EGTS",
+        expected=expected_name,
         response_text=csv_text,
-        context="bhe/egts OAC CSV",
+        context=f"bhe/{tsp} OAC CSV",
     )
     reader = csv.DictReader(StringIO(csv_text))
     if reader.fieldnames is None:
@@ -223,6 +233,7 @@ async def fetch_postings(
     client: HttpClient,
     begin_date: date | None,
     end_date: date | None,
+    tsp: str = TSP_SLUG,
 ) -> list[dict[str, Any]]:
     """POST the search payload and return filtered OAC CSV postings.
 
@@ -230,7 +241,7 @@ async def fetch_postings(
         ``HttpClientError`` propagates after retry exhaustion (403/429 are
         retryable with backoff per the client configuration in ``run``).
     """
-    url = SEARCH_HISTORICAL_PATH.format(tsp=TSP_SLUG)
+    url = SEARCH_HISTORICAL_PATH.format(tsp=tsp)
     payload = await client.post_json(url, build_search_payload(begin_date, end_date))
     postings = extract_csv_postings(payload)
     if not postings:
@@ -291,76 +302,84 @@ async def run(
             rate_limit_per_second=1.0,
             retryable_status_codes=frozenset({403}),
         ) as client:
-            postings = await fetch_postings(client, begin_date, end_date)
-            if not postings:
-                raise RuntimeError("No OAC postings returned from BHE GT&S infopost.")
-
             processed_count = 0
             skipped_count = 0
             failed_count = 0
 
-            for item in postings:
-                cycle = cycle_from_subject(item["subject"])
-                gas_day_str = item["gas_day"]
-                if not cycle or not gas_day_str:
-                    log.warning(
-                        "Skipping notice %s: unmapped cycle/gas day (%r / %r)",
-                        item["notice_id"],
-                        item["subject"],
+            # Scrape BOTH pipelines: EGTS (interconnect view) and CPL (the
+            # terminal's own postings, which enumerate receipts from ALL
+            # feeders — Transco Pleasant Valley, Columbia/TCO Loudoun, CPL
+            # storage). Raw filenames carry the tsp prefix so the two feeds
+            # never collide on (gas_day, cycle, notice_id).
+            for tsp in (TSP_SLUG, CPL_TSP_SLUG):
+                postings = await fetch_postings(client, begin_date, end_date, tsp=tsp)
+                if not postings and tsp == TSP_SLUG:
+                    raise RuntimeError("No OAC postings returned from BHE GT&S infopost.")
+
+                for item in postings:
+                    cycle = cycle_from_subject(item["subject"])
+                    gas_day_str = item["gas_day"]
+                    if not cycle or not gas_day_str:
+                        log.warning(
+                            "Skipping notice %s: unmapped cycle/gas day (%r / %r)",
+                            item["notice_id"],
+                            item["subject"],
+                            gas_day_str,
+                        )
+                        failed_count += 1
+                        continue
+
+                    out_path = (
+                        raw_dir / f"{tsp}_{gas_day_str}_{cycle}_{item['notice_id']}.json"
+                    )
+                    if out_path.exists():
+                        skipped_count += 1
+                        continue
+
+                    try:
+                        csv_text = await download_posting_csv(client, item["csv_url"])
+                    except HttpClientError as exc:
+                        log.warning("Skipping notice %s after HTTP failure: %s", item["notice_id"], exc)
+                        failed_count += 1
+                        continue
+                    except (UnicodeDecodeError, ValueError) as exc:
+                        log.warning(
+                            "Skipping notice %s: CSV failed to decode (%s: %s)",
+                            item["notice_id"],
+                            type(exc).__name__,
+                            exc,
+                        )
+                        failed_count += 1
+                        continue
+
+                    rows = parse_oac_csv(csv_text, tsp=tsp)
+                    # Rate-limit courtesy pause between blob downloads.
+                    await asyncio.sleep(1.0)
+
+                    payload = {
+                        "fetched_at": datetime.now(UTC)
+                        .replace(microsecond=0)
+                        .isoformat()
+                        .replace("+00:00", "Z"),
+                        "source": SOURCE_NAME,
+                        "tsp": tsp,
+                        "notice_id": item["notice_id"],
+                        "cycle": cycle,
+                        "gas_day": gas_day_str,
+                        "posted_at": item["posted_at"],
+                        "row_count": len(rows),
+                        "data": rows,
+                    }
+                    safe_write_json(out_path, payload)
+                    log.info(
+                        "Fetched %d rows for %s %s (notice %s) → %s",
+                        len(rows),
                         gas_day_str,
-                    )
-                    failed_count += 1
-                    continue
-
-                out_path = raw_dir / f"{gas_day_str}_{cycle}_{item['notice_id']}.json"
-                if out_path.exists():
-                    skipped_count += 1
-                    continue
-
-                try:
-                    csv_text = await download_posting_csv(client, item["csv_url"])
-                except HttpClientError as exc:
-                    log.warning("Skipping notice %s after HTTP failure: %s", item["notice_id"], exc)
-                    failed_count += 1
-                    continue
-                except (UnicodeDecodeError, ValueError) as exc:
-                    log.warning(
-                        "Skipping notice %s: CSV failed to decode (%s: %s)",
+                        cycle,
                         item["notice_id"],
-                        type(exc).__name__,
-                        exc,
+                        out_path,
                     )
-                    failed_count += 1
-                    continue
-
-                rows = parse_oac_csv(csv_text)
-                # Rate-limit courtesy pause between blob downloads.
-                await asyncio.sleep(1.0)
-
-                payload = {
-                    "fetched_at": datetime.now(UTC)
-                    .replace(microsecond=0)
-                    .isoformat()
-                    .replace("+00:00", "Z"),
-                    "source": SOURCE_NAME,
-                    "tsp": TSP_SLUG,
-                    "notice_id": item["notice_id"],
-                    "cycle": cycle,
-                    "gas_day": gas_day_str,
-                    "posted_at": item["posted_at"],
-                    "row_count": len(rows),
-                    "data": rows,
-                }
-                safe_write_json(out_path, payload)
-                log.info(
-                    "Fetched %d rows for %s %s (notice %s) → %s",
-                    len(rows),
-                    gas_day_str,
-                    cycle,
-                    item["notice_id"],
-                    out_path,
-                )
-                processed_count += 1
+                    processed_count += 1
 
         status = "ok" if processed_count else "skipped"
         run_metadata = {

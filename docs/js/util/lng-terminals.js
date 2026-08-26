@@ -148,19 +148,48 @@ export const LNG_TERMINALS = {
   cove_point: {
     id: 'cove_point',
     display: 'Cove Point',
+    // PROMOTED to MULTI-FEED MEASURED 2026-08-26: Cove Point LNG LP posts
+    // its OWN EBB (infopost.bhegts.com/cpl, tsp=cpl) enumerating receipts
+    // from every feeder. Feedgas = Transco Pleasant Valley (45001 R) +
+    // Columbia/TCO Loudoun (37001 R). EXCLUDED from the sum, with reasons:
+    //   10001 Cove Point Plant  — plant SENDOUT to market (output, not input)
+    //   10002 CVP Storage Point — LNG tank cycling (gas already at terminal)
+    //   47001 EGTS Loudoun      — CPL-side twin of our egts_40704 series
+    //   37002 TCO commissioning — dormant (TSQ=0 across retained history)
+    // The legacy egts_sq_40704_d series stays as a cross-check feed.
     source: 'bhe',
-    seriesPrefix: 'egts',
-    loc: '40704',
-    flow: 'd',   // D leg carries cargo volumes; R leg ~0 (config legacy said R — corrected)
-    locName: 'EGTS – Loudoun (Cove Point LNG LP interconnect)',
+    feeds: [
+      {
+        source: 'bhe',
+        series: 'cpl_sq_45001_r',
+        label: 'Transco Pleasant Valley (measured)',
+        kind: 'measured',
+        note: 'Transco Z6 receipts at CPL — visible WITHOUT the shelved Williams scraper.',
+      },
+      {
+        source: 'bhe',
+        series: 'cpl_sq_37001_r',
+        label: 'Columbia Loudoun / TCO (measured)',
+        kind: 'measured',
+        note: 'Columbia Gas receipts at CPL.',
+      },
+      {
+        source: 'bhe',
+        series: 'egts_sq_40704_d',
+        label: 'EGTS Loudoun cross-check',
+        kind: 'comparison',
+        note: 'Legacy single-feed view. Subset of CPL-side flow; never summed.',
+      },
+    ],
+    locName: 'CPL receipts — Transco Pleasant Valley + Columbia Loudoun',
     nameplate: 750,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
-    platformLabel: 'BHE GT&S EBB',
+    platformLabel: "BHE GT&S EBB (EGTS + CPL's own postings)",
     platformNote:
-      'Cove Point (BHE GT&S EBB) posts all five NAESB cycles. Zeros are legitimate — cargo-driven facility.',
+      'MEASURED multi-feed: sums third-party receipt meters from Cove Point LNG LP\'s own postings. Plant sendout (10001) and LNG tank cycling (10002) are excluded by definition. Zeros are legitimate — cargo-driven facility.',
     methodLine:
-      'MEASURED-PARTIAL: TSQ at EGTS–Loudoun (loc 40704, delivery leg) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · COVERAGE GAP: this is one of several parallel feeds into the 750 MMcf/d terminal. CPL\'s own EBB (infopost.bhegts.com/cpl) additionally shows Transco Pleasant Valley (~600k Dth/d receipts) + Columbia Loudoun (~300k) + CPL storage draw (~750k) — none of which flow through EGTS-40704. The EGTS figure is real but covers only a fraction of total feedgas; never present it as the terminal total.',
+      'MEASURED receipts: CPL EBB locs 45001 (Transco) + 37001 (TCO), receipt legs · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Excluded: 10001 plant sendout (output), 10002 storage cycling (not new supply) · Cross-check: EGTS–Loudoun 40704 · Strategic note: Transco volumes here are public via CPL — Williams 1Line not needed for this terminal',
   },
 
   sabine_pass: {
@@ -288,6 +317,10 @@ export const COMPARISON_FEED_EXCLUSIONS = [
   // KM TGP Sinton (49861): independent cross-check of Corpus CCPL; currently
   // posting TSQ=0 across cycles/days while the terminal runs near nameplate.
   'km_tgp_sq_49861_d',
+  // EGTS-Loudoun 40704: legacy single-feed view of Cove Point feedgas. The
+  // same physical flow is measured CPL-side (loc 47001 twin) and is a SUBSET
+  // of the cpl_45001 + cpl_37001 receipt sum — summing it would double-count.
+  'egts_sq_40704',
 ];
 
 /**

@@ -233,7 +233,7 @@ def test_build_universe_covers_expected_totals() -> None:
     assert counts["gulf_south"] == 717
     assert counts["gasnom"] == 61
     assert counts["quorum"] == 11
-    assert counts["bhe"] == 1
+    assert counts["bhe"] == 3  # egts 40704 + CPL 45001 + CPL 37001 (2026-08-26 promotion)
     assert counts["cheniere"] == 22
 
     classes = {m["class"] for ms in universe.values() for m in ms}

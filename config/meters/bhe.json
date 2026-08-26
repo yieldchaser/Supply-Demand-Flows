@@ -1,7 +1,7 @@
 {
   "source": "bhe",
-  "pipeline": "Eastern Gas Transmission and Storage (BHE GT&S)",
-  "note": "Cove Point LNG feedgas is visible on EGTS, not on Cove Point's own EBB. Zeros are legitimate - Cove Point is small (~750 MMcf/d) and cargo-driven.",
+  "pipeline": "BHE GT&S infopost — EGTS (interconnects) + Cove Point LNG LP (terminal's own postings)",
+  "note": "Cove Point feedgas measured on BOTH views: EGTS loc 40704 (legacy single-feed cross-check) and CPL's own EBB postings (locs 45001 Transco Pleasant Valley + 37001 Columbia Loudoun = genuine third-party receipts). CPL loc 10001 is plant SENDOUT (output) and 10002 is LNG tank cycling (not new supply) — never summed. 37002 is a dormant commissioning twin of 37001. Zeros are legitimate - cargo-driven facility. The old note claiming feedgas 'is visible on EGTS, not on Cove Point's own EBB' was falsified 2026-08-26: /api/cpl/postings/searchHistoricalData carries the full feeder table.",
   "bhe": {
     "cove_point_lng": [
       {
@@ -9,19 +9,53 @@
         "loc_name": "EGTS - LOUDOUN",
         "flow_ind": "R",
         "interconnect": "COVE POINT LNG LP",
-        "confidence": "high"
+        "confidence": "high",
+        "tsp": "egts",
+        "note": "Legacy anchor; comparison-only in the registry (subset of CPL-side flow)."
       }
+    ],
+    "cpl_feedgas_receipts": [
+      {
+        "loc_id": 45001,
+        "loc_name": "TRANSCO PLEASANT VALLEY",
+        "flow_ind": "R",
+        "confidence": "high",
+        "tsp": "cpl",
+        "note": "Transco Z6 receipts at CPL. Strategic: proves Transco volumes public via CPL without the shelved Williams scraper."
+      },
+      {
+        "loc_id": 37001,
+        "loc_name": "COLUMBIA LOUDOUN",
+        "flow_ind": "R",
+        "confidence": "high",
+        "tsp": "cpl",
+        "note": "TCO Columbia Gas receipts at CPL."
+      }
+    ],
+    "cpl_excluded_meters": [
+      {"loc_id": 10001, "loc_name": "COVE POINT PLANT", "reason": "plant sendout to market - OUTPUT, not feedgas input"},
+      {"loc_id": 10002, "loc_name": "CVP STORAGE POINT (ST)", "reason": "LNG tank storage cycling - gas already at terminal, not new supply"},
+      {"loc_id": 47001, "loc_name": "EGTS LOUDOUN", "reason": "CPL-side twin of egts 40704; excluded from sums to avoid double-count"},
+      {"loc_id": 37002, "loc_name": "TCO/CP LOUDOUN (COMMISSIONING)", "reason": "dormant twin of 37001; TSQ=0 across retained history"}
     ]
   },
   "_meta": {
-    "schema_version": 1,
-    "filter_rule": "Interconnect Party Name == 'COVE POINT LNG LP' AND Flow Ind == 'R'",
+    "schema_version": 2,
+    "filter_rules": {
+      "egts_tsp": "Interconnect Party Name == 'COVE POINT LNG LP' AND Loc == 40704 (both legs)",
+      "cpl_tsp": "Loc in {45001, 37001}, receipt legs"
+    },
     "anchor_verified": {
       "gas_day": "2026-05-16",
       "cycle": "Intraday 3",
       "operating_capacity_dth": 741280,
       "total_scheduled_quantity_dth": 0,
       "notice_id": 1011665
+    },
+    "cpl_backfill": {
+      "date": "2026-08-26",
+      "retention_floor": "2026-05-27 (455 postings, ~5 cycles/day)",
+      "raw_files": "~458 cpl_*.json"
     }
   }
 }
