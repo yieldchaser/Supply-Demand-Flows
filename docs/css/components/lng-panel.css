@@ -545,3 +545,107 @@
     text-overflow: clip;
   }
 }
+
+/* ================================================================== */
+/*  Section 7 · Feed Substitution panel                              */
+/* ================================================================== */
+
+.subst-tabs {
+  display: flex;
+  gap: var(--space-2, 8px);
+  margin: var(--space-3, 12px) 0 var(--space-2, 8px);
+  flex-wrap: wrap;
+}
+
+.subst-tab {
+  font-family: var(--font-sans, system-ui);
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border, #30363d);
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.subst-tab:hover {
+  border-color: var(--accent, #388bfd);
+  color: var(--text, #e6edf3);
+}
+
+.subst-tab--active {
+  background: var(--accent, #388bfd);
+  border-color: var(--accent, #388bfd);
+  color: #fff;
+}
+
+.subst-footnote {
+  margin-top: var(--space-3, 12px);
+}
+
+.subst-honesty {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted-foreground, #8b949e);
+  background: rgba(255, 193, 7, 0.06);
+  border: 1px solid rgba(255, 193, 7, 0.18);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: var(--space-2, 8px) 0 0;
+}
+
+.subst-events {
+  margin-top: var(--space-4, 16px);
+}
+
+.subst-events__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #e6edf3);
+  margin: 0 0 var(--space-2, 8px);
+}
+
+.subst-events__none {
+  font-size: 12px;
+  color: var(--muted-foreground, #8b949e);
+  font-style: italic;
+}
+
+.subst-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+}
+
+.subst-table th,
+.subst-table td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border, #30363d);
+}
+
+.subst-table th {
+  color: var(--text-secondary, #9ca3af);
+  font-weight: 600;
+  border-bottom: 1px solid var(--surface-2, #21262d);
+}
+
+.subst-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.subst-table .pos { color: var(--accent, #388bfd); }
+.subst-table .neg { color: #f87171; }
+
+@media (max-width: 480px) {
+  .subst-table {
+    font-size: 11px;
+  }
+  .subst-table th,
+  .subst-table td {
+    padding: 4px 6px;
+  }
+}
