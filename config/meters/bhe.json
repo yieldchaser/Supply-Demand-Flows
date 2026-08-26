@@ -30,10 +30,18 @@
         "confidence": "high",
         "tsp": "cpl",
         "note": "TCO Columbia Gas receipts at CPL."
+      },
+      {
+        "loc_id": 10001,
+        "loc_name": "COVE POINT PLANT (D leg)",
+        "flow_ind": "D",
+        "confidence": "high",
+        "tsp": "cpl",
+        "note": "PRIMARY FEEDGAS METER: consolidated liquefaction intake — mean 767 MMcf/d = 102% of nameplate. The receipt meters include pass-through deliveries to local LDCs, so plant intake is the honest feedgas number."
       }
     ],
     "cpl_excluded_meters": [
-      {"loc_id": 10001, "loc_name": "COVE POINT PLANT", "reason": "plant sendout to market - OUTPUT, not feedgas input"},
+      {"loc_id": 10001, "loc_name": "COVE POINT PLANT (R/SI legs)", "reason": "R/SI legs are LNG sendout to market - OUTPUT, not feedgas input. The D leg IS the feedgas intake meter and is configured above."},
       {"loc_id": 10002, "loc_name": "CVP STORAGE POINT (ST)", "reason": "LNG tank storage cycling - gas already at terminal, not new supply"},
       {"loc_id": 47001, "loc_name": "EGTS LOUDOUN", "reason": "CPL-side twin of egts 40704; excluded from sums to avoid double-count"},
       {"loc_id": 37002, "loc_name": "TCO/CP LOUDOUN (COMMISSIONING)", "reason": "dormant twin of 37001; TSQ=0 across retained history"}

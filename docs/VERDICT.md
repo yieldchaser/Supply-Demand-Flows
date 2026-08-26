@@ -42,7 +42,46 @@ feedgas meters but are not — one is sendout (output), one is internal tank
 cycling. Summing either would double-count gas that never entered as new
 supply.
 
-## 2026-08-26 — Sabine Pass: receipt-side fully visible on Creole Trail
+## 2026-08-26 — Cove Point DOUBLE-COUNT audit: receipts ≠ feedgas
+
+The first multi-feed promotion summed feeder receipts (45001+37001+40704 ≈
+1,044 MMcf/d = 139% of nameplate). Forensic audit found this WRONG — not
+because the meters double-count each other, but because **CPL is more than
+an LNG feedgas pipe**:
+
+- **Mass balance closes**: receipts_3f / (plant_intake + local_deliv) =
+  1.017 ± 0.036 over 92 days. All three receipt meters are INDEPENDENT
+  parallel feeds (corr(45001,40704)=0.11, corr(37001,40704)=0.43).
+- **Twin check**: cpl-47001-R ≡ egts-40704-D (mean diff 204 Dth/d = 0.12%,
+  r=0.9991). Same molecules seen by two operators. Never sum both.
+- **Flow split of receipt gas**: ~62% feeds liquefaction (plant intake
+  10001-D, mean 767 MMcf/d = 102% of nameplate), ~37% goes STRAIGHT THROUGH
+  to local LDC/power deliveries (WGL x7, Chalk Point, Possum Point,
+  Woodville, St Charles) without touching the plant.
+- CPL's own maintenance notice (ID 1011059) confirms the topology: it
+  restricts receipts at 45001 while explicitly keeping "Primary Deliveries
+  to the Cove Point Delivery Locations" flowing — i.e., pass-through is a
+  designed, normal state.
+
+**CORRECT FEEDGAS METRIC: loc 10001-D (plant intake)** — mean 767 MMcf/d,
+102% of nameplate (max 110%). Feeder receipts are kept as `kind:'context'`
+(documented, never summed). The old egts-40704 single-feed view (~124
+MMcf/d) was capturing only ~16% of true plant intake.
+
+## 2026-08-26 — Multi-feed independence audit (all terminals)
+
+- **Freeport (GS 24329 + TETCO 79999, both "Stratton Ridge")**: the name
+  collision is REAL but benign — Stratton Ridge is a physical hub where
+  multiple pipes land; GS and TETCO each post their OWN delivery meter
+  into Freeport there. Distinct pipelines, distinct meters, independent
+  flows → sum is correct.
+- **Sabine (Creole Trail receipt legs)**: CT109413/441/451/461/471 are five
+  DIFFERENT third-party pipes delivering at the Gillis hub. Receipt sum vs
+  CT200111-D tracks ±8% — no sequential re-measurement. Sum correct.
+- **Corpus (CC200221 + Sinton comparison-only)**: already handled.
+- **Registry schema note added**: any future `feeds[]` entry must state its
+  independence evidence (distinct physical interconnect or mass-balance
+  closure) before carrying `kind:'measured'`.
 
 Cheniere's Creole Trail Pipeline (tspNo=200) posts **receipt-side meters for
 every third-party feeder** at the Gillis hub — the exact pattern CPL uses:

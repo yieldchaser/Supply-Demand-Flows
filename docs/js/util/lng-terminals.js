@@ -15,6 +15,23 @@
  *                         falling back to operating capacity when design is
  *                         missing for a cycle. UI must label it as a proxy.
  *   operational: false  — terminal renders as a muted, non-clickable card.
+ *
+ * MULTI-FEED INDEPENDENCE RULE (added 2026-08-26 after the Cove Point audit):
+ *   A `feeds[]` entry may carry `kind: 'measured'` ONLY with documented
+ *   evidence that it is an independent parallel feed, i.e. at least one of:
+ *     - distinct physical interconnect (different pipe delivering at its own
+ *       meter — e.g. Freeport's GS 24329 vs TETCO 79999, both AT Stratton
+ *       Ridge but from different pipelines), or
+ *     - mass-balance closure: sum(feeds) ≈ a consolidated downstream meter
+ *       within a few percent (e.g. Cove Point receipts_3f / plant_intake +
+ *       local = 1.017 ± 0.036).
+ *   Sequential re-measurements of the same gas (a receipt meter AND the
+ *   downstream plant meter for the same molecules) must NEVER both be
+ *   'measured' — one side becomes kind:'comparison'. Feeder receipts that
+ *   include pass-through deliveries to OTHER customers (gas that never
+ *   reaches liquefaction) must be kind:'context' and never enter terminal
+ *   sums — see cove_point, whose honest feedgas number is plant intake
+ *   10001-D, not the receipt total.
  */
 
 /**
@@ -148,87 +165,133 @@ export const LNG_TERMINALS = {
   cove_point: {
     id: 'cove_point',
     display: 'Cove Point',
-    // PROMOTED to MULTI-FEED MEASURED 2026-08-26: Cove Point LNG LP posts
-    // its OWN EBB (infopost.bhegts.com/cpl, tsp=cpl) enumerating receipts
-    // from every feeder. Feedgas = Transco Pleasant Valley (45001 R) +
-    // Columbia/TCO Loudoun (37001 R). EXCLUDED from the sum, with reasons:
-    //   10001 Cove Point Plant  — plant SENDOUT to market (output, not input)
-    //   10002 CVP Storage Point — LNG tank cycling (gas already at terminal)
-    //   47001 EGTS Loudoun      — CPL-side twin of our egts_40704 series
-    //   37002 TCO commissioning — dormant (TSQ=0 across retained history)
-    // The legacy egts_sq_40704_d series stays as a cross-check feed.
+    // PROMOTED to MULTI-FEED MEASURED 2026-08-26; REVISED 2026-08-26 (forensics):
+    //
+    // MASS BALANCE PROOF: receipts_3f / (plant_intake + local_deliv) = 1.017
+    // ± 0.036 over 92 days — the three receipt meters are INDEPENDENT
+    // parallel feeds, not sequential re-measurements. Corr(45001,40704)=0.11,
+    // corr(37001,40704)=0.43: no lockstep. Twin check: cpl-47001-R ≡
+    // egts-40704-D (mean diff 204 Dth/d = 0.12%, r=0.9991) — SAME molecules,
+    // so only ONE of the pair may be summed.
+    //
+    // WHAT THE FEEDGAS SUM SHOULD BE: the LNG plant's intake is metered
+    // directly at loc 10001-D ("COVE POINT PLANT", D leg) — mean 767 MMcf/d
+    // = 102% of nameplate (max 110%). The receipt sum (45001+37001+47001 ≈
+    // 1,250 MMcf/d) is TOTAL CPL PIPELINE THROUGHPUT: ~62% feeds the plant,
+    // ~37% goes straight through to local LDC/power deliveries (WGL,
+    // Chalk Point, Possum Point...) without ever touching liquefaction.
+    //
+    // VERDICT: for a FEEDGAS panel, the honest meter is 10001-D (plant
+    // intake), NOT the receipt sum which would print 139-167% of nameplate.
     source: 'bhe',
     feeds: [
       {
         source: 'bhe',
-        series: 'cpl_sq_45001_r',
-        label: 'Transco Pleasant Valley (measured)',
+        series: 'cpl_sq_10001_d',
+        label: 'Plant intake (measured)',
         kind: 'measured',
-        note: 'Transco Z6 receipts at CPL — visible WITHOUT the shelved Williams scraper.',
+        note: 'Consolidated liquefaction feedgas at the plant meter. THE feedgas number — 102% of nameplate typical.',
+      },
+      {
+        source: 'bhe',
+        series: 'cpl_sq_45001_r',
+        label: 'Transco Pleasant Valley receipts',
+        kind: 'context',
+        note: 'Largest feeder (~57% of CPL throughput). Pass-through to LDCs included in this meter.',
       },
       {
         source: 'bhe',
         series: 'cpl_sq_37001_r',
-        label: 'Columbia Loudoun / TCO (measured)',
-        kind: 'measured',
-        note: 'Columbia Gas receipts at CPL.',
+        label: 'Columbia Loudoun receipts',
+        kind: 'context',
+        note: 'TCO feeder (~32% of throughput).',
       },
       {
         source: 'bhe',
         series: 'egts_sq_40704_d',
-        label: 'EGTS Loudoun cross-check',
-        kind: 'comparison',
-        note: 'Legacy single-feed view. Subset of CPL-side flow; never summed.',
+        label: 'EGTS Loudoun receipts',
+        kind: 'context',
+        note: '~11% of throughput. Identical to cpl_sq_47001_r (r=0.9991) — never sum both.',
       },
     ],
-    locName: 'CPL receipts — Transco Pleasant Valley + Columbia Loudoun',
+    locName: 'Plant intake 10001-D + feeder receipts 45001/37001/47001',
     nameplate: 750,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: "BHE GT&S EBB (EGTS + CPL's own postings)",
     platformNote:
-      'MEASURED multi-feed: sums third-party receipt meters from Cove Point LNG LP\'s own postings. Plant sendout (10001) and LNG tank cycling (10002) are excluded by definition. Zeros are legitimate — cargo-driven facility.',
+      "MEASURED via Cove Point LNG LP's own postings. Headline = plant intake (10001-D): actual gas entering liquefaction. Feeder receipts shown as context — they include pass-through deliveries to local utilities that never reach the plant, so their sum EXCEEDS feedgas by design.",
     methodLine:
-      'MEASURED receipts: CPL EBB locs 45001 (Transco) + 37001 (TCO), receipt legs · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Excluded: 10001 plant sendout (output), 10002 storage cycling (not new supply) · Cross-check: EGTS–Loudoun 40704 · Strategic note: Transco volumes here are public via CPL — Williams 1Line not needed for this terminal',
+      'MEASURED: plant intake at CPL loc 10001-D · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Feeder context: Transco PV 45001 + Columbia Loudoun 37001 + EGTS Loudoun 47001 (receipt legs; mass balance closes at 1.017±0.036 vs plant+local) · Excluded from sums: 10002 storage cycling, duplicate EGTS twin · Strategic: Transco volumes public via CPL — Williams scraper not needed',
   },
 
   sabine_pass: {
     id: 'sabine_pass',
     display: 'Sabine Pass',
-    // MEASURED-BUT-PARTIAL (2026-08-25 audit): every VISIBLE lateral is
-    // genuinely measured — NGPL 3592 (~470 MMcf/d) + Cheniere's own
-    // Creole Trail CT200111 published SQ (~1,408 MMcf/d). The old
-    // "OAC proxy implies full-terminal ~1,408" framing was WRONG:
-    // design − OAC equals schedD_QTY identically at CT200111, so the
-    // proxy was just this lateral's flow restated, never a terminal
-    // estimate. The true unknown is Transco Z3 + other unposted feeds
-    // (~half of a 4,500 MMcf/d terminal). Measured laterals are summed;
-    // the card/hero label says what fraction of nameplate is visible.
+    // PROMOTED to FULLY MEASURED 2026-08-26 (receipt-side audit): Creole
+    // Trail's own EBB posts ALL five third-party feeders at Gillis as R-leg
+    // meters, and we capture them all — CT109413 TETCO, CT109441 Transco,
+    // CT109451 Trunkline, CT109461 LEAP, CT109471 Acadian. Independence:
+    // five different physical pipes at one hub; receipt sum tracks the
+    // CT200111-D output within ±8% (two views of one flow). The NGPL 3592
+    // KM lateral is a SEPARATE physical delivery into SPL not seen by CTPL,
+    // so it still sums. CT200111-D is demoted to corroboration (it measures
+    // CTPL's own delivery INTO SPL — same molecules as the five receipts).
     feeds: [
+      {
+        source: 'cheniere',
+        series: 'creole_trail_sq_CT109413_r',
+        label: 'TETCO Gillis (measured)',
+        kind: 'measured',
+      },
+      {
+        source: 'cheniere',
+        series: 'creole_trail_sq_CT109441_r',
+        label: 'Transco Gillis (measured)',
+        kind: 'measured',
+      },
+      {
+        source: 'cheniere',
+        series: 'creole_trail_sq_CT109451_r',
+        label: 'Trunkline Gillis (measured)',
+        kind: 'measured',
+      },
+      {
+        source: 'cheniere',
+        series: 'creole_trail_sq_CT109461_r',
+        label: 'LEAP Gillis (measured)',
+        kind: 'measured',
+      },
+      {
+        source: 'cheniere',
+        series: 'creole_trail_sq_CT109471_r',
+        label: 'Acadian Gillis (measured)',
+        kind: 'measured',
+      },
       {
         source: 'kinder_morgan',
         series: 'km_ngpl_sq_3592_d',
         label: 'NGPL lateral (measured)',
-        kind: 'measured-partial',
-        note: 'Real TSQ at the NGPL interconnect.',
+        kind: 'measured',
+        note: 'Separate physical delivery into SPL via NGPL; not visible on CTPL.',
       },
       {
         source: 'cheniere',
         series: 'creole_trail_sq_CT200111_d',
-        label: 'Creole Trail lateral (measured)',
-        kind: 'measured-partial',
-        note: 'Cheniere-published TSQ at SPLIQ. Supersedes the retired OAC-proxy framing (identical values, better provenance).',
+        label: 'CTPL→SPL delivery (corroboration)',
+        kind: 'comparison',
+        note: 'Output-side view of the five Gillis receipts. Corroborates within ±8%; never summed with them.',
       },
     ],
-    locName: 'SPL laterals — NGPL 3592 + Creole Trail CT200111 (both measured)',
+    locName: 'Five Gillis feeders (CTPL R-legs) + NGPL 3592 lateral',
     nameplate: 4500,
     signal: 'sq',
-    cycles: ['id1', 'id2', 'id3'],
-    platformLabel: 'KM pipeline2 + Cheniere LNG Connection',
+    cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
+    platformLabel: 'Cheniere LNG Connection + KM pipeline2',
     platformNote:
-      'MEASURED-BUT-PARTIAL: figures sum the two publicly-visible laterals (~1.88 Bcf/d combined, roughly 40% of the 4,500 MMcf/d terminal). Transco Z3 and other SPL feeds do not publicly post (Transco 1Line SPA migration shelved that scraper), so terminal-wide feedgas is not measurable from public data. Never present the visible-lateral sum as the terminal total.',
+      "FULLY MEASURED: sums the five independent Gillis-hub receipt meters posted on Creole Trail's own EBB plus the NGPL lateral. CT200111-D kept as corroboration only.",
     methodLine:
-      'MEASURED laterals: KM NGPL loc 3592 + Cheniere Creole Trail CT200111 (published SQ) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · COVERAGE GAP: Transco Z3 + other SPL feeds not public — figure undercounts the 4,500 MMcf/d terminal by the invisible share · Former OAC-proxy framing retired 2026-08-25 (design−OAC ≡ SQ at CT200111)',
+      'MEASURED receipts: CTPL locs CT109413/441/451/461/471 (five independent Gillis feeders) + KM NGPL 3592 lateral · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Corroboration: CT200111-D (output-side, ±8% of receipts) · Independence evidence: distinct pipes at Gillis hub; no sequential re-measurement',
   },
 
   corpus_christi: {

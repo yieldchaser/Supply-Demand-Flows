@@ -1,19 +1,54 @@
 {
   "source": "cheniere",
-  "note": "Cheniere DOES publish Scheduled Quantities (schedD_QTY) on its LNG Connection site — captured as _sq_ series since first scrape and confirmed nonzero for 90+ days (2026-08-25 audit). SQ at the terminal interconnects is now the PRIMARY signal: Creole Trail CT200111_d measures Sabine's SPL lateral; Corpus CC200221_d measures full Corpus inflow. OAC remains a proxy/secondary signal. Do not normalize CTPL (~650,000 Dth/d design) together with CCPL (~35,000+ Dth/d design).",
+  "note": "Cheniere publishes Scheduled Quantities (schedD_QTY) on its LNG Connection site — captured as _sq_ series since first scrape. 2026-08-26 receipt-side audit: CTPL (tspNo=200) posts ALL five Gillis-hub feeder receipts as R-leg meters; all five are now configured high-confidence and sum to Sabine's feedgas alongside KM NGPL 3592. CT200111-D is demoted to corroboration (output-side view of the same molecules). Corpus CC200221_d remains the full-terminal Corpus headline.",
   "cheniere": {
     "creole_trail_sabine_pass": {
       "tsp_no": 200,
       "tsp_name": "CHENIERE CREOLE TRAIL PIPELINE, L.P.",
       "series_prefix": "creole_trail",
-      "design_oper_cap_dth_range": [650000, 900000],
+      "design_oper_cap_dth_range": [650000, 1000000],
       "meters": [
+        {
+          "loc_id": "CT109413",
+          "loc_name": "CT109413-GILLIS-TETCO-R",
+          "flow_ind": "R",
+          "confidence": "high",
+          "role": "TETCO receipt at Gillis hub — independent Sabine feeder"
+        },
+        {
+          "loc_id": "CT109441",
+          "loc_name": "CT109441-GILLIS-TRANSCO-R",
+          "flow_ind": "R",
+          "confidence": "high",
+          "role": "Transco receipt at Gillis hub — independent Sabine feeder"
+        },
+        {
+          "loc_id": "CT109451",
+          "loc_name": "CT109451-GILLIS-TRUNK-R",
+          "flow_ind": "R",
+          "confidence": "high",
+          "role": "Trunkline receipt at Gillis hub — independent Sabine feeder"
+        },
+        {
+          "loc_id": "CT109461",
+          "loc_name": "CT109461-GILLIS-LEAP-R",
+          "flow_ind": "R",
+          "confidence": "high",
+          "role": "LEAP receipt at Gillis hub — independent Sabine feeder"
+        },
+        {
+          "loc_id": "CT109471",
+          "loc_name": "CT109471-GILLIS-ACADIAN-R",
+          "flow_ind": "R",
+          "confidence": "high",
+          "role": "Acadian receipt at Gillis hub — independent Sabine feeder"
+        },
         {
           "loc_id": "CT200111",
           "loc_name": "CT200111-CREOLE TRAIL-SPLIQ-D",
           "flow_ind": "D",
-          "confidence": "high",
-          "role": "LNG terminal delivery interconnect"
+          "confidence": "comparison",
+          "role": "Output-side view of the five Gillis receipts into SPL. Corroborates within ±8%; NEVER summed with them (double-count)."
         }
       ]
     },

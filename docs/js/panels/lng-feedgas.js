@@ -104,8 +104,11 @@ export function buildMultiFeedData(bundle, t) {
   for (const feed of t.feeds || []) {
     // 'comparison' feeds are cross-checks — never rendered as flow at all
     // (they stay documented in registry notes + card caveats).
+    // 'context' feeds (Cove Point feeder receipts) are shown as documentation
+    // but never enter the feedgas sum: they include pass-through deliveries
+    // to local utilities, so their total exceeds liquefaction intake by design.
     const kind = /** @type {any} */ (feed).kind;
-    if (kind === 'comparison') continue;
+    if (kind === 'comparison' || kind === 'context') continue;
     const src = bundle.sources?.[feed.source];
     if (!src || !src.data) continue;
     const map = buildFeedCycleMaps(src.data, feed.series);

@@ -180,7 +180,7 @@ export function terminalSummary(bundle, t) {
   if (Array.isArray(t.feeds) && t.feeds.length > 0) {
     const summable = t.feeds.filter((f) => {
       const kind = /** @type {any} */ (f).kind;
-      if (kind === 'comparison' || kind === 'proxy') return false;
+      if (kind === 'comparison' || kind === 'proxy' || kind === 'context') return false;
       return !COMPARISON_FEED_EXCLUSIONS.some((stem) =>
         f.series.toLowerCase().startsWith(stem)
       );
@@ -389,7 +389,7 @@ export function renderLngFleetOverview(
       Total scheduled: <strong>${totalLatest.toLocaleString(undefined, { maximumFractionDigits: 0 })} MMcf/d</strong>
       across ${countedIds.length} measured terminals ·
       ${fleetPct.toFixed(1)}% of ${totalNameplate.toLocaleString()} MMcf/d fleet nameplate
-      (Sabine Pass counted at its measured laterals only — ~40% coverage, see caveat)
+      (Sabine Pass counted at its five Gillis feeders + NGPL lateral — fully measured as of 2026-08-26)
     </p>
   `;
   panelEl.appendChild(header);

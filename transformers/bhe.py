@@ -61,22 +61,21 @@ SERIES_PREFIX = "egts"
 CPL_SERIES_PREFIX = "cpl"
 
 #:
-#: CPL feedgas meter table — which of Cove Point LP's own posted locations
-#: count as THIRD-PARTY FEEDGAS receipts. The Coastal Bend lesson: a
-#: plausible-looking high-volume meter is not automatically feedgas.
-#:
-#: - 45001 TRANSCO PLEASANT VALLEY  — Transco Z6 receipts. YES.
-#: - 37001 COLUMBIA LOUDOUN         — TCO Columbia Gas receipts. YES.
-#: - 47001 EGTS LOUDOUN             — EGTS receipts (CPL-side view of the
-#:   same physical flow our EGTS-40704 series measures). YES, but EXCLUDED
-#:   FROM SUMS to avoid double-counting with the egts_-prefixed series.
-#: - 10002 CVP STORAGE POINT        — LNG tank storage cycling: gas already
-#:   AT the terminal being re-injected for sendout. NOT new feedgas. NO.
-#: - 10001 COVE POINT PLANT         — plant SENDOUT to market (SI/D legs):
-#:   output, not input. NEVER in a receipt sum.
-#: - 37002 TCO/CP LOUDOUN COMMISSIONING — twin of 37001; TSQ=0 across the
-#:   entire retained history so far. Excluded until it posts nonzero.
-CPL_FEEDGAS_LOCS = frozenset({"45001", "37001"})
+#: CPL meter table (2026-08-26 forensic audit — see docs/VERDICT.md):
+#: - 45001 TRANSCO PLEASANT VALLEY  — Transco receipts. INDEPENDENT feeder.
+#: - 37001 COLUMBIA LOUDOUN         — TCO Columbia Gas receipts. INDEPENDENT.
+#: - 47001 EGTS LOUDOUN             — twin of egts_sq_40704_d (r=0.9991):
+#:   same molecules as our legacy series. EXCLUDED from sums; keep only one
+#:   of the pair anywhere.
+#: - 10001 COVE POINT PLANT D leg   — consolidated LIQUEFACTION INTAKE. This
+#:   is the honest feedgas headline: mean 767 MMcf/d = 102% of nameplate.
+#:   The receipt meters include ~37% pass-through to local LDC/power
+#:   deliveries that never reach the plant, so their sum is pipeline
+#:   throughput, NOT feedgas.
+#: - 10001 R/SI legs                — LNG sendout to market. OUTPUT. Never in sums.
+#: - 10002 CVP STORAGE POINT        — tank cycling (gas already at terminal). NO.
+#: - 37002 TCO COMMISSIONING        — dormant twin (TSQ=0 throughout). NO.
+CPL_FEEDGAS_LOCS = frozenset({"45001", "37001", "10001"})
 CPL_ALL_KNOWN_LOCS = frozenset({"45001", "37001", "47001", "10002", "10001", "37002"})
 
 
