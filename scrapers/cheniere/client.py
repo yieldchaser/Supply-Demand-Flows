@@ -34,7 +34,7 @@ from datetime import date
 from typing import Any
 
 from scrapers.base.http_client import HttpClient
-from scrapers.base.identity import assert_response_identity
+from scrapers.base.identity import TenantFallbackError, assert_response_identity
 
 log = logging.getLogger(__name__)
 
@@ -289,6 +289,15 @@ async def run(
             "per_tsp_rows": per_tsp_rows,
         }
 
+    except TenantFallbackError as exc:
+        # Identity guard rejected a response it could not validate (e.g. a
+        # renamed TSP whose tsP_NAME no longer matches the expected marker).
+        # Distinct from infra failures — record as a guard failure so monitors
+        # escalate on repetition instead of masking it as a generic failure.
+        err = f"identity: {type(exc).__name__}: {exc}"
+        log.error("Cheniere identity guard rejected response: %s", err)
+        health.record_guard_failure(guard="identity", error=err)
+        return {"status": "guard_failure", "error": err}
     except Exception as exc:
         err = f"{type(exc).__name__}: {exc}"
         log.error("Cheniere scraper failed: %s", err)

@@ -357,13 +357,34 @@ class TestDivergence:
         assert res["severity"] == "SKIPPED"
         assert "recency" in res["message"]
 
-    def test_accumulation_flat_arm_fires_on_third_flat_run(self) -> None:
+    def test_accumulation_flat_arm_suppressed_when_fresh(self) -> None:
+        """Flat accumulation count is benign when the latest period is fresh.
+
+        A daily EBB source legitimately has a flat row count between
+        postings (weekends, gaps, or a run before the new gas day lands).
+        The divergence flat-run arm must NOT fail purely on flatness when
+        the data is still within warn_days — staleness owns that signal.
+        """
         cfg = make_cfg(mode="accumulation")
         prior = {"rows": 4, "consecutive_flat": 2}
         df = make_frame(daily_periods(2), series=["s1", "s2"])  # 4 rows, fresh
         res = check_divergence(df, RECENT_OK_HEALTH, prior, cfg, DEFAULTS, NOW)
+        assert res["severity"] == "PASS"
+
+    def test_accumulation_flat_arm_fires_when_stale(self) -> None:
+        """Flat count + stale latest period = genuine stop-growing signal.
+
+        This is the real divergence case: the scraper reports ok but the
+        dataset is both flat AND aging, i.e. it stopped accumulating while
+        it should be growing.
+        """
+        cfg = make_cfg(mode="accumulation", staleness={"warn_days": 2, "fail_days": 4})
+        prior = {"rows": 4, "consecutive_flat": 2}
+        # 30 days stale, still 4 rows -> flat + stale
+        df = make_frame([day(30), day(31)], series=["s1", "s2"])
+        res = check_divergence(df, RECENT_OK_HEALTH, prior, cfg, DEFAULTS, NOW)
         assert res["severity"] == "FAIL"
-        assert "flat 3 consecutive runs at 4 rows" in res["message"]
+        assert "flat 3 consecutive runs" in res["message"]
 
     def test_accumulation_second_flat_run_does_not_fire(self) -> None:
         cfg = make_cfg(mode="accumulation")

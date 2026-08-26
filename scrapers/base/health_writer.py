@@ -109,7 +109,9 @@ class HealthWriter:
         Why:
             Confirms the most recent scrape ingested data without errors.
             Also clears the consecutive-no-op streak: a run that actually
-            ingested records proves the pipeline is alive again.
+            ingested records proves the pipeline is alive again. And clears
+            the guard-failure streak: a guard that stopped rejecting means the
+            source (or its marker) recovered.
 
         What:
             Writes ``status: "ok"`` with a UTC timestamp and optional
@@ -119,6 +121,7 @@ class HealthWriter:
             Disk errors propagate.
         """
         self._clear_no_op_state()
+        self._clear_guard_failure_state()
         self._write(
             {
                 "source": self._source_name,
@@ -187,16 +190,22 @@ class HealthWriter:
 
         Why:
             Makes failures visible immediately for operators and monitors.
+            Use this for INFRASTRUCTURE failures (network, HTTP, parser
+            exceptions) — NOT for guard rejections. Guard rejections
+            (identity/tenant mismatch, cycle-pin) must call
+            :meth:`record_guard_failure` so monitors can tell "the portal
+            served the wrong tenant" apart from "the network blipped".
 
         What:
             Writes ``status: "failed"`` with the error message and metadata.
             Also clears the no-op streak (a hard failure is louder than any
-            streak).
+            streak) and the guard-failure streak (a real failure resets it).
 
         Failure modes:
             Disk errors propagate.
         """
         self._clear_no_op_state()
+        self._clear_guard_failure_state()
         self._write(
             {
                 "source": self._source_name,
@@ -204,6 +213,65 @@ class HealthWriter:
                 "timestamp_utc": self._now_utc(),
                 "error": error,
                 "metadata": metadata,
+            }
+        )
+
+    def record_guard_failure(
+        self,
+        guard: str,
+        error: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Record a guard rejection (identity mismatch, cycle-pin, etc.).
+
+        Why:
+            Guards that reject a *structurally valid* response (Ten
+            antFallbackError on a legitimate AJAX delta, a stale identity
+            marker after an operator renamed a TSP) are a DISTINCT failure
+            class from infrastructure errors. Two KM/Cheniere scrapers died
+            completely in 2026-08 because identity guards raised on responses
+            they could not validate, and the generic ``failed``/``no_op``
+            health masked it as a routine scrape problem until data went
+            stale. A guard failure must be visible as its own status with the
+            guard name and reason, and must escalate loudly on repetition.
+
+        What:
+            Maintains a per-source ``consecutive_guard_failures`` streak in
+            the same ``.state.json``. Streak < 3 -> ``status: "guard_failure"``
+            (warn-class, named guard + reason); streak >= 3 ->
+            ``status: "fail"`` with an explicit escalation message. The streak
+            clears on the next :meth:`record_success` or :meth:`record_failure`.
+
+        Failure modes:
+            A corrupt/missing state file resets the streak to 1 (this run).
+            Disk errors propagate.
+        """
+        streak = self._read_guard_failure_state() + 1
+        self._write_guard_failure_state(streak)
+
+        merged_meta: dict[str, Any] = dict(metadata or {})
+        merged_meta["guard"] = guard
+        merged_meta["reason"] = error
+        merged_meta["consecutive_guard_failures"] = streak
+
+        if streak >= 3:
+            status = "fail"
+            err = (
+                f"{streak} consecutive {guard} guard failures — the guard is "
+                f"rejecting valid responses (or the source is genuinely wrong); "
+                f"investigate the guard, not just the data. Last: {error}"
+            )
+        else:
+            status = "guard_failure"
+            err = f"{guard} guard rejected response: {error}"
+
+        self._write(
+            {
+                "source": self._source_name,
+                "status": status,
+                "timestamp_utc": self._now_utc(),
+                "error": err,
+                "metadata": merged_meta,
             }
         )
 
@@ -278,9 +346,80 @@ class HealthWriter:
         if path.exists():
             try:
                 path.unlink()
+            except FileNotFoundError:
+                pass
             except OSError as exc:
                 log.warning(
                     "Could not clear no-op state for %s: %s",
+                    self._source_name,
+                    exc,
+                )
+
+    # ------------------------------------------------------------------
+    # Consecutive guard-failure streak state
+    # ------------------------------------------------------------------
+
+    def _read_guard_failure_state(self) -> int:
+        """Read the current consecutive-guard-failure count (0 if none/corrupt)."""
+        path = self._state_path()
+        if not path.exists():
+            return 0
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            log.warning(
+                "Corrupt guard-failure state for %s — resetting streak.",
+                self._source_name,
+            )
+            return 0
+        if isinstance(data, dict):
+            try:
+                return max(0, int(data.get("consecutive_guard_failures", 0)))
+            except (TypeError, ValueError):
+                return 0
+        return 0
+
+    def _write_guard_failure_state(self, streak: int) -> None:
+        """Persist the guard-failure streak atomically (merges with no-op streak)."""
+        prior: dict[str, Any] = {}
+        path = self._state_path()
+        if path.exists():
+            try:
+                prior = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(prior, dict):
+                    prior = {}
+            except (OSError, json.JSONDecodeError):
+                prior = {}
+        prior.update(
+            {
+                "source": self._source_name,
+                "consecutive_guard_failures": streak,
+                "updated_at": self._now_utc(),
+            }
+        )
+        safe_write_json(path, prior)
+
+    def _clear_guard_failure_state(self) -> None:
+        """Remove the guard-failure streak after a success/failure resets it."""
+        path = self._state_path()
+        if not path.exists():
+            return
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+        if isinstance(data, dict) and "consecutive_no_ops" in data:
+            # preserve the no-op streak, drop only the guard streak
+            data.pop("consecutive_guard_failures", None)
+            safe_write_json(path, data)
+        else:
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                log.warning(
+                    "Could not clear guard-failure state for %s: %s",
                     self._source_name,
                     exc,
                 )

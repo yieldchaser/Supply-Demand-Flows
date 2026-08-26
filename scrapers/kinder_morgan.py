@@ -55,7 +55,7 @@ import httpx
 
 from scrapers.base.headers import HeaderMismatchError
 from scrapers.base.health_writer import HealthWriter
-from scrapers.base.identity import assert_response_identity
+from scrapers.base.identity import TenantFallbackError, assert_response_identity
 from scrapers.base.safe_writer import safe_write_json
 
 log = logging.getLogger(__name__)
@@ -552,6 +552,19 @@ def run(
                 # to the freshest posted cycle and we refuse to mislabel it.
                 log.info("Cycle %s not yet posted for %s: %s", cycle, code, exc)
                 not_posted.append(key)
+            except TenantFallbackError as exc:
+                # Identity guard rejected a response it could not validate
+                # (e.g. an AJAX delta with no <title>, or a renamed TSP).
+                # This is a DISTINCT failure from infra errors — record it as
+                # a guard failure so monitors escalate on repetition instead
+                # of masking it as a routine no-op until data goes stale.
+                log.error("KM identity guard rejected %s: %s", key, exc)
+                health.record_guard_failure(
+                    guard="identity",
+                    error=f"{key}: {exc}",
+                    metadata={"tenant": code, "cycle": cycle},
+                )
+                failed.append(key)
             except Exception as exc:
                 log.error("KM scrape failed for %s: %s: %s", key, type(exc).__name__, exc)
                 failed.append(key)
