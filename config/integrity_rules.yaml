@@ -137,10 +137,23 @@ sources:
     # Zeros are LEGITIMATE here: Cove Point flow is cargo-driven, so flat
     # zero days are real operating state, never flagged.
     bands:
-      - label: cove_point_capacity
-        series_glob: "*"
+      # Plant INTAKE (feedgas actually liquefied) — bounded near nameplate.
+      - label: cove_point_plant_intake_feedgas
+        series_glob: "cpl_sq_10001_*"
         min: 0.0              # inclusive floor — zero flow is legitimate
-        max: 1000000.0        # above observed max 741,280
+        max: 1100000.0        # above observed max 848,200 Dth/d
+      # Plant SENDOUT (delivery to Transco/domestic) is a DIFFERENT meter
+      # (SI/D) that correctly exceeds feedgas nameplate — it carries the
+      # full LNG sendout, not just liquefaction intake. Sized to its real
+      # observed max (~2.59M Dth/d), not the 750k feedgas denominator.
+      - label: cove_point_plant_sendout_oac
+        series_glob: "cpl_oac_10001_*"
+        min: 0.0
+        max: 3000000.0        # above observed max 2,593,551 Dth/d
+      - label: cove_point_plant_sendout_opcap
+        series_glob: "cpl_opcap_10001_*"
+        min: 0.0
+        max: 2200000.0        # above observed max 1,800,000 Dth/d
 
   cheniere:
     parquet: data/curated/cheniere.parquet

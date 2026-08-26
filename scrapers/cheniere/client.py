@@ -229,8 +229,14 @@ async def run(
                 # Tenant-fallback guard (KM pipeline2 lesson): the GetCapacity
                 # API must return rows whose pipeline identity matches the
                 # requested tspNo. Creole Trail rows carry CTPL loc prefixes;
-                # Corpus Christi rows CCPL. Verify before parsing.
-                expected_marker = "CTPL" if tsp_no == TSP_CREOLE_TRAIL else "CCPL"
+                # Corpus Christi rows CCPL. Verify before parsing. The API's
+                # tsP_NAME field is the stable identity ("CHENIERE CREOLE TRAIL
+                # PIPELINE, L." / "CHENIERE CORPUS CHRISTI PIPELINE, L."), so
+                # match on the distinctive pipeline words, not the legacy
+                # "CTPL"/"CCPL" ticker that no longer appears in the payload.
+                expected_marker = (
+                    "CREOLE TRAIL" if tsp_no == TSP_CREOLE_TRAIL else "CORPUS CHRISTI"
+                )
                 blob = json.dumps(payload)
                 assert_response_identity(
                     expected=expected_marker,

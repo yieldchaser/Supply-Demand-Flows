@@ -285,9 +285,9 @@ export const LNG_TERMINALS = {
       {
         source: 'kinder_morgan',
         series: 'km_ngpl_sq_3592_d',
-        label: 'NGPL lateral (diagnostic, currently 0.0)',
+        label: 'NGPL lateral (diagnostic — live 0.0)',
         kind: 'context',
-        note: 'Separate physical delivery into SPL via NGPL. Currently posts 0.0 (KM OpAvail best_available cycle returned empty 2026-08-25 — scraper-cycle artifact, not real idle); kept as diagnostic context, not a headline contributor until it reliably posts.',
+        note: 'Separate physical delivery into SPL via NGPL. The KM scraper cycle-pin was fixed (2026-08-26: identity now verified on the GET, inherited for the AJAX POST delta) so per-cycle pulls succeed — but KM’s OpAvail reports loc 3592 as flow_ind=BD with total_scheduled_quantity=0 across all cycles/gas-days (verified 08-23→08-27). The ~480k Dth/d figure from recon is NOT reproducible from KM’s current or recent postings (design/operating capacity is 500,000, suggesting the recon number was a capacity misread, not a flow). Held as context, not a headline, until a defensible live value appears. NOT demoted to silence the agreement gate — the gate caught a real zero and the pipeline bug was fixed; the data itself is 0.',
       },
     ],
     locName: 'CTPL plant delivery (CT200111-D) + five Gillis feeders + NGPL 3592',

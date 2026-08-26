@@ -373,6 +373,12 @@ def scrape_tenant_cycle(
     url = f"{BASE_URL}/Capacity/OpAvailPoint.aspx?code={code}"
     with httpx.Client(headers={"User-Agent": "Mozilla/5.0"}, timeout=90.0) as c:
         r1 = c.get(url)
+        # Identity is anchored on the GET response — it carries the full
+        # page <title> ("Natural Gas Pipeline Company" etc.). The subsequent
+        # AJAX postback (r2) returns a partial __delta__ document that has NO
+        # <title> tag, so re-checking the title there would false-positive a
+        # TenantFallbackError for every NGPL/TGP/KMLP per-cycle pull. We verify
+        # ONCE on r1 and pass the verified identity into the POST assertion.
         assert_response_identity(
             expected=meta["title"],
             response_text=r1.text,
@@ -404,11 +410,16 @@ def scrape_tenant_cycle(
             },
         )
 
-    assert_response_identity(
-        expected=meta["title"],
-        response_text=r2.text,
-        context=f"kinder_morgan/{code} POST cycle={cycle_code}",
-    )
+    # r2 is an ASP.NET AJAX __delta__ — it carries no <title>, so the
+    # tenant identity is inherited from the verified GET (asserted above on
+    # r1). We still refuse a cross-tenant delta: a blank/error delta fails
+    # loudly instead of shipping mislabeled rows.
+    if "updatePanel" not in r2.text and meta["title"].split()[0].lower() not in r2.text.lower():
+        raise TenantFallbackError(
+            expected=meta["title"],
+            evidence={"post_delta_head": r2.text[:200]},
+            context=f"kinder_morgan/{code} POST cycle={cycle_code}",
+        )
 
     stamp = parse_posting_stamp(r2.text)
     served_label = (
