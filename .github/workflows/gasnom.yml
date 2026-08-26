@@ -20,9 +20,6 @@ on:
         required: false
         type: string
 
-permissions:
-  contents: read
-
 concurrency:
   group: gasnom-${{ github.event.schedule || 'dispatch' }}
   cancel-in-progress: true
@@ -31,6 +28,11 @@ jobs:
   scrape:
     name: ${{ matrix.slug }}
     runs-on: ubuntu-latest
+    # contents:write — the Commit step pushes curated parquet + health back to
+    # main. Top-level `contents: read` left github-actions[bot] push-denied
+    # (403), so successful scrapes silently never landed (2026-08-26).
+    permissions:
+      contents: write
     strategy:
       # One pipeline's WAF hiccup must never mask the others' results.
       fail-fast: false
