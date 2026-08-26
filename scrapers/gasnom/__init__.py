@@ -242,20 +242,19 @@ def run(  # noqa: PLR0912 — linear control flow mirrors gulf_south.run
             return {"status": "empty", "slug": slug, "gas_day": target_day.isoformat(), "rows": 0}
 
         if cycle and latest_cycle_code != cycle.strip().lower():
+            # Opportunistic capture: the ColdFusion template exposes ONLY the
+            # latest posted cycle per gas day. If a scheduled slot's requested
+            # cycle was never served (GASNom's posting clock drifts; GitHub
+            # has also dropped cron slots outright — 2026-08-24/25 incident),
+            # refusing the newer data would freeze ingestion entirely: every
+            # later run would keep seeing only this newest cycle and skip it.
+            # So we take the freshest cycle we can get and record the
+            # substitution in health + payload for auditability.
             log.info(
-                "%s %s: latest posted cycle is %s (%s), requested %s — skipping.",
+                "%s %s: latest posted cycle is %s (%s), requested %s — capturing opportunistically.",
                 slug, target_day, latest_cycle_code, latest_cycle_desc, cycle,
             )
-            health.record_skipped(
-                f"latest posted cycle {latest_cycle_code} != requested {cycle}"
-            )
-            return {
-                "status": "skipped",
-                "slug": slug,
-                "gas_day": target_day.isoformat(),
-                "latest_cycle": latest_cycle_code,
-                "requested_cycle": cycle,
-            }
+            cycle = latest_cycle_code
 
         out_path = _raw_path(raw_dir, slug, target_day, latest_cycle_code)
         if out_path.exists():

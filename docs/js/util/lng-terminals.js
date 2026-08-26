@@ -160,7 +160,7 @@ export const LNG_TERMINALS = {
     platformNote:
       'Cove Point (BHE GT&S EBB) posts all five NAESB cycles. Zeros are legitimate — cargo-driven facility.',
     methodLine:
-      'TSQ at EGTS–Loudoun (loc 40704, Cove Point LNG LP interconnect, delivery leg) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Zeros = no cargo activity',
+      'MEASURED-PARTIAL: TSQ at EGTS–Loudoun (loc 40704, delivery leg) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · COVERAGE GAP: this is one of several parallel feeds into the 750 MMcf/d terminal. CPL\'s own EBB (infopost.bhegts.com/cpl) additionally shows Transco Pleasant Valley (~600k Dth/d receipts) + Columbia Loudoun (~300k) + CPL storage draw (~750k) — none of which flow through EGTS-40704. The EGTS figure is real but covers only a fraction of total feedgas; never present it as the terminal total.',
   },
 
   sabine_pass: {

@@ -15,7 +15,7 @@ REAL_HEALTH_DIR = Path("data/health").resolve()
 
 @pytest.fixture(autouse=True, scope="session")
 def _isolate_health_dir(tmp_path_factory: pytest.TempPathFactory) -> None:
-    """Redirect ALL HealthWriter output to a session temp dir.
+    """Redirect ALL HealthWriter output + publisher audit to sandbox dirs.
 
     Why:
         The 2026-08-25 incident: running the full suite from repo root let
@@ -23,11 +23,14 @@ def _isolate_health_dir(tmp_path_factory: pytest.TempPathFactory) -> None:
         fixture payloads, silently rotting production health state. This
         fixture sets BLUETIDE_HEALTH_DIR so every writer (patched or not)
         lands in a throwaway dir instead — the trap is removed regardless of
-        whether a given test remembers to patch.
+        whether a given test remembers to patch. It also sets the publisher's
+        BLUETIDE_SKIP_COVERAGE_AUDIT so build() unit tests with synthetic
+        fixtures don't trip the real-config coverage gate.
     """
     health_tmp = tmp_path_factory.mktemp("health")
     REAL_HEALTH_DIR.mkdir(parents=True, exist_ok=True)
     os.environ["BLUETIDE_HEALTH_DIR"] = str(health_tmp)
+    os.environ["BLUETIDE_SKIP_COVERAGE_AUDIT"] = "1"
     yield
     # Leave the env var for any later in-process use; it points at a temp dir.
 

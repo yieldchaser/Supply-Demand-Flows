@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -81,13 +82,18 @@ def _json_default(obj: object) -> str:
 
 
 def _collect_high_confidence_loc_ids(node: Any, found: set[str], high_key: bool = False) -> None:
-    """Recursively gather loc_ids of high-confidence meter entries.
+    """Recursively gather loc_ids of configured meter entries.
 
     Why:
-        Meter configs use different nesting shapes and two confidence styles:
+        Meter configs use different nesting shapes and confidence styles:
         an explicit ``confidence: high`` field (lng_meter_map, quorum, bhe,
-        cheniere) or membership in a list named ``high`` (gasnom). Both are
-        accepted; ``candidates``/``excluded`` lists are never collected.
+        cheniere) or membership in ``high``/``candidates`` lists (gasnom).
+        Both ``high`` AND ``candidates`` ship — candidates are unconfirmed
+        for TERMINAL METRICS (frontend never headlines them) but are real
+        postings worth carrying in the bundle; dropping them entirely caused
+        the 2026-08-26 incident where SABINE/PAP shards collapsed to zero
+        rows while their configs listed live candidate meters. Only
+        ``excluded`` lists are never collected.
     """
     if isinstance(node, dict):
         if node.get("loc_id") is not None and (
@@ -102,8 +108,8 @@ def _collect_high_confidence_loc_ids(node: Any, found: set[str], high_key: bool 
 
 
 def _collect_from_pair(key: str, value: Any, found: set[str]) -> None:
-    """Walk one container entry, flagging gasnom-style ``high`` lists."""
-    if key == "high" and isinstance(value, list):
+    """Walk one container entry, flagging gasnom-style meter lists."""
+    if key in ("high", "candidates") and isinstance(value, list):
         _collect_high_confidence_loc_ids(value, found, high_key=True)
     else:
         _collect_high_confidence_loc_ids(value, found)
@@ -183,6 +189,74 @@ def _series_matches(series_id: str, allowed: set[str]) -> bool:
     """
     padded = f"_{series_id.lower()}_"
     return any(f"_{loc}_" in padded for loc in allowed)
+
+
+def _audit_bundle_coverage(index_rows: dict[str, int]) -> None:
+    """Fail the publish when configured meters ship nothing into the bundle.
+
+    Why:
+        The 2026-08-26 gasnom incident: a meter-config re-inventory wrote loc
+        ids from a different id-space than the curated history, and the
+        relevance prune silently shipped a 95%-thinned shard. Curated was
+        healthy — the loss happened exactly here, between parquet and index,
+        where no integrity check looked. This audit closes that gap by
+        failing the DEPLOY (publish workflow runs this before committing).
+
+    What:
+        Two rules, both fatal:
+          1. Every bundled source must ship rows > 0 (an empty shard is a
+             bug even for a legitimately quiet source — handle those with an
+             explicit config exclusion, not silence).
+          2. For every EBB source with a meter config, EVERY configured
+             loc id (high + candidates) must resolve to at least one real
+             curated series. Unresolved ids mean id-space drift: fix the
+             config or backfill the history — never ship a half-empty shard.
+    """
+    problems: list[str] = []
+
+    # Unit tests exercise build() with synthetic fixtures that can never
+    # satisfy real meter configs; deployments (publish workflow) always run
+    # the audit. Same env-kill-switch pattern as BLUETIDE_HEALTH_DIR.
+    if os.environ.get("BLUETIDE_SKIP_COVERAGE_AUDIT"):
+        return
+
+    for src_key, rows in sorted(index_rows.items()):
+        if rows <= 0:
+            problems.append(
+                f"{src_key}: shipped 0 rows in the bundle index — "
+                "over-pruned, empty curated, or wrong source key"
+            )
+
+    for src_key, cfg_path in sorted(EBB_METER_CONFIGS.items()):
+        if not cfg_path.exists():
+            continue
+        allowed = load_relevant_loc_ids(src_key)
+        if not allowed:
+            continue
+        curated_path = CURATED_DIR / f"{src_key}.parquet"
+        if not curated_path.exists():
+            problems.append(f"{src_key}: meter config exists but no curated parquet")
+            continue
+        series = pd.read_parquet(curated_path, columns=["series_id"])["series_id"]
+        sid_list = [str(s) for s in series.dropna().unique()]
+        unresolved = [
+            loc for loc in sorted(allowed)
+            if not any(_series_matches(sid, {loc}) for sid in sid_list)
+        ]
+        if unresolved:
+            problems.append(
+                f"{src_key}: configured loc id(s) {unresolved} match NO curated "
+                f"series — id-space drift between config/meters/{src_key}.json "
+                "and data/curated (fix the config or backfill)"
+            )
+
+    if problems:
+        msg = "\n".join(f"  - {p}" for p in problems)
+        raise SystemExit(
+            "BUNDLE COVERAGE AUDIT FAILED — refusing to publish:\n" + msg
+        )
+    print("Bundle coverage audit: PASS "
+          f"({len(index_rows)} sources, {len(EBB_METER_CONFIGS)} meter configs checked)")
 
 
 def prune_to_relevant_meters(df: pd.DataFrame, source_key: str) -> pd.DataFrame:
@@ -329,6 +403,10 @@ def build() -> dict[str, Any]:
         "hash": bundle_hash,
     }
     safe_write_json(DOCS_DATA_DIR / "manifest.json", manifest)
+
+    # 5b. Coverage audit — fail BEFORE any commit/deploy when configured
+    #     meters ship nothing or config ids drifted out of curated.
+    _audit_bundle_coverage({k: int(v["rows"]) for k, v in index_sources.items()})
 
     # 6. Prune stale bundle artifacts (defense against the docs/data graveyard).
     #    Old bundle.{HASH}.json, src.*.{HASH}.json and index.{HASH}.json pile up
