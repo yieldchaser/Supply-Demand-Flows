@@ -180,3 +180,41 @@ nothing checking. Fixed at the root:
   headline = 1,407.7 MMcf/d = **31.3%** of nameplate → MEASURED-PARTIAL, with the
   invisible ~69% (non-CTPL feedgas + Transco Z3 SPA migration) footnoted on the
   card at Freeport-caveat prominence.
+
+## 2026-08-26 — SCRAPER FAULTS FIXED (the gate caught real bugs, not noise)
+
+Two freshness/coverage faults surfaced this cycle. Both were REAL pipeline bugs
+the agreement/integrity gates correctly flagged — fixed at the cause, not by
+demoting meters.
+
+1. **Cheniere went stale 2 days (08-24 to 08-26 block).** Root cause: the scraper's
+   identity assertion expected marker "CTPL" (Creole Trail) / "CCPL" (Corpus),
+   but Cheniere's API now returns tsP_NAME: "CHENIERE CREOLE TRAIL PIPELINE, L."
+   — the legacy tickers no longer appear in the payload, so every pull raised
+   TenantFallbackError and the dataset froze. Fix: match on distinctive
+   pipeline words ("CREOLE TRAIL" / "CORPUS CHRISTI") in
+   scrapers/cheniere/client.py. After the fix the scraper resumed and cheniere
+   caught up to 08-26. The per-source staleness guard (config/integrity_rules.yaml
+   already pins daily EBB sources at warn_days=2 / fail_days=4) now correctly
+   shows cheniere PASS.
+
+2. **NGPL 3592 returned 0 / KM per-cycle pulls never wrote.** Root cause: the KM
+   scraper verified tenant identity on the AJAX POST delta response, which has
+   NO title tag -> TenantFallbackError for every NGPL/TGP/KMLP per-cycle pull,
+   so no raw file was written and only a stale best-available row (0.0) remained.
+   Fix: verify identity on the GET (full page, carries the title), inherit it for
+   the POST delta in scrapers/kinder_morgan.py. NGPL per-cycle pulls now succeed.
+   BUT the live value is genuinely 0: KM's OpAvail reports loc 3592 as
+   flow_ind:BD with total_scheduled_quantity:0 across all cycles/gas-days
+   (verified 08-23 to 08-27). The ~480k Dth/d from recon is NOT reproducible from KM
+   (design/operating capacity is 500,000, suggesting a capacity misread). So 3592
+   stays kind:'context' (diagnostic) — held there because the DATA is 0, NOT to
+   silence the gate. The gate did its job: it caught a real zero, the pipeline bug
+   was fixed, and we reported the true state instead of fabricating flow.
+
+3. **bhe value_sanity FAIL** (pre-existing, surfaced by the integrity run): the
+   single cove_point_capacity band (max: 1,000,000) wrongly covered Cove
+   Point's plant-SENDOUT OAC series (cpl_oac_10001_*), which genuinely reaches
+   ~2.59M Dth/d (sendout != feedgas intake). Split into three bands: plant intake
+   (cpl_sq_10001_*, max 1.1M), sendout OAC (cpl_oac_10001_*, max 3.0M), sendout
+   opcap (cpl_opcap_10001_*, max 2.2M). bhe now PASS.
