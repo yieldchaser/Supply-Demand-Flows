@@ -384,13 +384,13 @@ export function renderLngFleetOverview(
   const header = document.createElement('div');
   header.className = 'fleet-header';
   header.innerHTML = `
-    <h2 class="fleet-title">US LNG Export Fleet · Feedgas</h2>
-    <p class="fleet-aggregate num">
-      Total scheduled: <strong>${totalLatest.toLocaleString(undefined, { maximumFractionDigits: 0 })} MMcf/d</strong>
-      across ${countedIds.length} measured terminals ·
-      ${fleetPct.toFixed(1)}% of ${totalNameplate.toLocaleString()} MMcf/d fleet nameplate
-      (Sabine Pass counted at its five Gillis feeders + NGPL lateral — fully measured as of 2026-08-26)
-    </p>
+  <h2 class="fleet-title">US LNG Export Fleet · Feedgas</h2>
+  <p class="fleet-aggregate num">
+    Total scheduled: <strong>${totalLatest.toLocaleString(undefined, { maximumFractionDigits: 0 })} MMcf/d</strong>
+    across ${countedIds.length} measured terminals ·
+    ${fleetPct.toFixed(1)}% of ${totalNameplate.toLocaleString()} MMcf/d fleet nameplate
+    (Sabine Pass + Golden Pass are measured-partial — CT200111-D covers ~31% of Sabine's nameplate; GP is ramping)
+  </p>
   `;
   panelEl.appendChild(header);
 
@@ -436,6 +436,17 @@ export function renderLngFleetOverview(
     const proxyBadge = isProxy
       ? `<span class="fleet-proxy-badge" title="Inferred proxy: Design Capacity − OAC. Cheniere does not publish Scheduled Quantities.">ⓘ</span>`
       : '';
+    // TASK 3 (2026-08-26): measured-partial terminals MUST wear a prominent
+    // badge naming the invisible fraction — same visual weight as Freeport's
+    // KMTP caveat. A partial number presented as a terminal total is the
+    // Cove-Point-139% / Sabine-overstated class of error.
+    const isPartial =
+      Array.isArray(t.feeds) &&
+      t.feeds.some((f) => f.kind === 'measured-partial') &&
+      !t.feeds.some((f) => f.kind === 'measured');
+    const partialBadge = isPartial
+      ? `<span class="fleet-partial-badge" title="${t.coverageNote || 'Measured-partial: only a share of terminal feedgas is publicly visible.'}">partial ▲</span>`
+      : '';
     const creepBadge = s.ok && s.utilPct >= 100
       ? `<span class="capacity-creep-tooltip" title="running above stated nameplate — capacity creep or measurement basis">ⓘ</span>`
       : '';
@@ -443,7 +454,7 @@ export function renderLngFleetOverview(
     card.title = `${t.display} · latest ${s.days ?? '?'} gas days`;
     card.innerHTML = `
       <div class="fleet-card__top">
-        <span class="fleet-card__name">${t.display}${proxyBadge}</span>
+        <span class="fleet-card__name">${t.display}${proxyBadge}${partialBadge}</span>
         ${wowHtml}
       </div>
       <div class="fleet-card__value-row">
@@ -478,13 +489,13 @@ export function renderLngFleetOverview(
   const sabineCaveat = document.createElement('p');
   sabineCaveat.className = 'fleet-footnote fleet-footnote--caveat';
   sabineCaveat.innerHTML =
-    '<strong>⚠ Sabine Pass is measured-but-partial.</strong> Its figures sum the two ' +
-    'publicly-visible laterals — NGPL 3592 (~470 MMcf/d) + Creole Trail CT200111 (~1,408 MMcf/d), ' +
-    'both MEASURED — roughly 40% of the 4,500 MMcf/d terminal. Transco Z3 and other SPL feeds do ' +
-    'not publicly post, so terminal-wide feedgas cannot be measured from public data. The former ' +
-    '"OAC proxy implies ~1,408 full-terminal" framing was retired 2026-08-25: design − OAC equals ' +
-    'published SQ at CT200111 identically, so the proxy was that lateral\u2019s flow restated, never a ' +
-    'terminal estimate. Sabine stays in the fleet aggregate at its measured-lateral sum, clearly labeled partial.';
+    '<strong>⚠ Sabine Pass is measured-partial.</strong> Cheniere’s Creole Trail EBB exposes a ' +
+    'consolidated plant-delivery meter (CT200111-D ≈ 1,408 MMcf/d) plus the NGPL lateral — ' +
+    'CTPL’s own view of feedgas it delivers into the plant, ≈ 31% of the 4,500 MMcf/d nameplate. ' +
+    'NGI feeder-gas nominations put Sabine near 3.9 Bcf/d; the remaining ~2.5 Bcf/d is non-CTPL ' +
+    'feedgas (other interconnects, intrastate) not posted publicly. Sabine stays in the fleet ' +
+    'aggregate at its measured CTPL share, clearly labeled partial. (The old "five Gillis feeders ' +
+    '= full terminal" framing was corrected 2026-08-26 — same error class as the Cove Point 139%.)';
   caveats.appendChild(sabineCaveat);
   const freeportCaveat = document.createElement('p');
   freeportCaveat.className = 'fleet-footnote';

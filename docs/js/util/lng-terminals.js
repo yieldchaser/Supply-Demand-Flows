@@ -228,70 +228,78 @@ export const LNG_TERMINALS = {
   sabine_pass: {
     id: 'sabine_pass',
     display: 'Sabine Pass',
-    // PROMOTED to FULLY MEASURED 2026-08-26 (receipt-side audit): Creole
-    // Trail's own EBB posts ALL five third-party feeders at Gillis as R-leg
-    // meters, and we capture them all — CT109413 TETCO, CT109441 Transco,
-    // CT109451 Trunkline, CT109461 LEAP, CT109471 Acadian. Independence:
-    // five different physical pipes at one hub; receipt sum tracks the
-    // CT200111-D output within ±8% (two views of one flow). The NGPL 3592
-    // KM lateral is a SEPARATE physical delivery into SPL not seen by CTPL,
-    // so it still sums. CT200111-D is demoted to corroboration (it measures
-    // CTPL's own delivery INTO SPL — same molecules as the five receipts).
+    // 2026-08-26 receipt-side audit: Creole Trail's EBB posts five independent
+    // Gillis-hub feeder receipts (CT109413/441/451/461/471) + a consolidated
+    // plant-delivery meter CT200111-D (the Cove-Point-10001 analogue).
+    //
+    // COVERAGE REALITY (same lesson as Cove Point): CT200111-D = 1,408 MMcf/d
+    // = 31% of the 4,500 MMcf/d nameplate. Cheniere's EBB only sees FEEDGAS
+    // THAT CTPL ITSELF DELIVERS INTO THE PLANT. Sabine's other trains are fed
+    // by pipes CTPL does not meter (e.g. the NGPL lateral, Transco Z3 via
+    // other interconnects, intrastate). NGI feeder-gas nominations put Sabine
+    // near 3.9 Bcf/d (Aug 2026, even during compressor maintenance) — i.e.
+    // CTPL's posted view is roughly ONE THIRD of true terminal feedgas.
+    //
+    // Therefore this is MEASURED-PARTIAL, NOT fully measured. We headline the
+    // consolidated plant-delivery meter (CT200111-D) and label coverage
+    // explicitly, exactly as Cove Point demotes its feeder receipts to
+    // context. Summing all six would fabricate ~100% coverage.
     feeds: [
       {
         source: 'cheniere',
         series: 'creole_trail_sq_CT109413_r',
         label: 'TETCO Gillis (measured)',
-        kind: 'measured',
+        kind: 'context',
       },
       {
         source: 'cheniere',
         series: 'creole_trail_sq_CT109441_r',
         label: 'Transco Gillis (measured)',
-        kind: 'measured',
+        kind: 'context',
       },
       {
         source: 'cheniere',
         series: 'creole_trail_sq_CT109451_r',
         label: 'Trunkline Gillis (measured)',
-        kind: 'measured',
+        kind: 'context',
       },
       {
         source: 'cheniere',
         series: 'creole_trail_sq_CT109461_r',
         label: 'LEAP Gillis (measured)',
-        kind: 'measured',
+        kind: 'context',
       },
       {
         source: 'cheniere',
         series: 'creole_trail_sq_CT109471_r',
         label: 'Acadian Gillis (measured)',
-        kind: 'measured',
-      },
-      {
-        source: 'kinder_morgan',
-        series: 'km_ngpl_sq_3592_d',
-        label: 'NGPL lateral (measured)',
-        kind: 'measured',
-        note: 'Separate physical delivery into SPL via NGPL; not visible on CTPL.',
+        kind: 'context',
       },
       {
         source: 'cheniere',
         series: 'creole_trail_sq_CT200111_d',
-        label: 'CTPL→SPL delivery (corroboration)',
-        kind: 'comparison',
-        note: 'Output-side view of the five Gillis receipts. Corroborates within ±8%; never summed with them.',
+        label: 'CTPL→SPL plant delivery (measured, partial)',
+        kind: 'measured-partial',
+        note: 'Consolidated CTPL delivery into SPL — the Cove-Point-10001 analogue. ~31% of nameplate; CTPL does not meter the other feedgas paths.',
+      },
+      {
+        source: 'kinder_morgan',
+        series: 'km_ngpl_sq_3592_d',
+        label: 'NGPL lateral (diagnostic, currently 0.0)',
+        kind: 'context',
+        note: 'Separate physical delivery into SPL via NGPL. Currently posts 0.0 (KM OpAvail best_available cycle returned empty 2026-08-25 — scraper-cycle artifact, not real idle); kept as diagnostic context, not a headline contributor until it reliably posts.',
       },
     ],
-    locName: 'Five Gillis feeders (CTPL R-legs) + NGPL 3592 lateral',
+    locName: 'CTPL plant delivery (CT200111-D) + five Gillis feeders + NGPL 3592',
     nameplate: 4500,
+    coverageNote: 'MEASURED-PARTIAL: only CTPL’s EBB-visible share (CT200111-D plant delivery + NGPL 3592) is public — ~31% of the 4,500 MMcf/d nameplate. INVISIBLE: (1) CTPL does not meter non-CTPL feedgas (Transco Z3, intrastate, other interconnects); (2) Transco Zone 3 deliveries are unavailable — Williams migrated that reporting to a Shipper-Posted Allocation (SPA), not public SQ. Per NGI feeder-gas nominations Sabine runs near 3.9 Bcf/d; the other ~2.5 Bcf/d is not in any public EBB we scrape. NGPL 3592 currently posts 0.0 (KM OpAvail best_available cycle returned empty for that loc on 2026-08-25 — a scraper-cycle artifact, not a real plant idle; CT200111-D alone is the headline).',
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'Cheniere LNG Connection + KM pipeline2',
     platformNote:
-      "FULLY MEASURED: sums the five independent Gillis-hub receipt meters posted on Creole Trail's own EBB plus the NGPL lateral. CT200111-D kept as corroboration only.",
+      'MEASURED-PARTIAL: consolidated plant-delivery meter CT200111-D (1,408 MMcf/d ≈ 31% of nameplate) plus the NGPL lateral. This is CTPL’s visible share only — Sabine runs near 3.9 Bcf/d per NGI feeder-gas nominations; the remainder is non-CTPL feedgas we cannot see. NOT full coverage.',
     methodLine:
-      'MEASURED receipts: CTPL locs CT109413/441/451/461/471 (five independent Gillis feeders) + KM NGPL 3592 lateral · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Corroboration: CT200111-D (output-side, ±8% of receipts) · Independence evidence: distinct pipes at Gillis hub; no sequential re-measurement',
+      'MEASURED-PARTIAL: CTPL plant delivery CT200111-D + KM NGPL 3592 lateral · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · COVERAGE GAP: CTPL EBB ≈ 31% of 4,500 nameplate; other Sabine feedgas not public (cf. Cove Point lesson) · Gillis feeders demoted to context (same molecules as CT200111-D, ±8%)',
   },
 
   corpus_christi: {

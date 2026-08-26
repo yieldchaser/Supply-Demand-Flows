@@ -191,6 +191,133 @@ def _series_matches(series_id: str, allowed: set[str]) -> bool:
     return any(f"_{loc}_" in padded for loc in allowed)
 
 
+def _check_agreement(
+    reg_text: str,
+    bundle_sources: dict[str, dict[str, Any]],
+    high_conf: dict[str, set[str]],
+) -> list[str]:
+    """Pure registry<->config<->bundle agreement check (unit-testable).
+
+    Returns a list of problem strings (empty == pass). See
+    _audit_registry_bundle_agreement for the contract.
+    """
+    problems: list[str] = []
+    # Build a quick lookup of which series have non-zero rows in the bundle.
+    nonzero_series: dict[str, set[str]] = {}
+    for src_key, entry in bundle_sources.items():
+        s = set()
+        for r in entry.get("data", []):
+            sid = str(r.get("series_id", "")).lower()
+            try:
+                if float(r.get("value") or 0) != 0:
+                    s.add(sid)
+            except (TypeError, ValueError):
+                pass
+        nonzero_series[src_key] = s
+
+    # Extract terminal ids and their feed declarations via regex.
+    # Terminal block start:  "  some_id: {"  at column 2.
+    term_re = re.compile(r"^\s{2}(\w+):\s*\{", re.M)
+    feed_re = re.compile(
+        r"source:\s*'([\w]+)'.*?series:\s*'([\w]+)'.*?kind:\s*'([\w-]+)'",
+        re.S,
+    )
+    for m in term_re.finditer(reg_text):
+        tid = m.group(1)
+        block_start = m.end()
+        # find matching close: scan braces
+        depth = 1
+        i = block_start
+        while i < len(reg_text) and depth > 0:
+            c = reg_text[i]
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+            i += 1
+        block = reg_text[m.start():i]
+        for fm in feed_re.finditer(block):
+            src = fm.group(1)
+            series = fm.group(2)
+            kind = fm.group(3)
+            if kind not in ("measured", "measured-partial"):
+                continue
+            # (a) high-confidence in config
+            loc_part = series.lower().split("_")[-2] if "_" in series else series.lower()
+            mloc = re.search(r"_sq_([a-z0-9]+)_[dr]_", series.lower())
+            loc = mloc.group(1) if mloc else loc_part
+            if src in high_conf and loc not in high_conf[src]:
+                problems.append(
+                    f"{tid}: feed series '{series}' (source '{src}', kind '{kind}') "
+                    f"is NOT a high-confidence meter in config/meters/{src}.json "
+                    f"(confidence must be 'high'). The relevance prune will drop it."
+                )
+            # (b) non-zero rows in bundle
+            series_l = series.lower()
+            if (
+                src in nonzero_series
+                and not any(s.startswith(series_l + "_") for s in nonzero_series[src])
+                and series_l not in nonzero_series[src]
+            ):
+                problems.append(
+                    f"{tid}: headline feed '{series}' (source '{src}', kind '{kind}') "
+                    f"ships ZERO non-zero rows in the built bundle — the panel "
+                    f"will render an empty/zero card. Backfill the history or fix "
+                    f"the config confidence so it prunes in."
+                )
+    return problems
+
+
+def _audit_registry_bundle_agreement(
+    bundle_sources: dict[str, dict[str, Any]],
+) -> None:
+    """Fail the publish when a registry headline meter is missing from config or bundle.
+
+    Why:
+        Seventh bug of the same family (2026-08-26): lng-terminals.js named
+        creole_trail_sq_CT200111_d as Sabine's headline (kind:'measured' at
+        the time), but config/meters/cheniere.json marked CT200111
+        ``confidence: comparison``. The relevance prune dropped it, the bundle
+        shipped zero rows for it, and the panel silently lost its number — with
+        nothing checking that the registry's declared headline actually reached
+        the bundle. The per-source coverage audit could not catch this: CT200111
+        DID resolve to a curated series (so "id-space drift" passed), it was
+        only the *prune* that excluded it.
+
+        Fix: assert REGISTRY <-> CONFIG <-> BUNDLE agreement. For every feed a
+        terminal declares with kind in {measured, measured-partial}:
+          (a) its loc id MUST be high-confidence in the source's meter config,
+          (b) it MUST ship >= 1 non-zero row in the built bundle.
+        Context/comparison/proxy feeds are exempt from (b) but NOT from (a) —
+        a feed the panel can never headline still must be a real, configured
+        meter so its data is at least present.
+
+        The pure logic lives in _check_agreement() so unit tests can exercise
+        both arms without the filesystem registry (negative tests in
+        tests/test_publish_agreement.py).
+    """
+    if os.environ.get("BLUETIDE_SKIP_COVERAGE_AUDIT"):
+        return
+
+    reg_path = Path("docs/js/util/lng-terminals.js")
+    if not reg_path.exists():
+        print("WARN: registry not found — skipping agreement audit")
+        return
+    reg_text = reg_path.read_text(encoding="utf-8")
+
+    high_conf: dict[str, set[str]] = {}
+    for src_key in EBB_METER_CONFIGS:
+        high_conf[src_key] = load_relevant_loc_ids(src_key)
+
+    problems = _check_agreement(reg_text, bundle_sources, high_conf)
+    if problems:
+        msg = "\n".join(f"  - {p}" for p in problems)
+        raise SystemExit(
+            "REGISTRY<->CONFIG<->BUNDLE AGREEMENT FAILED — refusing to publish:\n" + msg
+        )
+    print("Registry<->config<->bundle agreement: PASS")
+
+
 def _audit_bundle_coverage(index_rows: dict[str, int]) -> None:
     """Fail the publish when configured meters ship nothing into the bundle.
 
@@ -408,6 +535,12 @@ def build() -> dict[str, Any]:
     #     meters ship nothing or config ids drifted out of curated.
     _audit_bundle_coverage({k: int(v["rows"]) for k, v in index_sources.items()})
 
+    # 5c. Registry<->config<->bundle agreement — fail when a registry headline
+    #     meter is missing from the meter config (prune would drop it) or ships
+    #     zero rows (panel would render empty). Catches the 2026-08-26 Sabine
+    #     CT200111-D silent-loss class of bug.
+    _audit_registry_bundle_agreement(bundle["sources"])
+
     # 6. Prune stale bundle artifacts (defense against the docs/data graveyard).
     #    Old bundle.{HASH}.json, src.*.{HASH}.json and index.{HASH}.json pile up
     #    on every rebuild (~4.6 GB accumulated across 144 hashes by 2026-08-25).
@@ -477,6 +610,32 @@ def _prune_stale_bundles(data_dir: Path, current_hash: str, keep_previous: int =
     if removed:
         print(f"Pruned {removed} stale bundle artifacts (kept {len(keep)} hashes)")
     return removed
+
+
+def resolve_current_index(data_dir: Path = DOCS_DATA_DIR) -> dict[str, Any]:
+    """Resolve the CURRENT index via manifest.json — never by globbing.
+
+    Why (TASK 4, 2026-08-26): verification tooling globbed
+    ``docs/data/index.*.json`` and alphabetically picked a STALE hash
+    (fb4f74be) instead of the freshly-built one (4bd04b97) — both lingered
+    on disk until the graveyard prune removed the older. The manifest is the
+    single source of truth for "which index is live", so every reader must
+    follow manifest.json -> index_url rather than guessing by filename sort.
+
+    Returns the parsed index dict. Raises SystemExit on a missing/broken
+    manifest so callers fail loudly instead of silently reading stale data.
+    """
+    manifest_path = data_dir / "manifest.json"
+    if not manifest_path.exists():
+        raise SystemExit(f"resolve_current_index: {manifest_path} missing")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    index_url = manifest.get("index_url")
+    if not index_url:
+        raise SystemExit("resolve_current_index: manifest.json has no index_url")
+    index_path = data_dir / index_url
+    if not index_path.exists():
+        raise SystemExit(f"resolve_current_index: {index_path} (from manifest) missing")
+    return json.loads(index_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

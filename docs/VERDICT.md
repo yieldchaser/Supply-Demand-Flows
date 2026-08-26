@@ -95,6 +95,88 @@ every third-party feeder** at the Gillis hub — the exact pattern CPL uses:
 | CT109471 | Acadian | R | Already captured |
 
 Cross-check: sum of the five receipt legs tracks CT200111-D (the SPL delivery)
-within ±8% over 30 days — they are two views of the same pipe flow. Sabine can
-be presented as FULLY MEASURED using the receipt-leg sum (≈1.42M Dth/d ≈ 1,388
-MMcf/d), with CT200111-D as corroboration rather than headline.
+within ±8% over 30 days — they are two views of the same pipe flow.
+
+## 2026-08-26 — REUSABLE TECHNIQUE: the TWIN-METER pattern (automatic audit trigger)
+
+When two operators meter the same physical handoff — e.g. Cove Point's EGTS
+interconnect — BOTH publish it:
+- CPL posts it as `cpl_sq_47001_r` (CPL's own view of EGTS Loudoun)
+- EGTS/BHE posts it as `egts_sq_40704_d` (EGTS's own view)
+
+We proved they are the SAME molecules: mean |diff| 204 Dth/d (0.12%),
+Pearson r = 0.9991 across 92 days. Summing both double-counts the gas.
+
+**RULE (add to registry audit checklist):** any new multi-feed terminal MUST
+be checked for twin meters — locate the interconnect in BOTH operators' EBBs
+and verify they are not the same physical flow before summing. Corroborate
+with a correlation/diff test, never by trust. This is now documented in the
+MULTI-FEED INDEPENDENCE RULE header in lng-terminals.js.
+
+## 2026-08-26 — Cove Point audit corrections (four-task follow-up)
+
+1. **Golden Pass was stale in the fleet table** — an earlier report carried
+   181 MMcf/d (pre-gasnom-ingestion-fix value). Curated gasnom now has
+   `golden_pass_sq_1097217_d` = 343,070 Dth/d = **334.7 MMcf/d** (live, 08-26).
+   Fleet recomputed with the live value. No other terminal carried a pre-fix
+   value — verified against curated parquet (Cove Point 725.6, Sabine 1,408,
+   Freeport 1,104, Corpus 1,735, Plaquemines 3,853, Calcasieu 1,613, Cameron 1,445).
+
+2. **Nameplate denominators audited** — every entry in LNG_NAMEPLATE_MMCFD
+   carries a FERC docket source (CP12-509 Freeport=2,100; CP13-25 Cameron=2,000;
+   CP11-72 Sabine=4,500; CP12-507 Corpus=2,400; CP17-66 Plaquemines=3,400;
+   CP15-550 Calcasieu=1,300; CP13-113 Cove Point=750; CP14-517 Golden Pass=2,600;
+   CP17-20 Port Arthur=1,900). The 2,260/2,400 figures in the prior report were
+   report typos, NOT registry values — registry was correct. A "do not silently
+   change a denominator" warning + reconciliation block was added to the JSDoc.
+
+3. **Sabine "fully measured" was overstated** — same class of error as the Cove
+   Point 139%. The five Gillis receipt legs + NGPL summed to 1,388 MMcf/d = 30.8%
+   of the 4,500 nameplate, which contradicts Cheniere's public cargo cadence.
+   Creole Trail DOES post a consolidated plant-delivery meter CT200111-D (the
+   Cove-Point-10001 analogue) but it reads only 1,408 MMcf/d — CTPL's EBB only
+   sees feedgas CTPL itself delivers into the plant. NGI feeder-gas nominations
+   put Sabine near 3.9 Bcf/d (Aug 2026, even during compressor maintenance),
+   so CTPL's view is ~ONE THIRD of true terminal feedgas. Demoted to
+   **MEASURED-PARTIAL**: CT200111-D + NGPL 3592 are the headline (summable),
+   the five Gillis feeders demoted to `kind:'context'`, coverage gap footnoted.
+
+4. **VERDICT.md** — this entry. The file exists and is being maintained; the
+   prior claim that it "was never written" was incorrect (it carried 100 lines
+   of findings). The Transco-via-CPL, CPL-topology, and twin-meter findings are
+   now all documented for reuse.
+
+## 2026-08-26 — STRUCTURAL FIX: registry↔config↔bundle agreement gate
+
+The Sabine CT200111-D silent-loss (headline meter dropped by the prune because
+cheniere.json marked it `comparison`, bundle shipped 0 rows, panel rendered
+empty) was the **seventh bug of the same family**: two layers disagreeing with
+nothing checking. Fixed at the root:
+
+- **Publish-time assertion** `_audit_registry_bundle_agreement()` in
+  `publishers/export_dashboard_json.py`. For every terminal feed declared
+  `kind:'measured'` or `kind:'measured-partial'` in `lng-terminals.js`:
+  (a) its loc MUST be high-confidence in the source's `config/meters/*.json`
+  (else the prune drops it), and (b) it MUST ship ≥1 non-zero row in the built
+  bundle (else the card renders empty). Context/comparison/proxy feeds are
+  exempt from (b) but not (a). Fails the publish naming the terminal, series,
+  and which condition broke. Pure core `_check_agreement()` is unit-tested in
+  `tests/test_publish_agreement.py` (both arms, positive + context-exempt).
+- **Why the old coverage audit missed it**: that audit only checked whole-source
+  row counts and whether config loc_ids resolved to *some* curated series.
+  CT200111-D DID resolve to a curated series, so "id-space drift" passed — only
+  the *prune* excluded it. The new audit inspects the registry's declared
+  headlines against what the prune actually kept + what the bundle actually ships.
+- **TASK 4 — stale index resolution**: verification tooling now calls
+  `resolve_current_index()` which follows `manifest.json → index_url` instead of
+  globbing `index.*.json` (which alphabetically picked the stale `fb4f74be` over
+  the fresh `4bd04b97`). The graveyard prune already removes superseded
+  `index.{h}.json`; the resolution fix removes the *reader* ambiguity.
+- **NGPL 3592 zero explained**: KM `pipeline2` OpAvail posts the `best_available`
+  default cycle when NAESB cycle-pinning fails; for loc 3592 on 2026-08-25 that
+  returned 0.0 — a **scraper-cycle artifact, not a real plant idle** (it showed
+  ~480k during recon). Demoted to `kind:'context'` (diagnostic) so a structurally
+  zero meter never masquerades as Sabine coverage. CT200111-D alone is the
+  headline = 1,407.7 MMcf/d = **31.3%** of nameplate → MEASURED-PARTIAL, with the
+  invisible ~69% (non-CTPL feedgas + Transco Z3 SPA migration) footnoted on the
+  card at Freeport-caveat prominence.

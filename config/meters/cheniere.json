@@ -47,8 +47,8 @@
           "loc_id": "CT200111",
           "loc_name": "CT200111-CREOLE TRAIL-SPLIQ-D",
           "flow_ind": "D",
-          "confidence": "comparison",
-          "role": "Output-side view of the five Gillis receipts into SPL. Corroborates within ±8%; NEVER summed with them (double-count)."
+          "confidence": "high",
+          "role": "Consolidated CTPL delivery INTO SPL — the Cove-Point-10001 analogue. Headline Sabine feedgas meter (MEASURED-PARTIAL): ~31% of nameplate; CTPL's EBB does not see the non-CTPL feedgas paths."
         }
       ]
     },

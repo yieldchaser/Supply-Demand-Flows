@@ -4,7 +4,24 @@
 
 /**
  * Registry of state-side LNG nameplate capacities in MMcf/d.
- * Sources represent FERC and operator filings.
+ *
+ * THESE ARE THE DENOMINATORS FOR EVERY UTILIZATION FIGURE ON THE DASHBOARD.
+ * Each value MUST carry a FERC/operator-filing source (see per-key JSDoc).
+ * DO NOT CHANGE A NAMEPLATE WITHOUT: (a) citing the filing in the JSDoc, and
+ * (b) a commit message that states the before→after and why. A silent
+ * denominator change corrupts every utilization % silently (2026-08-26 lesson:
+ * a report carried 2,260 for Freeport and 2,400 for Golden Pass that were
+ * never in this registry — typos, but they show how easily the denominator
+ * drifts). Authoritative reconciliation:
+ *   - freeport_lng 2,100   — FERC CP12-509 (FERC-authorized base capacity)
+ *   - cameron_lng 2,000   — FERC CP13-25
+ *   - sabine_pass 4,500   — FERC CP11-72 (Cheniere cites 4.7 Bcf/d incl. T5/6)
+ *   - corpus_christi 2,400 — FERC CP12-507
+ *   - plaquemines 3,400   — FERC CP17-66
+ *   - calcasieu_pass 1,300 — FERC CP15-550
+ *   - cove_point 750      — FERC CP13-113
+ *   - golden_pass 2,600   — FERC CP14-517 (EIA: ~18 MTPA ≈ 2.6 Bcf/d)
+ *   - port_arthur 1,900   — FERC CP17-20
  *
  * @type {Object<string, number>}
  */
