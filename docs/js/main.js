@@ -19,6 +19,7 @@ import { renderLngSharesPanel } from './panels/lng-shares.js';
 import { renderLngFeedgasPanel } from './panels/lng-feedgas.js';
 import { renderLngFleetOverview } from './panels/lng-fleet-overview.js';
 import { renderLngFeedSubstitutionPanel } from './panels/lng-feed-substitution.js';
+import { renderTerminalDowntimePanel } from './panels/lng-terminal-downtime.js';
 import { renderBasinEgressPanel } from './panels/basin-egress.js';
 
 /**
@@ -91,6 +92,7 @@ const SECTIONS = {
     'kinder_morgan',
   ],
   'lng-substitution': ['gulf_south', 'enbridge', 'bhe', 'cheniere', 'kinder_morgan'],
+  'lng-downtime': ['gulf_south', 'enbridge', 'bhe', 'cheniere', 'kinder_morgan'],
   'basin-egress': ['gulf_south'],
 };
 
@@ -169,6 +171,11 @@ async function main() {
   // Section 7: Feed Substitution at Multi-Feed Terminals.
   await lazySection(bundle, SECTIONS['lng-substitution'], 'lng-substitution', () =>
     renderLngFeedSubstitutionPanel(document.getElementById('panel-lng-feed-substitution'), bundle)
+  );
+
+  // Section 8: Terminal Downtime / Turnaround Indicator.
+  await lazySection(bundle, SECTIONS['lng-downtime'], 'lng-downtime', () =>
+    renderTerminalDowntimePanel(document.getElementById('panel-lng-downtime'), bundle)
   );
 
   renderFooter(bundle);
