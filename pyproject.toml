@@ -69,3 +69,16 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Force a fresh event loop per test. Without this, pytest-asyncio 0.24 leaves
+# the loop scope ambiguous and async tests can leak a shared loop across the
+# session, which deadlocks the entire run after the first async-heavy file
+# (e.g. test_backfill) — the 2026-08-26 full-suite hang.
+asyncio_default_fixture_loop_scope = "function"
+# Network tests hit live external endpoints (EIA, GIE, Williams, Enbridge
+# backfill). Excluded from the default local run so anyone can complete a full
+# check offline; CI may opt back in with `-m network` (or drop the marker).
+addopts = "-m 'not network' --timeout=30"
+markers = [
+    "network: marks tests that hit live external endpoints (excluded from default run)",
+]
+timeout = 30

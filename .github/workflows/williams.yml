@@ -1,19 +1,17 @@
 name: Williams Transco (SHELVED 2026-08-25 — manual only)
 
+# SHELVED: the legacy JSP endpoints (OACQueryRequest.jsp / OACreport.jsp) no
+# longer exist — 1Line migrated to the portal-app SPA and every path serves
+# the SPA catch-all shell (see scrapers/williams/VERDICT.md). Scheduled runs
+# would write empty/warn health forever, so the schedule is DISABLED (not just
+# commented) and only manual workflow_dispatch remains for re-verification if
+# Williams exposes a public API again.
+#
+# The scraper is expected to return `failed`/`empty` against the dead
+# endpoints, so the failure path below is NON-FATAL (no `exit 1`): a shelved
+# pipeline must never turn CI red. Health is still recorded; no data is
+# committed (transform/commit steps require status == 'ok').
 on:
-  schedule:
-    # SHELVED: the legacy JSP endpoints (OACQueryRequest.jsp / OACreport.jsp)
-    # no longer exist — 1Line migrated to the portal-app SPA and every path
-    # serves the SPA catch-all shell (see scrapers/williams/VERDICT.md).
-    # Scheduled runs would write empty/warn health forever. Manual dispatch
-    # kept for re-verification if Williams exposes a public API again.
-    #
-    # Historical cadence (all times UTC), commented out 2026-08-25:
-    # - cron: '30 2 * * *'
-    # - cron: '0 3 * * *'
-    # - cron: '15 12 * * *'
-    # - cron: '15 17 * * *'
-    # - cron: '15 22 * * *'
   workflow_dispatch:
     inputs:
       gas_day:
@@ -25,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: williams-${{ github.event.schedule || 'dispatch' }}
+  group: williams-dispatch
   cancel-in-progress: true
 
 jobs:
@@ -65,6 +63,7 @@ jobs:
 
       - name: Run Williams scraper (cycle)
         id: scrape
+        continue-on-error: true
         env:
           CYCLE: ${{ matrix.cycle }}
           GAS_DAY: ${{ steps.window.outputs.gas_day }}
@@ -103,19 +102,11 @@ jobs:
           GAS_DAY: ${{ steps.window.outputs.gas_day }}
         run: echo "Cycle ${CYCLE} for gas day ${GAS_DAY} has no new posting yet"
 
-      - name: Report failure
+      - name: Report failure (shelved — non-fatal, do NOT fail CI)
         if: steps.scrape.outputs.status == 'failed'
         env:
           CYCLE: ${{ matrix.cycle }}
           GAS_DAY: ${{ steps.window.outputs.gas_day }}
         run: |
-          git config user.name "blue-tide-bot"
-          git config user.email "bot@bluetide.local"
-          git add data/health/transco.json || true
-          if ! git diff --cached --quiet; then
-            git commit -m "data(transco): health update (${CYCLE} failure recorded)"
-            for i in {1..5}; do
-              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
-            done
-          fi
-          exit 1
+          echo "Cycle ${CYCLE} for gas day ${GAS_DAY} failed (shelved endpoint — expected)."
+          echo "Recording health only; not failing CI."

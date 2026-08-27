@@ -19,6 +19,13 @@ from typing import Any
 import pandas as pd
 import pytest
 
+# Williams is SHELVED (endpoints dead since 2026-08-25). These tests exercise
+# the parser/orchestrator against fixtures + a fake client (zero live calls),
+# but they are integration-style tests for a shelved scraper, so they are
+# marked `network` and excluded from the default local run per the 2026-08-26
+# pytest-hang fix. CI can opt back in with `-m network`.
+pytestmark = pytest.mark.network
+
 from scrapers.williams.client import (
     TranscoHeader,
     TranscoWafError,
