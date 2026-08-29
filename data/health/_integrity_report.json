@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-29T21:34:43.289995+00:00",
+  "generated_at": "2026-08-29T21:53:10.504757+00:00",
   "overall": "WARN",
   "sources": {
     "gulf_south": {
@@ -77,7 +77,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 2h ago and dataset consistent (stale 0d, resolved 2026-08-29, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 0d, resolved 2026-08-29, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
@@ -160,7 +160,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 7h ago and dataset consistent (stale 2d, resolved 2026-08-27, warn 3d / fail 6d)",
+          "message": "no divergence: scraper 'ok' 8h ago and dataset consistent (stale 2d, resolved 2026-08-27, warn 3d / fail 6d)",
           "details": {
             "stale_days": 2
           }
@@ -326,7 +326,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 3h ago and dataset consistent (stale 8d, resolved 2026-08-21, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 4h ago and dataset consistent (stale 8d, resolved 2026-08-21, warn 9d / fail 18d)",
           "details": {
             "stale_days": 8
           }
@@ -411,7 +411,7 @@
           "severity": "SKIPPED",
           "message": "health stamp 24.2d old exceeds recency window 3d — it cannot vouch for today's dataset",
           "details": {
-            "age_days": 24.16
+            "age_days": 24.17
           }
         }
       ],
@@ -494,7 +494,7 @@
           "severity": "SKIPPED",
           "message": "health stamp 28.2d old exceeds recency window 3d — it cannot vouch for today's dataset",
           "details": {
-            "age_days": 28.23
+            "age_days": 28.24
           }
         }
       ],
@@ -575,7 +575,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 12h ago and dataset consistent (stale 0d, resolved 2026-08-29, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 13h ago and dataset consistent (stale 0d, resolved 2026-08-29, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
@@ -647,9 +647,9 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 117246→117264 / days 1991→1991",
+          "message": "history intact: rows 117264→117264 / days 1991→1991",
           "details": {
-            "rows_before": 117246,
+            "rows_before": 117264,
             "rows_after": 117264,
             "days_before": 1991,
             "days_after": 1991
@@ -660,7 +660,7 @@
           "severity": "SKIPPED",
           "message": "health stamp 6.3d old exceeds recency window 3d — it cannot vouch for today's dataset",
           "details": {
-            "age_days": 6.31
+            "age_days": 6.33
           }
         }
       ],
@@ -730,9 +730,9 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 13668→13692 / days 607→607",
+          "message": "history intact: rows 13692→13692 / days 607→607",
           "details": {
-            "rows_before": 13668,
+            "rows_before": 13692,
             "rows_after": 13692,
             "days_before": 607,
             "days_after": 607
@@ -824,7 +824,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 10h ago and dataset consistent (stale 0d, resolved 2026-08-29, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 11h ago and dataset consistent (stale 0d, resolved 2026-08-29, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
@@ -907,7 +907,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 2h ago and dataset consistent (stale 0d, resolved 2026-08-29, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 3h ago and dataset consistent (stale 0d, resolved 2026-08-29, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
@@ -979,11 +979,11 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 55→67 / days 5→6",
+          "message": "history intact: rows 67→67 / days 6→6",
           "details": {
-            "rows_before": 55,
+            "rows_before": 67,
             "rows_after": 67,
-            "days_before": 5,
+            "days_before": 6,
             "days_after": 6
           }
         },
@@ -992,7 +992,7 @@
           "severity": "SKIPPED",
           "message": "health stamp 3.1d old exceeds recency window 3d — it cannot vouch for today's dataset",
           "details": {
-            "age_days": 3.1
+            "age_days": 3.12
           }
         }
       ],
