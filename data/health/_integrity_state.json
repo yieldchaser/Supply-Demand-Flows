@@ -1,98 +1,98 @@
 {
   "gulf_south": {
-    "rows": 407210,
-    "distinct_periods": 94,
+    "rows": 413102,
+    "distinct_periods": 96,
     "distinct_series": 4424,
-    "max_period": "2026-08-26",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
-    "consecutive_flat": 4
+    "max_period": "2026-08-29",
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
+    "consecutive_flat": 0
   },
   "gie_agsi": {
-    "rows": 82560,
-    "distinct_periods": 2064,
+    "rows": 82600,
+    "distinct_periods": 2065,
     "distinct_series": 40,
-    "max_period": "2026-08-26",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
-    "consecutive_flat": 2
+    "max_period": "2026-08-27",
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
+    "consecutive_flat": 0
   },
   "baker_hughes": {
-    "rows": 32649,
-    "distinct_periods": 138,
-    "distinct_series": 631,
-    "max_period": "2026-08-21",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
-    "consecutive_flat": 15
+    "rows": 32893,
+    "distinct_periods": 139,
+    "distinct_series": 633,
+    "max_period": "2026-08-28",
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
+    "consecutive_flat": 0
   },
   "eia_storage": {
     "rows": 3608,
     "distinct_periods": 451,
     "distinct_series": 8,
     "max_period": "2026-08-21",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
-    "consecutive_flat": 1
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
+    "consecutive_flat": 2
   },
   "eia_lng_exports": {
     "rows": 2665,
     "distinct_periods": 65,
     "distinct_series": 45,
     "max_period": "2026-05-01",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
-    "consecutive_flat": 15
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
+    "consecutive_flat": 16
   },
   "eia_supply": {
     "rows": 462,
     "distinct_periods": 77,
     "distinct_series": 6,
     "max_period": "2026-05",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
-    "consecutive_flat": 15
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
+    "consecutive_flat": 16
   },
   "gasnom": {
-    "rows": 63420,
-    "distinct_periods": 93,
-    "distinct_series": 728,
-    "max_period": "2026-08-28",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
+    "rows": 63726,
+    "distinct_periods": 94,
+    "distinct_series": 904,
+    "max_period": "2026-08-29",
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
     "consecutive_flat": 0
   },
   "quorum": {
-    "rows": 117182,
-    "distinct_periods": 1990,
+    "rows": 117246,
+    "distinct_periods": 1991,
     "distinct_series": 120,
-    "max_period": "2026-08-28",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
+    "max_period": "2026-08-29",
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
     "consecutive_flat": 0
   },
   "bhe": {
-    "rows": 13548,
-    "distinct_periods": 606,
+    "rows": 13668,
+    "distinct_periods": 607,
     "distinct_series": 120,
-    "max_period": "2026-08-28",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
+    "max_period": "2026-08-29",
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
     "consecutive_flat": 0
   },
   "cheniere": {
-    "rows": 6468,
-    "distinct_periods": 96,
+    "rows": 6534,
+    "distinct_periods": 97,
     "distinct_series": 264,
-    "max_period": "2026-08-28",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
+    "max_period": "2026-08-29",
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
     "consecutive_flat": 0
   },
   "enbridge": {
-    "rows": 237120,
-    "distinct_periods": 1101,
+    "rows": 237440,
+    "distinct_periods": 1102,
     "distinct_series": 216,
-    "max_period": "2026-08-28",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
+    "max_period": "2026-08-29",
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
     "consecutive_flat": 0
   },
   "kinder_morgan": {
-    "rows": 43,
-    "distinct_periods": 4,
-    "distinct_series": 21,
-    "max_period": "2026-08-28",
-    "checked_at": "2026-08-28T14:45:44.020671+00:00",
+    "rows": 55,
+    "distinct_periods": 5,
+    "distinct_series": 24,
+    "max_period": "2026-08-29",
+    "checked_at": "2026-08-29T19:56:47.833816+00:00",
     "consecutive_flat": 0
   }
 }
