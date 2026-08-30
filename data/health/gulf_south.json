@@ -1,7 +1,12 @@
 {
   "source": "gulf_south",
-  "status": "failed",
-  "timestamp_utc": "2026-08-29T23:44:06Z",
-  "error": "HttpClientError: HTTP failure for /infopost/infopostdetails: HTTP 403 (status=403, attempts=4, elapsed=65.46s)",
-  "metadata": null
+  "status": "ok",
+  "timestamp_utc": "2026-08-30T08:28:52Z",
+  "error": null,
+  "metadata": {
+    "processed_count": 5,
+    "skipped_count": 0,
+    "filter_gas_day": null,
+    "filter_cycle": null
+  }
 }
