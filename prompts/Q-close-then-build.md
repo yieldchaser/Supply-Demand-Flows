@@ -1,36 +1,153 @@
-# P / FAST AND INTERACTIVE — make the dashboard quick, then make it answer questions
+# Q / CLOSE THEN BUILD — finish the branch, then make the dashboard fast and interactive
 
-**Repo:** `yieldchaser/Supply-Demand-Flows` · **Branch:** work on top of whatever `O` leaves
-**Prerequisite:** `O-close-the-branch.md` must be green first. If it is not, do that instead.
+**Repo:** `yieldchaser/Supply-Demand-Flows` · **Branch:** `fix/section8-audit`, head `3bc6dc5`
 
-Long session. Three arcs: **make it fast**, **find what is broken**, **make it interactive**. Work
-the stages in order and do not stop to ask whether to continue.
+Long session, one continuous run. **Stage 0 is a gate: four failing tests and a crashing script.**
+Nothing else may start until it is green, because the branch has been one round from merging three
+times running. After the gate, three arcs: make it fast, find what is broken, make it interactive.
+
+Do not stop to ask whether to continue. When you reach the end, go to the final section and keep
+going.
 
 ---
 
 ## 00 / RUNTIME AND EVIDENCE
 
-- `python`, `pandas`, `pytest`, `ruff`, `mypy`, `node` (v18+, `node --test`) available. Test which
-  runners work tonight and record it before anything else.
+- `python`, `pandas`, `pytest`, `ruff`, `mypy`, `node` (v18+, `node --test`) available. **First
+  action: test which runners work tonight** and record it. If one is dead, say so once and route
+  around it — never estimate an output.
 - **No git commands at all.** Not `add`, `commit`, `status`, `diff`, `log`, `show`. This sandbox has
-  destroyed this repository's `.git` twice during ordinary commit operations. Claude commits.
-- **Maintain `OVERNIGHT_STATE.md`** in the repo root, updated after every stage: runner check, stage
-  log with the evidence file that closed each one, decisions with their reversal conditions, every
-  number with the command and window behind it, and a `Blocked / needs Claude` list.
+  destroyed this repository's `.git` twice during ordinary commit operations; both recoveries were
+  full re-fetches from GitHub. Claude commits. Leave everything in the working tree.
+- **Maintain `OVERNIGHT_STATE.md`** in the repo root, updated after **every** stage: runner check,
+  stage log with the evidence file that closed each one, decisions with their reversal conditions,
+  every number with the command and window behind it, and `Blocked / needs Claude`. On resuming
+  after a compaction, read it before doing anything else.
 - **Every cited command redirects into `logs/`**, e.g.
-  `python -m pytest -q -m "not network" > logs/P3-pytest.txt 2>&1`. Then read the file you wrote and
-  quote from it. Last round's `logs/` were typed by hand — one cited a test file that does not exist
-  in this repo — so every log is now diffed against a re-run before anything merges.
-- **Time-box each stage** to roughly three serious attempts. Then write what you tried into
+  `python -m pytest -q -m "not network" > logs/Q3-pytest.txt 2>&1`. Then read the file you just
+  wrote and quote from that.
+- **Time-box each stage** to roughly three serious attempts, then write what you tried into
   `Blocked / needs Claude` and move on. Never fake an exit to escape a stage.
+
+### Why the evidence rules are mechanical now
+
+The previous session reported pytest 434/1, node 16/0, a preflight PASS and a 100/100 self-score.
+Re-run, the truth was **pytest 431/4, node 13/1, and preflight crashing in its first section.** The
+`logs/` files had been typed by hand rather than produced by redirection — `logs/final-pytest.txt`
+cited `tests/test_universe.py`, which does not exist in this repo, and reported `eia_supply` at
+7,238 rows against a real 468. Those files were not committed; fabricated evidence in a repository
+is worse than none.
+
+That took ninety seconds to catch, and it cost a whole round. **Run the command, read the file it
+wrote, quote from the file.** If a command cannot run in your sandbox, say so — that is always
+acceptable and costs nothing. If your output disagrees with a number in this brief, the output wins
+and I want to see it.
 
 ## 01 / FORBIDDEN SHORTCUTS
 
-Invalidates the stage: deleting, skipping or `xfail`-ing a failing test; loosening an assertion
-instead of fixing the cause; `continue-on-error`, `|| true` or a bare `except:` to quiet a gate;
-`# type: ignore` or `# noqa` instead of a fix; widening a threshold without measured evidence;
+Any of these invalidates the stage: deleting, skipping or `xfail`-ing a failing test; loosening an
+assertion instead of fixing the cause; `continue-on-error`, `|| true` or a bare `except:` to quiet a
+gate; `# type: ignore` or `# noqa` instead of a fix; widening a threshold without measured evidence;
 hand-editing `data/health/*.json`; publishing an estimate as a measurement; removing or softening a
 UI caveat.
+
+If a check fires and you believe the check is wrong, that is a finding: write the argument, leave
+the check firing, move on.
+
+---
+
+# STAGE 0 — THE GATE
+
+Current state, verified:
+
+```
+pytest: 431 passed, 4 failed, 16 deselected
+  tests/test_classify_meters.py::test_build_universe_covers_expected_totals   (known, NOT yours)
+  tests/test_coverage_guard.py::test_terminal_coverage_guard_against_curated_parquets
+  tests/test_coverage_guard.py::test_coverage_guard_rejects_perturbed_flattering_claim
+  tests/test_integrity.py::TestDivergence::test_cadence_scaled_health_recency
+
+node --test tests/*.test.mjs: 13 passed, 1 failed
+  tests/test_lng_downtime_render.test.mjs — fails to load
+```
+
+
+Current, verified by me:
+
+```
+pytest: 431 passed, 4 failed, 16 deselected
+  tests/test_classify_meters.py::test_build_universe_covers_expected_totals   (known, NOT yours)
+  tests/test_coverage_guard.py::test_terminal_coverage_guard_against_curated_parquets
+  tests/test_coverage_guard.py::test_coverage_guard_rejects_perturbed_flattering_claim
+  tests/test_integrity.py::TestDivergence::test_cadence_scaled_health_recency
+
+node --test tests/*.test.mjs: 13 passed, 1 failed
+  tests/test_lng_downtime_render.test.mjs — fails to load
+```
+
+### O1 — the sidecar is missing a field
+
+Both coverage-guard tests die on `KeyError: 'nameplate'`.
+
+`scripts/load_registry.py` now correctly extracts all **9** terminals into
+`config/terminals_registry.json` — that part is a real improvement over the 5 it managed before.
+But the emitted records omit `nameplate`, which the guard needs as the denominator of every
+coverage figure.
+
+Add it, along with anything else the guard reads. Then make the sidecar's completeness *testable*:
+a test asserting every field the guard consumes is present for all nine terminals, so the next
+missing field fails loudly at the source rather than as a `KeyError` three layers away.
+
+### O2 — preflight still crashes
+
+```
+UnicodeEncodeError: 'charmap' codec can't encode character '→' in position 56
+```
+
+It prints `→` into a cp1252 console. Fix it so it runs on this machine — reconfigure the stream
+encoding, or use ASCII in the output. Your call; it must survive a plain `python scripts/preflight.py`
+with no environment tweaks, because that is how it will be run.
+
+Then run it and capture the real output. Expect the integrity board to show **five WARNs** on
+documented historical gaps (`gulf_south 2026-08-27`, `baker_hughes 2026-01-02`,
+`gasnom 2026-08-23..25`, `quorum 2025-03-25..27`, `cheniere 2026-08-25`) — those are honest and
+already annotated. Decide whether preflight's verdict treats WARN as passing, and justify it in one
+line. **Do not make it green by weakening a check.**
+
+### O3 — the render test does not load
+
+`tests/test_lng_downtime_render.test.mjs` fails at load, not at assertion. Find out why — most
+likely an import that reaches D3 or the DOM through `lng-terminal-downtime.js` — and fix it so the
+render seam is genuinely reachable from `node --test`. If the seam is not clean enough to test
+headlessly, split it further rather than stubbing the DOM into existence.
+
+### O4 — the divergence test
+
+`test_cadence_scaled_health_recency` is your own new test and it fails. Either the per-source
+`health_recency_days` implementation in `validators/integrity.py` is wrong or the test's expectation
+is. Work out which, fix that one, and say which it was.
+
+### O5 — the workflow question
+
+`publish-dashboard.yml` runs preflight before building the bundle. Once O2 lands, decide: does a
+preflight failure deserve to block publishing? An argument exists both ways — blocking protects
+readers from a bad bundle, and not blocking keeps a stale dashboard from freezing on an unrelated
+WARN. Pick one, implement it, state the reasoning in one line.
+
+---
+
+
+### Gate exit condition
+
+```
+python -m pytest -q -m "not network"   > logs/Q0-pytest.txt 2>&1     # 1 known failure only
+node --test tests/*.test.mjs           > logs/Q0-node.txt 2>&1       # 14 passed, 0 failed
+python scripts/preflight.py            > logs/Q0-preflight.txt 2>&1  # runs to a verdict
+```
+
+Quote all three from the files. **Only then continue to Arc One.** If the gate cannot be closed
+after three serious attempts, record why in `Blocked / needs Claude` and continue anyway — but say
+loudly at the top of your report that the branch is still red.
 
 ---
 
@@ -193,14 +310,17 @@ the way `lng-downtime.js` was extracted. **Every new interactive behaviour gets 
 
 | dimension | points | minimum |
 |---|---|---|
-| Every reported number backed by a `logs/` file that matches a re-run | 25 | 23 |
-| `docs/data/` pruned, retention policy tested, before/after measured | 15 | 13 |
-| Load measured before and after, improvements justified by numbers | 12 | 10 |
-| Bug sweep: findings written with severity, live ones fixed | 13 | 11 |
-| Shared time range with URL state, honest about differing histories | 10 | 8 |
-| Section 8 events on the feedgas chart, gaps distinct from zeros | 10 | 8 |
-| Comparison and export carry their coverage caveats | 8 | 6 |
+| Stage 0 gate closed: pytest 1 known failure, node 14/0, preflight runs | 15 | 15 |
+| Every reported number backed by a `logs/` file that matches a re-run | 20 | 18 |
+| `docs/data/` pruned, retention policy tested, before/after measured | 12 | 10 |
+| Load measured before and after, improvements justified by numbers | 10 | 8 |
+| Bug sweep: findings written with severity, live ones fixed | 11 | 9 |
+| Shared time range with URL state, honest about differing histories | 9 | 7 |
+| Section 8 events on the feedgas chart, gaps distinct from zeros | 9 | 7 |
+| Comparison and export carry their coverage caveats | 7 | 5 |
 | Suite green, 390px verified, TypeScript grep clean | 7 | 6 |
+
+**Stage 0 is worth its full 15 or nothing — a red gate is a red gate.**
 
 Below 90, keep working. A dimension below its minimum fails regardless of total. **An honest failure
 scores full marks on dimension 1; a fabricated pass scores zero across the board**, because
@@ -224,7 +344,20 @@ Known pre-existing and NOT yours: ~35 mypy errors in `scrapers/base/playwright_c
 in `transformers/baker_hughes.py`, some ruff in `tests/test_gie_agsi_scraper.py`, and
 `test_build_universe_covers_expected_totals` (717 vs 719).
 
-## 04 / REPORT
+## 04 / IF YOU REACH THE END WITH TIME LEFT
+
+Do not idle and do not stop. In order:
+
+1. Raise any rubric dimension below its minimum.
+2. Turn each `Blocked / needs Claude` entry into a precise question with its evidence attached.
+3. Strengthen the weakest guard in the repo. Known gaps: the accumulation guard misses a module that
+   calls `merge_into_curated` for one file while direct-writing another, and misses
+   `pq.write_table`; the cross-panel invariant covers one terminal only; nothing asserts a
+   `series_id` carries its flow token on write.
+4. Extend the golden fixture to every event class the detector emits.
+5. Write `docs/VERDICT.md` entries for anything investigated that did not become code.
+
+## 05 / REPORT
 
 1. Diff summary — every file, one line of reasoning.
 2. Stage by stage: exit met or not, with the `logs/` path proving it.

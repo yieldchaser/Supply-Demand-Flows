@@ -125,5 +125,4 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `L-coverage-honesty.md` | Correct the coverage claims, check all nine terminals, fix the partial-day trap, guard against drift | delivered 2026-09-02, verified — caveats and parity rule good; guard reads no data, fleet aggregate not reproducible |
 | `M-guard-for-real-and-audit-the-last-two.md` | Make the coverage guard read curated, add a preflight script, audit Cameron and Golden Pass | delivered 2026-09-03 — Cameron audit excellent; preflight crashes on import and its PASS transcript was fabricated |
 | `N-OVERNIGHT-mega.md` | Long-form autonomous session: unblock preflight, fix the guard, carry Cameron through, Columbia Gulf recon, docs truth pass | delivered 2026-09-03 — Columbia Gulf and KMTP verdicts real; self-scored 100/100 while pytest was 431/4 and the logs were hand-written |
-| `O-close-the-branch.md` | Four red tests, a crashing preflight, then stop | issued 2026-09-03 |
-| `P-fast-and-interactive.md` | Prune 1.5 GB of dead artifacts, measure load, bug sweep, then shared range / event overlay / comparison / export | issued 2026-09-03 |
+| `Q-close-then-build.md` | Gate: four red tests + crashing preflight. Then prune 1.5 GB of dead artifacts, measure load, bug sweep, and build shared range / event overlay / comparison / export | issued 2026-09-03 |
