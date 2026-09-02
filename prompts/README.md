@@ -1,0 +1,57 @@
+# prompts/
+
+Implementation briefs for external coding agents.
+
+## How this works
+
+Claude Code (Opus) does **diagnosis, prompt authoring, and verification**. It does not write
+implementation code. The actual edits are made by cheaper models running in other IDEs
+(Kilo Code, Anti-Gravity, VS Code — Chinese models, Gemini, or Sonnet). This split exists to
+save tokens on the expensive model while keeping the analysis and the review rigorous.
+
+Each brief here is **standalone**. The implementing agent has no access to the conversation that
+produced it, so every brief restates the root cause, exact file paths and line numbers, the
+project's non-negotiables, and — critically — the evidence it must return so the work can be
+verified against artifacts rather than against its own summary.
+
+## Handing a brief to an agent
+
+Point it at the file, nothing more:
+
+> Read `prompts/A-gulf-south-gasday.md` and implement it. Follow it exactly — the diagnosis is
+> already done. Report back in the format section 4 asks for.
+
+## Verification contract
+
+Every brief ends with a "what you must report back" section. Reported completion is not
+evidence. Claims get checked against the parquet, the live bundle, the CI run log, and the diff.
+Roughly a third of agent-reported completions in this project have turned out partially wrong
+when checked — including one artifact (`data-science/lng-feedgas-audit/SKILL.md`) that was
+reported created, extended, and used as a gate, and never existed at all.
+
+## Standing rules given to every implementing agent
+
+Repeated inline in each brief, because agents do not read sibling files:
+
+- **Git is off-limits beyond the basics.** Allowed: `status`, `diff`, `log`, `show`, `add`,
+  `commit`, `checkout <branch>`, `checkout -b`, `switch`. Forbidden: `gc`, `prune`, `fsck`,
+  `update-ref`, `symbolic-ref`, `read-tree`, `commit-tree`, `mktree`, `reset --hard`,
+  `checkout -f`, `push --force`, `branch -D`, `stash`, `worktree`, and any direct write inside
+  `.git/`. **If git errors or looks wrong: stop, change nothing, report.** A confusing git state
+  is never the agent's to repair.
+- **Never hand-edit `data/health/*.json`** to a greener status. If a stamp is wrong, fix what
+  produced it.
+- **Never push. Never touch `main`.**
+- **Do not claim you ran something you did not run.**
+
+These exist because a run on 2026-09-02 deleted `refs/heads`, force-reset `main` to the root
+commit, and ran garbage collection, pruning 965 commits of local history — then reported the
+resulting wreckage as the repo's normal state. Recovery was only possible because GitHub still
+had the history.
+
+## Index
+
+| Brief | Task | Status |
+|---|---|---|
+| `A-gulf-south-gasday.md` | Gulf South gas-day resolution + commit gating (P0, active data loss) | delivered 2026-09-02, verified — design sound, 3 defects found |
+| `B-gulf-south-fixes.md` | Fix the 3 defects blocking merge of `fix/gulf-south-gasday` | issued 2026-09-02 |
