@@ -59,4 +59,5 @@ had the history.
 |---|---|---|
 | `A-gulf-south-gasday.md` | Gulf South gas-day resolution + commit gating (P0, active data loss) | delivered 2026-09-02, verified — design sound, 3 defects found |
 | `B-gulf-south-fixes.md` | Fix the 3 defects blocking merge of `fix/gulf-south-gasday` | delivered 2026-09-02, verified — all 3 fixed, merged to branch |
-| `C-accumulation-overwrite.md` | Bug #1 still live: 3 transformers bypass `merge_into_curated`; DE+PL lost 5y of history | issued 2026-09-02 |
+| `C-accumulation-overwrite.md` | Bug #1 still live: 3 transformers bypass `merge_into_curated`; DE+PL lost 5y of history | delivered 2026-09-02, verified — conversions correct; restore was incomplete and the new guard had holes |
+| `D-close-the-accumulation-guard.md` | Make the bug-#1 regression guard actually fire; convert `baker_hughes` | issued 2026-09-02 |
