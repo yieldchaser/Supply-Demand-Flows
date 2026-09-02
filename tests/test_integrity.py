@@ -526,7 +526,7 @@ class TestShippedRules:
             source = rules["sources"][key]
             assert source["month_end_normalize"] is True
             assert source["staleness"]["fail_days"] == 135
-        assert rules["sources"]["eia_lng_exports"]["staleness"]["warn_days"] == 45
+        assert rules["sources"]["eia_lng_exports"]["staleness"]["warn_days"] == 105
         assert rules["sources"]["eia_supply"]["staleness"]["warn_days"] == 75
         assert rules["sources"]["eia_supply"]["period_format"] == "%Y-%m"
 

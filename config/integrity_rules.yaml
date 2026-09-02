@@ -90,8 +90,8 @@ sources:
     health_file: data/health/eia_lng.json
     skip_checks: [flow_legs]   # coarse country ids repeat (id,period) across series_name rows; uniqueness lives on name, not id
     staleness:
-      warn_days: 45           # genuine ~2-month publication lag on monthly EIA API
-      fail_days: 135          # keeps the *normal* lag pinned at WARN, never FAIL
+      warn_days: 105          # EIA export destination series (EVE) compiled from Census foreign trade data; normal lag is 90-115d
+      fail_days: 135          # accommodates normal 3-month Census publication lag at PASS, warns if delayed >3.5 months, fails at 4.5 months
     month_end_normalize: true  # monthly periods compare as last-day-of-month
     mode: accumulation        # rows only ever grow; enables flat-run divergence arm
     gap_rule: monthly         # monthly cadence (consecutive YYYY-MM periods)

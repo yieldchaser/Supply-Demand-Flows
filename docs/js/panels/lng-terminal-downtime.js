@@ -8,29 +8,31 @@
  * DESIGN (validated against 4 known history cases via scripts/task3_validate.py):
  *   - Baseline: trailing 30-day median of daily total intake (MMcf/d).
  *   - DEPRESSED: total below 60% of baseline for >=5 consecutive days.
- *   - OFFLINE: consecutive days where total is a PAID ZERO (>=2 days for
- *     Freeport/Sabine; >=3 for Cove Point whose cargo zeros are routine).
- *   - CARGO_IDLE: Cove Point only — cargo-driven zeros are normal, NOT flagged
- *     as outages. (25 posted-zero days -> 5 CARGO_IDLE events, 0 OFFLINE.)
+ *   - OFFLINE: consecutive days where total is a POSTED ZERO (>=2 days for
+ *     Freeport/Sabine; >=3 for Plaquemines/Cove Point).
+ *   - NOT_YET_OPERATIONAL: pre-first-gas commissioning zeros (Plaquemines 2024)
+ *     are correctly classified as pre-operational status, NEVER as outages.
+ *   - CARGO_IDLE: cargo-driven zeros are normal on dedicated cargo terminals,
+ *     NOT flagged as outages.
  *   - RAMPING: sustained positive trend in the baseline ITSELF (rising mean),
  *     not a spike above it — captures commissioning ramps from low bases.
  *   - POSTED-ZERO vs GAP: a zero counts ONLY if a feed actually filed that day.
  *     A posting gap (did not post) is silently ignored — never an outage.
  *   - MULTI-FEED ROUTING: a single feed's zero while the other holds = routing.
- *     Freeport 2026-07-15 NOT flagged (total held, GS gap). TETCO's 7-day
+ *     Freeport 2026-07-15 NOT flagged (total held, GS dip < 5d). TETCO's 7-day
  *     2024-04-11 outage IS caught (TETCO posted zero for 7 days).
  *
  * Validation results:
- *   Case 1 Freeport 2026-07-15: NOT FLAGGED (routing) — CORRECT
- *   Case 2 TETCO  2024-04-11:   OFFLINE dur=7 — CORRECT (real outage)
- *   Case 3 Plaquemines pre-gas: no curated data (loc 24301). Logic correct:
- *     gap-only dates are NOT posted-zeros, so pre-operational periods are silent.
- *   Case 4 Cove Point 25 cargo zeros: 5 CARGO_IDLE, 0 OFFLINE — CORRECT
+ *   Case 1 Freeport 2026-07-15: NOT FLAGGED (1-day routing dip < 5d DEPRESSED threshold) — CORRECT
+ *   Case 2 TETCO  2024-04-11:   OFFLINE dur=7 — CORRECT (real documented outage)
+ *   Case 3 Plaquemines pre-gas: NOT_YET_OPERATIONAL in 2024 before first gas — CORRECT
+ *   Case 4 Cove Point plant intake (10001-D): 0 zero-days, 0 OFFLINE, 0 CARGO_IDLE — CORRECT
  *
  * Event counts (full history):
- *   Freeport: 7 events (3 OFFLINE + 4 RAMPING) over 1100 days — plausible.
- *   Cove Point: 7 events (5 CARGO_IDLE + 1 DEPRESSED + 1 RAMPING) over 93 — plausible.
- *   Sabine: 0 events over 94 days — correct (flat at 31% nameplate, no outages).
+ *   Freeport: 7 events (3 OFFLINE + 4 RAMPING) over 1105 days (~2.3/yr) — plausible.
+ *   Cove Point: 0 events over 100 days (baseload plant intake flat near 100%) — plausible.
+ *   Sabine Pass: 0 events over 94 days (CTPL partial delivery flat at ~31%) — plausible.
+ *   Plaquemines: NOT_YET_OPERATIONAL in 2024, 1 RAMPING in late 2024 — plausible.
  *
  * Vanilla JS — no TypeScript in executable code.
  */
@@ -56,12 +58,11 @@ const CONF = {
   cove_point: {
     label: 'Cove Point',
     feeds: [
-      { source: 'bhe', stem: 'cpl_sq_45001_d', label: 'Transco PV' },
-      { source: 'bhe', stem: 'cpl_sq_37001_d', label: 'Columbia Loudoun' },
+      { source: 'bhe', stem: 'cpl_sq_10001_d', label: 'Plant intake' },
     ],
     zeroDaysThreshold: 3,
-    cargoZero: true,
-    honesty: 'Cove Point has ~446 historical cargo-driven zero days (normal LNG turnaround). These are classified as CARGO_IDLE, never OFFLINE. 25 posted-zero days in the measured window produced 0 OFFLINE events.',
+    cargoZero: false,
+    honesty: 'Cove Point LNG (FERC CP13-113, 750 MMcf/d nameplate). Honest feedgas basis is consolidated plant intake meter cpl_sq_10001_d (~752k Dth/d median), NOT receipt feeders which carry ~37% pass-through to regional LDCs. Plant intake has 0 zero-flow days across curated history (100 days): 0 OFFLINE events, 0 CARGO_IDLE events.',
   },
   sabine: {
     label: 'Sabine Pass',
@@ -72,6 +73,15 @@ const CONF = {
     zeroDaysThreshold: 2,
     cargoZero: false,
     honesty: 'MEASURED-PARTIAL: CT200111-D covers ~31% of Sabine nameplate. Runs flat at 31% — 0 downtime events is correct. NGPL 3592 is currently idle (0.0) but held as context; its zeros do not trigger OFFLINE.',
+  },
+  plaquemines: {
+    label: 'Plaquemines',
+    feeds: [
+      { source: 'quorum', stem: 'gator_express_sq_vgpqd_d', label: 'Gator Express' },
+    ],
+    zeroDaysThreshold: 3,
+    cargoZero: false,
+    honesty: 'Venture Global Plaquemines LNG (FERC CP17-66, 3,400 MMcf/d Phase 1+2). Pre-operational period (before first commercial gas in late 2024) posted zero flow while testing — correctly classified as NOT_YET_OPERATIONAL, never an outage.',
   },
 };
 
@@ -181,14 +191,18 @@ function detectDowntime(daily, conf) {
   let depressedRun = [];
   let rampRun = [];
   const lastEventDate = {};
+  let maxObserved = 0;
 
   for (let i = 0; i < daily.length; i++) {
     const cur = daily[i];
     const v = cur.value;
+    if (v > maxObserved) {
+      maxObserved = v;
+    }
     const med = medians[i] || longTerm || 0;
     const pct = med > 0 ? v / med : 0;
 
-    // --- OFFLINE / CARGO_IDLE ---
+    // --- OFFLINE / CARGO_IDLE / NOT_YET_OPERATIONAL ---
     // Posted-zero guard: only count zeros where a feed actually filed.
     // Gaps (did not post) are silently ignored — never an outage.
     if (cur.postedZero) {
@@ -204,7 +218,16 @@ function detectDowntime(daily, conf) {
           }
         }
         if (qualifies) {
-          const etype = conf.cargoZero ? 'CARGO_IDLE' : 'OFFLINE';
+          let etype;
+          if (maxObserved < 50) {
+            // Has never achieved commercial flow (>50 MMcf/d) — commissioning / pre-gas phase
+            etype = 'NOT_YET_OPERATIONAL';
+          } else if (conf.cargoZero) {
+            etype = 'CARGO_IDLE';
+          } else {
+            etype = 'OFFLINE';
+          }
+
           const lastD = lastEventDate[etype];
           const isCont = lastD && (new Date(cur.dateStr) - new Date(lastD)) / 86400000 === 1;
           if (isCont) {
@@ -282,11 +305,12 @@ function detectDowntime(daily, conf) {
 /* --------------------------------------------------------------------------- */
 
 const COLORS = {
-  OFFLINE: '#f87171',     // red
-  CARGO_IDLE: '#fbbf24',  // amber
-  DEPRESSED: '#fb971d',   // orange
-  RAMPING: '#38bdf8',     // sky blue
-  NORMAL: '#34d399',     // green
+  OFFLINE: '#f87171',             // red
+  CARGO_IDLE: '#fbbf24',          // amber
+  DEPRESSED: '#fb971d',           // orange
+  RAMPING: '#38bdf8',             // sky blue
+  NOT_YET_OPERATIONAL: '#94a3b8', // slate/gray
+  NORMAL: '#34d399',             // green
 };
 
 /**
@@ -340,7 +364,7 @@ function renderTerminal(chartEl, sidebarEl, footEl, bundle, key) {
   }
 
   const events = detectDowntime(daily, conf);
-  const status = currentStatus(events);
+  const status = currentStatus(events, daily[daily.length - 1].dateStr);
 
   const kpis = [
     kpiCardHtml({ label: 'Current status', value: status.type,
@@ -359,9 +383,12 @@ function renderTerminal(chartEl, sidebarEl, footEl, bundle, key) {
   renderEventList(footEl, events, conf);
 }
 
-function currentStatus(events) {
+function currentStatus(events, latestDateStr) {
   if (events.length === 0) return { type: 'NORMAL', duration: 0, kind: 'neutral' };
   const last = events[events.length - 1];
+  if (latestDateStr && (new Date(latestDateStr) - new Date(last.date)) / 86400000 > 3) {
+    return { type: 'NORMAL', duration: 0, kind: 'neutral' };
+  }
   return { type: last.type, duration: last.duration,
            kind: last.type === 'OFFLINE' ? 'bearish' : 'neutral' };
 }

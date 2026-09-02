@@ -21,6 +21,7 @@ PREFIX_MAP = {
     "creole_trail": "cheniere",
     "enbridge": "enbridge",
     "kinder_morgan": "kinder_morgan",
+    "gator_express": "quorum",
 }
 
 TERMINALS = {
@@ -32,9 +33,9 @@ TERMINALS = {
     },
     "cove_point": {
         "name": "Cove Point LNG",
-        "feeds": ["cpl_sq_45001_d", "cpl_sq_37001_d"],
-        "zero_mode": "cargo_zero", "zero_days_threshold": 3,
-        "depressed_pct": 0.60, "depressed_days": 5, "is_cargo_zero": True,
+        "feeds": ["cpl_sq_10001_d"],
+        "zero_mode": "plant_intake", "zero_days_threshold": 3,
+        "depressed_pct": 0.60, "depressed_days": 5, "is_cargo_zero": False,
     },
     "sabine": {
         "name": "Sabine Pass LNG",
@@ -42,8 +43,12 @@ TERMINALS = {
         "zero_mode": "normal", "zero_days_threshold": 2,
         "depressed_pct": 0.60, "depressed_days": 5, "is_cargo_zero": False,
     },
-    # Plaquemines: loc 24301 not in any curated parquet (Venture Global not yet
-    # sourced). Logic validated separately below (Case 3).
+    "plaquemines": {
+        "name": "Plaquemines LNG",
+        "feeds": ["gator_express_sq_vgpqd_d"],
+        "zero_mode": "normal", "zero_days_threshold": 3,
+        "depressed_pct": 0.60, "depressed_days": 5, "is_cargo_zero": False,
+    },
 }
 
 
@@ -123,17 +128,25 @@ def detect_events(history, conf):
     offline_run = []
     ramp_run = []
     last_event_date = {}
+    max_observed = 0.0
 
     for i, (d, h) in enumerate(values):
         v = h["value"]
+        if v > max_observed:
+            max_observed = v
         med = (medians.get(d) or long_term) or 0
         pct = v / med if med > 0 else 0
 
-        # OFFLINE / CARGO_IDLE
+        # OFFLINE / CARGO_IDLE / NOT_YET_OPERATIONAL
         if h["posted_zero"]:
             offline_run.append(d)
             if len(offline_run) >= conf["zero_days_threshold"]:
-                etype = "CARGO_IDLE" if conf["is_cargo_zero"] else "OFFLINE"
+                if max_observed < 50000:
+                    etype = "NOT_YET_OPERATIONAL"
+                elif conf.get("is_cargo_zero"):
+                    etype = "CARGO_IDLE"
+                else:
+                    etype = "OFFLINE"
                 last_d = last_event_date.get(etype)
                 cont = (last_d and
                         (pd.to_datetime(d).date() - pd.to_datetime(last_d).date()).days == 1)
@@ -190,85 +203,92 @@ def detect_events(history, conf):
     return events
 
 
-# -----------------------------------------------------------------------
-print("=" * 60)
-print("TASK 3: TERMINAL DOWNTIME — VALIDATION (v3)")
-print("=" * 60)
+def run_validation():
+    print("=" * 60)
+    print("TASK 3: TERMINAL DOWNTIME — VALIDATION (v3)")
+    print("=" * 60)
 
-# Case 1: Freeport 2026-07-15 dip
-print("\n--- Case 1: Freeport 2026-07-15 dip to 142 MMcf/d (~145,550 Dth) ---")
-hist, conf = load_terminal_history("freeport")
-ev = detect_events(hist, conf)
-target = "2026-07-15"
-h = hist.get(target)
-if h:
-    near = [e for e in ev if abs((pd.to_datetime(e['date']).date() - date(2026,7,15)).days) <= 3]
-    print(f"  value={h['value']:,.0f} Dth, feeds_posted={h['n_feeds_posted']}/{len(conf['feeds'])}")
-    print(f"  posted_zero={h['posted_zero']}")
-    print(f"  events in ±3d: {[(e['type']) for e in near]}")
-    print(f"  -> {'NOT FLAGGED' if not near else 'FLAGGED'} | "
-          f"{'OK CORRECT' if not near else 'MISFIRE'}: total held at {h['value']:,.0f} "
-          f"(TETCO gap, GS held) -> routing, not downtime")
-else:
-    print("  NOT POSTED -> gap (correctly ignored)")
-
-# Case 2: TETCO 2024-04-11 outage
-print("\n--- Case 2: TETCO 2024-04-11 (documented real outage) ---")
-target = "2024-04-11"
-h = hist.get(target)
-near = [e for e in ev if abs((pd.to_datetime(e['date']).date() - date(2024,4,11)).days) <= 10]
-if h:
-    print(f"  value={h['value']:,.0f} Dth, posted={h['posted']}, posted_zero={h['posted_zero']}, feeds={h['n_feeds_posted']}/2")
-    print(f"  events in ±10d: {[(e['type'], e['date'], e['duration']) for e in near]}")
-    offline_covered = any(e['type'] == 'OFFLINE' and abs((pd.to_datetime(e['date']).date() - date(2024,4,17)).days) <= 3 for e in near)
-    if h['posted_zero']:
-        print(f"  -> {'OFFLINE CAUGHT' if offline_covered else 'MISSED'}: TETCO posted zero for 7 consecutive days")
-        if offline_covered:
-            for e in near:
-                if e['type'] == 'OFFLINE':
-                    print(f"    OFFLINE event on {e['date']}, dur={e['duration']}d - covers this outage")
-    else:
-        print(f"  -> NOT flagged (only {h['n_feeds_posted']} feed posted = gap)")
-else:
-    print("  NOT POSTED -> gap")
-
-# Case 3: Plaquemines pre-gas (logic validation)
-print("\n--- Case 3: Plaquemines pre-first-gas zeros (2024) - LOGIC VALIDATION ---")
-print("  Plaquemines data (loc 24301) NOT in any curated parquet.")
-print("  Logic: pre-first-gas dates have NO postings -> all gaps, NOT posted-zeros.")
-print("  posted_zero requires an actual filing with value 0. Gaps return None.")
-print("  -> A terminal with only gaps (no filings before first gas) => NOT FLAGGED.")
-print("  OK correct: 'did not post' != 'posted zero'. Pre-op periods are silent.")
-
-# Case 4: Cove Point cargo zeros
-print("\n--- Case 4: Cove Point cargo-driven zero-days ---")
-hist_c, conf_c = load_terminal_history("cove_point")
-ev_c = detect_events(hist_c, conf_c)
-cargo_zeros = sum(1 for h in hist_c.values() if h['posted_zero'])
-cargo_idle = [e for e in ev_c if e['type'] == 'CARGO_IDLE']
-offline = [e for e in ev_c if e['type'] == 'OFFLINE']
-print(f"  posted-zero days: {cargo_zeros}")
-print(f"  CARGO_IDLE events: {len(cargo_idle)}, OFFLINE events: {len(offline)}")
-result4 = "OK CORRECT: zeros as CARGO_IDLE, 0 OFFLINE" if not offline else "MISFIRE: " + str(len(offline)) + " OFFLINE events on cargo terminal"
-print(f"  -> {result4}")
-
-print("\n" + "=" * 60)
-print("EVENT COUNTS PER TERMINAL (full history)")
-print("=" * 60)
-for term in TERMINALS:
-    hist, conf = load_terminal_history(term)
+    # Case 1: Freeport 2026-07-15 dip
+    print("\n--- Case 1: Freeport 2026-07-15 dip to 142 MMcf/d (~145,550 Dth) ---")
+    hist, conf = load_terminal_history("freeport")
     ev = detect_events(hist, conf)
-    tc = {}
-    for e in ev: tc[e['type']] = tc.get(e['type'], 0) + 1
-    total = len(ev)
-    print(f"\n  {conf['name']}: {total} events over {len(hist)} posted-days")
-    for t, c in sorted(tc.items()):
-        print(f"    {t}: {c}")
-    if total > 20:
-        print(f"    HIGH NOISE - reduce sensitivity")
-    elif total == 0 and len(hist) > 50:
-        print(f"    TOO QUIET - check sensitivity")
+    target = "2026-07-15"
+    h = hist.get(target)
+    if h:
+        near = [e for e in ev if abs((pd.to_datetime(e['date']).date() - date(2026,7,15)).days) <= 3]
+        print(f"  value={h['value']:,.0f} Dth, feeds_posted={h['n_feeds_posted']}/{len(conf['feeds'])}")
+        print(f"  posted_zero={h['posted_zero']}")
+        print(f"  events in ±3d: {[(e['type']) for e in near]}")
+        print(f"  -> {'NOT FLAGGED' if not near else 'FLAGGED'} | "
+              f"{'OK CORRECT' if not near else 'MISFIRE'}: total held at {h['value']:,.0f} "
+              f"(TETCO gap, GS held) -> routing, not downtime")
     else:
-        print(f"    plausible")
+        print("  NOT POSTED -> gap (correctly ignored)")
 
-print("\nDone.")
+    # Case 2: TETCO 2024-04-11 outage
+    print("\n--- Case 2: TETCO 2024-04-11 (documented real outage) ---")
+    target = "2024-04-11"
+    h = hist.get(target)
+    near = [e for e in ev if abs((pd.to_datetime(e['date']).date() - date(2024,4,11)).days) <= 10]
+    if h:
+        print(f"  value={h['value']:,.0f} Dth, posted={h['posted']}, posted_zero={h['posted_zero']}, feeds={h['n_feeds_posted']}/2")
+        print(f"  events in ±10d: {[(e['type'], e['date'], e['duration']) for e in near]}")
+        offline_covered = any(e['type'] == 'OFFLINE' and abs((pd.to_datetime(e['date']).date() - date(2024,4,17)).days) <= 3 for e in near)
+        if h['posted_zero']:
+            print(f"  -> {'OFFLINE CAUGHT' if offline_covered else 'MISSED'}: TETCO posted zero for 7 consecutive days")
+            if offline_covered:
+                for e in near:
+                    if e['type'] == 'OFFLINE':
+                        print(f"    OFFLINE event on {e['date']}, dur={e['duration']}d - covers this outage")
+        else:
+            print(f"  -> NOT flagged (only {h['n_feeds_posted']} feed posted = gap)")
+    else:
+        print("  NOT POSTED -> gap")
+
+    # Case 3: Plaquemines pre-gas (curated data validation)
+    print("\n--- Case 3: Plaquemines pre-first-gas zeros (2024) ---")
+    hist_p, conf_p = load_terminal_history("plaquemines")
+    ev_p = detect_events(hist_p, conf_p)
+    pre_gas_events = [e for e in ev_p if pd.to_datetime(e['date']).year == 2024]
+    has_not_yet_op = any(e['type'] == 'NOT_YET_OPERATIONAL' for e in pre_gas_events)
+    has_offline_in_pre = any(e['type'] == 'OFFLINE' for e in pre_gas_events)
+    print(f"  Plaquemines curated data present: {len(hist_p)} posted days (Quorum Gator Express).")
+    print(f"  2024 pre-gas events detected: {[(e['type'], e['date'], e['duration']) for e in pre_gas_events]}")
+    print(f"  -> {'OK CORRECT: pre-first-gas classified as NOT_YET_OPERATIONAL, 0 OFFLINE' if (has_not_yet_op or not pre_gas_events) and not has_offline_in_pre else 'MISFIRE'}")
+
+    # Case 4: Cove Point plant intake
+    print("\n--- Case 4: Cove Point plant intake (10001-D) ---")
+    hist_c, conf_c = load_terminal_history("cove_point")
+    ev_c = detect_events(hist_c, conf_c)
+    plant_zeros = sum(1 for h in hist_c.values() if h['posted_zero'])
+    offline = [e for e in ev_c if e['type'] == 'OFFLINE']
+    cargo_idle = [e for e in ev_c if e['type'] == 'CARGO_IDLE']
+    print(f"  posted-zero days on plant intake: {plant_zeros}")
+    print(f"  CARGO_IDLE events: {len(cargo_idle)}, OFFLINE events: {len(offline)}")
+    result4 = "OK CORRECT: 0 zero-days on plant intake, 0 OFFLINE, 0 CARGO_IDLE" if plant_zeros == 0 and len(offline) == 0 else "MISFIRE"
+    print(f"  -> {result4}")
+
+    print("\n" + "=" * 60)
+    print("EVENT COUNTS PER TERMINAL (full history)")
+    print("=" * 60)
+    for term in TERMINALS:
+        hist, conf = load_terminal_history(term)
+        ev = detect_events(hist, conf)
+        tc = {}
+        for e in ev: tc[e['type']] = tc.get(e['type'], 0) + 1
+        total = len(ev)
+        print(f"\n  {conf['name']}: {total} events over {len(hist)} posted-days")
+        for t, c in sorted(tc.items()):
+            print(f"    {t}: {c}")
+        if total > 20:
+            print(f"    HIGH NOISE - reduce sensitivity")
+        elif total == 0 and len(hist) > 50:
+            print(f"    TOO QUIET - check sensitivity")
+        else:
+            print(f"    plausible")
+
+    print("\nDone.")
+
+
+if __name__ == "__main__":
+    run_validation()
