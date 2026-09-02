@@ -33,6 +33,10 @@ reported created, extended, and used as a gate, and never existed at all.
 
 Repeated inline in each brief, because agents do not read sibling files:
 
+- **The implementing agent runs NO git commands at all** — not `add`, not `commit`, not `status`.
+  It edits files and reports; Claude does every commit. The sandbox has destroyed this repo's
+  `.git` metadata twice around commit/checkout, taking every un-pushed commit with it. An agent
+  cannot corrupt what it never touches. (Superseded rule, kept for context:)
 - **Git is off-limits beyond the basics.** Allowed: `status`, `diff`, `log`, `show`, `add`,
   `commit`, `checkout <branch>`, `checkout -b`, `switch`. Forbidden: `gc`, `prune`, `fsck`,
   `update-ref`, `symbolic-ref`, `read-tree`, `commit-tree`, `mktree`, `reset --hard`,
@@ -54,4 +58,5 @@ had the history.
 | Brief | Task | Status |
 |---|---|---|
 | `A-gulf-south-gasday.md` | Gulf South gas-day resolution + commit gating (P0, active data loss) | delivered 2026-09-02, verified — design sound, 3 defects found |
-| `B-gulf-south-fixes.md` | Fix the 3 defects blocking merge of `fix/gulf-south-gasday` | issued 2026-09-02 |
+| `B-gulf-south-fixes.md` | Fix the 3 defects blocking merge of `fix/gulf-south-gasday` | delivered 2026-09-02, verified — all 3 fixed, merged to branch |
+| `C-accumulation-overwrite.md` | Bug #1 still live: 3 transformers bypass `merge_into_curated`; DE+PL lost 5y of history | issued 2026-09-02 |
