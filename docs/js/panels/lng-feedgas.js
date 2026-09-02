@@ -260,7 +260,7 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     : '';
   const latestPeriodText = source && source.latest_period ? source.latest_period : latestData.dateStr;
   const kmtpLine = isMultiFeed
-    ? `<p><strong>⚠ Interstate-visible feedgas only (~80% coverage).</strong> Gulf South + TETCO baseload intake medians ~1,680 MMcf/d against 2,100 MMcf/d nameplate. The ~420 MMcf/d (~20%) invisible remainder arrives via the unposted KMTP intrastate lateral (~400–450 MMcf/d capacity).</p>`
+    ? `<p><strong>⚠ Interstate-visible feedgas only (52.9% median coverage of nameplate).</strong> Gulf South + TETCO baseload intake medians 1,111.5 MMcf/d across the 100-day dual-feed overlap (2026-05-25 to 2026-09-01; peak 30d sustained is 1,538.0 MMcf/d = 73.2% of 2,100 MMcf/d nameplate). The remaining ~988 MMcf/d against nameplate reflects unmeasured feedgas: the KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates / ambient operating margins / additional intrastate supplies.</p>`
     : '';
   footerContainer.innerHTML = `
     <p><strong>Source:</strong> ${t.methodLine}</p>

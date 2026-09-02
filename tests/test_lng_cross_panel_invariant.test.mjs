@@ -103,3 +103,76 @@ test('Cross-panel invariant: Section 5, 7, and 8 compute identical Freeport dail
   // Hourly id2300 (0.0) did NOT overwrite latec (148,887)
   assert.ok(val0715 > 280, 'Hourly snapshot zero wrongly overwrote latec');
 });
+
+test('Partial-day trap: incomplete trailing day is suppressed from total flow', () => {
+  const bundle = createTestBundle();
+  // Simulate partial newest day: TETCO files 2026-07-17, Gulf South has NOT filed
+  bundle.sources.enbridge.data.push({
+    series_id: 'tetco_sq_79999_d_latec',
+    period: '2026-07-17',
+    value: 214430, // 209.2 MMcf/d
+  });
+
+  // Section 5
+  const sec5 = buildMultiFeedData(bundle, LNG_TERMINALS.freeport);
+  const sec5Dates = sec5.dailySeries.map((d) => d.dateStr);
+  assert.ok(!sec5Dates.includes('2026-07-17'), 'Section 5 must suppress incomplete trailing day');
+
+  // Section 7
+  const sec7 = terminalSummary(bundle, LNG_TERMINALS.freeport);
+  const sec7Dates = sec7.daily.map((d) => d.dateStr);
+  assert.ok(!sec7Dates.includes('2026-07-17'), 'Section 7 daily must suppress incomplete trailing day');
+  assert.strictEqual(sec7.daily[sec7.daily.length - 1].dateStr, '2026-07-16');
+
+  // Section 8
+  const sec8 = buildDailyTotal(bundle, DOWNTIME_CONF.freeport);
+  const sec8Dates = sec8.map((d) => d.dateStr);
+  assert.ok(!sec8Dates.includes('2026-07-17'), 'Section 8 must suppress incomplete trailing day');
+});
+
+test('Genuinely-zero feed: pipe posting 0 while sibling flows is a complete day and is NOT suppressed', () => {
+  const bundle = createTestBundle();
+  // Both feeds file for 2026-07-17: TETCO files 0, Gulf South files 1,025,000 Dth
+  bundle.sources.enbridge.data.push({
+    series_id: 'tetco_sq_79999_d_latec',
+    period: '2026-07-17',
+    value: 0,
+  });
+  bundle.sources.gulf_south.data.push({
+    series_id: 'gulf_south_sq_24329_d_id3',
+    period: '2026-07-17',
+    value: 1025000,
+  });
+
+  const sec5 = buildMultiFeedData(bundle, LNG_TERMINALS.freeport);
+  const sec5Point = sec5.dailySeries.find((d) => d.dateStr === '2026-07-17');
+  assert.ok(sec5Point !== undefined, 'Complete day with zero feed must be included in Section 5');
+  assert.strictEqual(sec5Point.value, 1000); // 1,025,000 Dth / 1.025 / 1000 = 1000 MMcf/d
+
+  const sec8 = buildDailyTotal(bundle, DOWNTIME_CONF.freeport);
+  const sec8Point = sec8.find((d) => d.dateStr === '2026-07-17');
+  assert.ok(sec8Point !== undefined, 'Complete day with zero feed must be included in Section 8');
+  assert.strictEqual(sec8Point.feedsPosted, 2);
+  assert.strictEqual(sec8Point.postedZero, false);
+});
+
+test('Real outage: both feeds posting 0 is complete and sets postedZero', () => {
+  const bundle = createTestBundle();
+  bundle.sources.enbridge.data.push({
+    series_id: 'tetco_sq_79999_d_latec',
+    period: '2026-07-17',
+    value: 0,
+  });
+  bundle.sources.gulf_south.data.push({
+    series_id: 'gulf_south_sq_24329_d_id3',
+    period: '2026-07-17',
+    value: 0,
+  });
+
+  const sec8 = buildDailyTotal(bundle, DOWNTIME_CONF.freeport);
+  const sec8Point = sec8.find((d) => d.dateStr === '2026-07-17');
+  assert.ok(sec8Point !== undefined);
+  assert.strictEqual(sec8Point.value, 0);
+  assert.strictEqual(sec8Point.feedsPosted, 2);
+  assert.strictEqual(sec8Point.postedZero, true);
+});

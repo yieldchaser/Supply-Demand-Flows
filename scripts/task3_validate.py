@@ -121,6 +121,7 @@ def load_terminal_history(term_key):
     for fd in feed_daily.values():
         if fd:
             all_dates.update(fd.keys())
+    feed_min_dates = {feed: min(fd.keys()) for feed, fd in feed_daily.items() if fd}
     history = {}
     for d in sorted(all_dates):
         total, feeds_posted = 0, 0
@@ -130,6 +131,13 @@ def load_terminal_history(term_key):
                 total += max(fd[d], 0)
         if feeds_posted == 0:
             continue
+
+        # Incomplete day suppression: if active feeds have not all reported,
+        # omit day so partial sums do not fake outages or acute drops
+        expected_feeds = sum(1 for feed, min_d in feed_min_dates.items() if d >= min_d)
+        if feeds_posted < expected_feeds:
+            continue
+
         history[d] = {"value": total, "posted": True,
                       "posted_zero": total == 0 and feeds_posted > 0,
                       "n_feeds_posted": feeds_posted}

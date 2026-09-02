@@ -54,7 +54,7 @@ const TERMINALS = [
       { src: 'gulf_south', stem: 'gulf_south_sq_24329_d', label: 'Gulf South 24329', color: 'rgba(56,189,248,0.85)' },
       { src: 'enbridge',    stem: 'tetco_sq_79999_d',       label: 'TETCO 79999',     color: 'rgba(34,211,164,0.80)' },
     ],
-    honesty: 'Share = Gulf South + TETCO only (~80% of terminal feedgas). Freeport’s unposted KMTP intrastate lateral delivers the remaining ~20% (~400–450 MMcf/d), so an interstate share shift may reflect an unmeasured shift to/from KMTP, not pure pipeline routing.',
+    honesty: 'Share = Gulf South + TETCO only (52.9% median coverage of 2,100 MMcf/d nameplate over 100-day overlap). The unposted KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates and other unmeasured feeds account for the remaining ~988 MMcf/d, so an interstate share shift may reflect shifts to/from unmeasured supplies rather than pure pipeline routing.',
   },
   {
     id: 'cove_point',

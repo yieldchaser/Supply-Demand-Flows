@@ -83,14 +83,39 @@ export function buildMultiFeedData(bundle, t) {
     });
   });
 
+  // Determine each summable feed's start date
+  const feedMinDates = new Map();
+  feedMaps.forEach((fm) => {
+    if (summableLabels.has(fm.label)) {
+      const dates = Object.keys(fm.map).sort();
+      if (dates.length > 0) feedMinDates.set(fm.label, dates[0]);
+    }
+  });
+
   const dailySeries = [];
   Object.keys(rowsByDate).forEach((dateStr) => {
     const feeds = rowsByDate[dateStr];
     if (Object.keys(feeds).length === 0) return;
+
+    // Check feed parity: all feeds active by this date must have reported.
+    // An incomplete day (e.g. trailing edge where one pipe hasn't filed yet)
+    // is omitted from total flow to prevent false-cliff rendering.
+    let expectedCount = 0;
+    feedMinDates.forEach((minDate) => {
+      if (dateStr >= minDate) expectedCount++;
+    });
+
+    let reportedCount = 0;
     let total = 0;
     Object.entries(feeds).forEach(([label, v]) => {
-      if (summableLabels.has(label)) total += v;
+      if (summableLabels.has(label)) {
+        reportedCount++;
+        total += v;
+      }
     });
+
+    if (reportedCount < expectedCount) return;
+
     dailySeries.push({ dateStr, date: new Date(dateStr), value: total });
   });
   dailySeries.sort((a, b) => a.date.getTime() - b.date.getTime());

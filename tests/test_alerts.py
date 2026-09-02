@@ -398,3 +398,35 @@ def test_new_event_on_terminal_with_active_alert_gets_through(clean_data, monkey
     assert post_count == 2
 
 
+def test_feedgas_alert_suppresses_incomplete_trailing_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Incomplete trailing day (one pipe pending) is omitted so it never triggers a false acute drop."""
+    import scripts.task3_validate as t3
+
+    # 2026-09-01 complete (1500 MMcf/d), 2026-09-02 incomplete (200 MMcf/d, 1 feed)
+    mock_history = {
+        "2026-09-01": {"value": 1_537_500, "posted": True, "posted_zero": False, "n_feeds_posted": 2},
+    }
+    monkeypatch.setattr(t3, "load_terminal_history", lambda term: (mock_history, t3.TERMINALS[term]))
+
+    alerts = send_feedgas_alerts_if_needed(dry_run=True)
+    assert not any(a.get("dedup_key", "").endswith("2026-09-02") for a in alerts)
+    assert not any("ACUTE_DROP" in a.get("html_body", "") and "2026-09-02" in a.get("html_body", "") for a in alerts)
+
+
+def test_feedgas_alert_evaluates_when_both_feeds_post_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Real outage: both feeds post zero on newest day -> complete day -> triggers OFFLINE alert."""
+    import scripts.task3_validate as t3
+
+    mock_history = {
+        "2026-08-30": {"value": 1_537_500, "posted": True, "posted_zero": False, "n_feeds_posted": 2},
+        "2026-08-31": {"value": 0, "posted": True, "posted_zero": True, "n_feeds_posted": 2},
+        "2026-09-01": {"value": 0, "posted": True, "posted_zero": True, "n_feeds_posted": 2},
+        "2026-09-02": {"value": 0, "posted": True, "posted_zero": True, "n_feeds_posted": 2},
+    }
+    monkeypatch.setattr(t3, "load_terminal_history", lambda term: (mock_history, t3.TERMINALS[term]))
+
+    alerts = send_feedgas_alerts_if_needed(dry_run=True)
+    assert any(a["terminal"] == "freeport" and "OFFLINE" in a["html_body"] for a in alerts)
+
+
+

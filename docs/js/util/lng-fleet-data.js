@@ -219,33 +219,33 @@ export function terminalSummary(bundle, t) {
     }
     if (feedDailies.length === 0) return { ok: false };
 
+    const feedMinDates = feedDailies.map((daily) => daily[0]?.dateStr || '9999-99-99');
+    const counts = {};
     const byDate = {};
+
     feedDailies.forEach((daily) => {
       daily.forEach((d) => {
+        counts[d.dateStr] = (counts[d.dateStr] || 0) + 1;
         if (!byDate[d.dateStr]) byDate[d.dateStr] = { date: d.date, total: 0 };
         byDate[d.dateStr].total += d.value;
       });
     });
+
+    // Enforce feed parity: omit incomplete days (where active feeds haven't reported)
     const merged = Object.entries(byDate)
+      .filter(([dateStr]) => {
+        let expected = 0;
+        for (const minD of feedMinDates) {
+          if (dateStr >= minD) expected++;
+        }
+        return (counts[dateStr] || 0) >= expected;
+      })
       .map(([dateStr, v]) => ({ dateStr, date: v.date, value: v.total }))
       .sort((a, b) => a.date.getTime() - b.date.getTime());
+
     if (merged.length === 0) return { ok: false };
 
-    const nFeeds = feedDailies.length;
-    const counts = {};
-    feedDailies.forEach((daily) => {
-      daily.forEach((d) => {
-        counts[d.dateStr] = (counts[d.dateStr] || 0) + 1;
-      });
-    });
-    let headlineSource = null;
-    for (let i = merged.length - 1; i >= 0; i--) {
-      if (counts[merged[i].dateStr] === nFeeds) {
-        headlineSource = merged[i];
-        break;
-      }
-    }
-    const sum = summarizeDaily(merged, t.nameplate, headlineSource);
+    const sum = summarizeDaily(merged, t.nameplate);
     sum.daily = merged;
     return sum;
   }

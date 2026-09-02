@@ -54,7 +54,7 @@ export const DOWNTIME_CONF = {
     ],
     zeroDaysThreshold: 2,
     cargoZero: false,
-    honesty: 'KMTP intrastate feed (~400 MMcf/d) is invisible. Combined total covers ~81% of feedgas.',
+    honesty: 'KMTP intrastate feed (~400–450 MMcf/d) is invisible. Combined total covers 52.9% median of 2,100 MMcf/d nameplate (1,111.5 MMcf/d median over 100-day overlap; peak 30d 1,538 MMcf/d = 73.2%).',
   },
   cove_point: {
     label: 'Cove Point',
@@ -154,8 +154,13 @@ export function dailyFromFeed(bundle, feed) {
  */
 export function buildDailyTotal(bundle, conf) {
   const byDate = new Map();
+  // Track min date per feed to determine expected feeds on each date
+  const feedMinDates = new Map();
   conf.feeds.forEach((f) => {
     const daily = dailyFromFeed(bundle, f);
+    if (daily.length > 0) {
+      feedMinDates.set(f.label, daily[0].dateStr);
+    }
     for (const d of daily) {
       if (!byDate.has(d.dateStr)) {
         byDate.set(d.dateStr, {
@@ -176,6 +181,15 @@ export function buildDailyTotal(bundle, conf) {
 
   const out = [];
   byDate.forEach((v, k) => {
+    // Check feed parity: all feeds active by date k must have reported
+    let expectedFeeds = 0;
+    feedMinDates.forEach((minD) => {
+      if (k >= minD) expectedFeeds++;
+    });
+
+    // Incomplete day suppression (e.g. newest day where one feed hasn't filed yet)
+    if (v.feedsPosted < expectedFeeds) return;
+
     v.postedZero = v.posted && v.feedsPosted > 0 && v.value === 0;
     out.push({
       dateStr: k,

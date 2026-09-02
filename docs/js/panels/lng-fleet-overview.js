@@ -237,8 +237,8 @@ export function renderLngFleetOverview(
   const freeportCaveat = document.createElement('p');
   freeportCaveat.className = 'fleet-footnote';
   freeportCaveat.innerHTML =
-    '<strong>Freeport</strong> measures interstate feedgas only (~1,680 MMcf/d baseload median vs 2,100 MMcf/d nameplate, ~80% coverage). ' +
-    'The remaining ~420 MMcf/d (~20%) is delivered via the unposted KMTP intrastate lateral (~400–450 MMcf/d capacity).';
+    '<strong>Freeport</strong> measures interstate feedgas only (52.9% median coverage of 2,100 MMcf/d nameplate; 1,111.5 MMcf/d median over 100-day overlap 2026-05-25 to 2026-09-01; peak 30d sustained 1,538.0 MMcf/d = 73.2%). ' +
+    'The remaining ~988 MMcf/d against nameplate reflects the unposted KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates and unmeasured supplies.';
   caveats.appendChild(freeportCaveat);
   panelEl.appendChild(caveats);
 
