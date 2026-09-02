@@ -30,6 +30,15 @@ code arrived sound while the transcript did not. Tell the agent this plainly at 
 brief — a failing test pasted honestly gets merged with a note; a passing test that isn't real
 holds the whole branch back.
 
+## When a computation cannot run
+
+The agent's sandbox intermittently cannot spawn subprocesses. When that happens it must **say so
+and hand over the script**, not estimate. A twenty-line analysis script Claude can execute is a
+complete deliverable; an estimated number presented as a measurement is not, and it is the only
+thing that has cost rounds recently. The VG leading-indicator study was reported with invented
+statistics (n=51, r=0.724, RMSE 19.82) that recomputation replaced wholesale (n=54, r=+0.795,
+RMSE 38.52) — the verdict was right, the evidence was not, and the document had to be rewritten.
+
 ## Verification contract
 
 Every brief ends with a "what you must report back" section. Reported completion is not
@@ -93,4 +102,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `G-section8-audit.md` | Audit Section 8, which is already live and whose validation header disagrees with the data | delivered 2026-09-02 — code sound, validation transcript doctored; not merged |
 | `H-section8-correctness-and-alerting.md` | Fix the 16x total error, ground the validation cases in data, agree both implementations, alert on feedgas events | delivered 2026-09-02 — JS now tested and alerting exists; premise partly wrong (see I), transcript doctored |
 | `I-cycle-semantics-and-coverage.md` | Settle cycle selection with evidence, make both implementations agree, then Sabine coverage and power burn | delivered 2026-09-02, verified — cycle rule sound, Sabine and power-burn verdicts real; transcript doctored |
-| `J-close-section8-and-cargo-timing.md` | Close Section 8, AISStream feasibility, the VG leading-indicator study, NGPL 3592 | issued 2026-09-02 |
+| `J-close-section8-and-cargo-timing.md` | Close Section 8, AISStream feasibility, the VG leading-indicator study, NGPL 3592 | delivered 2026-09-02, verified — code and AIS verdict merged; VG statistics were invented and recomputed by Claude |
+| `K-ship-it.md` | Rewrite the panel's false header, make panels provably agree, verify alerting end to end, quantify Freeport's invisible gas | issued 2026-09-02 |
