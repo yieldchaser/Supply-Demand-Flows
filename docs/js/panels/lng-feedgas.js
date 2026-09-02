@@ -31,29 +31,7 @@ import {
 } from './lng-fleet-overview.js';
 import { renderCycleRevisions } from './lng-cycle-revisions.js';
 
-const CYCLE_PRIORITY = {
-  timely: 1,
-  evening: 2,
-  latec: 3, // TETCO's legacy overnight correction re-post (final for its gas day)
-  late: 4,
-  id1: 5,
-  id2: 6,
-  id3: 7,
-};
-
-/**
- * Cycle priority for a token, falling back to numeric id{HH}00 buckets
- * (TETCO posts hourly intraday snapshots — higher hour = fresher).
- *
- * @param {string} cycle
- * @returns {number}
- */
-function cyclePriority(cycle) {
-  if (CYCLE_PRIORITY[cycle] !== undefined) return CYCLE_PRIORITY[cycle];
-  const m = /^id(\d{2})00$/.exec(cycle);
-  if (m) return 100 + parseInt(m[1], 10);
-  return 0;
-}
+import { cyclePriority } from '../util/lng-downtime.js';
 
 /** Stacked-area fill colors per feed index (base -> top). */
 const FEED_COLORS = [

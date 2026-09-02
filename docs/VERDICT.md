@@ -218,3 +218,48 @@ demoting meters.
    ~2.59M Dth/d (sendout != feedgas intake). Split into three bands: plant intake
    (cpl_sq_10001_*, max 1.1M), sendout OAC (cpl_oac_10001_*, max 3.0M), sendout
    opcap (cpl_opcap_10001_*, max 2.2M). bhe now PASS.
+
+## 2026-09-02 — Sabine Pass plant intake exhaustive audit (Cheniere Creole Trail TSP 200 & Corpus Christi TSP 400)
+
+Exhaustive enumeration of all locations published by Cheniere's public API for Creole Trail
+(TSP 200) and Corpus Christi (TSP 400) was conducted across the full curated raw payload library
+to investigate whether a consolidated plant-intake meter exists for Sabine Pass (analogous to
+Cove Point's `cpl_sq_10001_d` or Corpus Christi's `CC200221`).
+
+### 1. Creole Trail Pipeline (TSP 200) — complete 11-meter census
+- `CT109413` (GILLIS-TETCO-R): Receipt, design 650k Dth/d. Gillis hub interconnect.
+- `CT109441` (GILLIS-TRANSCO-R): Receipt, design 900k Dth/d. Gillis hub interconnect.
+- `CT109451` (GILLIS-TRUNK-R): Receipt, design 1,000k Dth/d. Gillis hub interconnect.
+- `CT109461` (GILLIS-LEAP-R): Receipt, design 1,000k Dth/d. Gillis hub interconnect.
+- `CT109471` (GILLIS-ACADIAN-R): Receipt, design 1,000k Dth/d. Gillis hub interconnect.
+- `CT200111` (CREOLE TRAIL-SPLIQ-D): Delivery, design 1,700,000 Dth/d. Pipeline delivery into Sabine Pass Liquefaction. Typically flows ~1,390,000 Dth/d (~1,356 MMcf/d).
+- `CT209441` (GILLIS-TRANSCO-D): Delivery, design 900k Dth/d. Bi-directional delivery at Gillis. Flow 0.0.
+- `SPLNG` (Sabine Pass LNG Rec): Receipt, design 25,000 Dth/d. Auxiliary terminal receipt point. Flow 0.0.
+- `SPLNGD` (Sabine Pass LNG Del): Delivery, design 25,000 Dth/d. Small auxiliary delivery tap. Flow ~9,500 Dth/d (~9.2 MMcf/d).
+- `TETCO` (TETCO Gillis): Delivery, design 650k Dth/d. Bi-directional delivery at Gillis. Flow 0.0.
+- `TRUNK` (Trunkline Gillis): Delivery, design 1,000k Dth/d. Bi-directional delivery at Gillis. Flow 0.0.
+
+### 2. Corpus Christi Pipeline (TSP 400) — complete 11-meter census
+- `CC100221` (CORPUS CHRISTI-CCLIQ-R): Receipt, design 35k Dth/d. Terminal return. Flow 0.0.
+- `CC108011` (TAFT RECEIPT-R): Receipt, design 50k Dth/d. Flow 0.0.
+- `CC121033` (TGP-SINTON-R): Receipt, design 750k Dth/d. Interconnect at Sinton.
+- `CC121041` (TRANSCO-SAN PAT CO-R): Receipt, design 400k Dth/d. Interconnect in San Patricio Co.
+- `CC121053` (NGPL-SINTON-R): Receipt, design 1,000k Dth/d. Interconnect at Sinton.
+- `CC121063` (EPROD-SAN PAT CO-R): Receipt, design 750k Dth/d. Interconnect in San Patricio Co.
+- `CC121073` (KM TEJAS-SINTON-R): Receipt, design 1,000k Dth/d. Interconnect at Sinton.
+- `CC121083` (TEJAS II-SINTON-R): Receipt, design 1,000k Dth/d. Interconnect at Sinton.
+- `CC200221` (CORPUS CHRISTI-CCLIQ-D): Delivery, design 2,750,000 Dth/d. Consolidated delivery into CCLIQ. Captures ~100% of terminal feedgas (~1,868–2,450 MMcf/d).
+- `CC221033` (TGP-SINTON-D): Delivery, design 500k Dth/d. Bi-directional delivery. Flow 0.0.
+- `CC221073` (KM TEJAS-SINTON-D): Delivery, design 1,000k Dth/d. Bi-directional delivery. Flow 0.0.
+
+### 3. Twin-meter check and pass-through audit
+- **Creole Trail mass balance**: On TSP 200, the sum of the five Gillis receipts (TETCO + Transco + Trunkline + LEAP + Acadian) equals 1,423,371 Dth/d. Delivery meter `CT200111` equals 1,390,562 Dth/d. The 32,809 Dth/d difference is 2.3% pipeline fuel and shrinkage along the 94-mile lateral. Correlation is $r = 0.985$. The five receipt meters and `CT200111` are two ends of the same pipe. Summing them would double-count.
+- **Pass-through**: Unlike Cove Point (where 37% bypasses the plant to regional utilities), Creole Trail has 0 local utility deliveries. 100% of non-fuel gas delivered by Creole Trail enters Sabine Pass Liquefaction.
+
+### 4. Plant intake verdict for Sabine Pass
+- **Verdict: NO consolidated plant-intake meter exists on Cheniere's EBB for Sabine Pass.**
+- Unlike Corpus Christi (where Cheniere owns the primary transmission artery carrying ~100% of plant supply), Sabine Pass Liquefaction (4,500 MMcf/d nameplate) is an unbundled facility supplied by multiple independent pipeline systems (Creole Trail, Williams Transco Zone 3, Kinder Morgan NGPL, and Kinetica).
+- Creole Trail's total design capacity is 1.7 Bcf/d (~37% of Sabine nameplate), and its operational delivery is ~1.4 Bcf/d (~31% of nameplate).
+- Because Cheniere only publishes informational postings for its own pipeline (Creole Trail LP), Cheniere's API physically cannot see the remaining ~69% arriving via Transco and other operators.
+- **Conclusion**: `CT200111-D` is already the maximum possible measurement of Creole Trail delivery into Sabine Pass. The observatory's classification of Sabine Pass as `MEASURED-PARTIAL (~31%)` with explicit UI caveats is the honest, optimal reporting structure. The remaining gas cannot be captured without separate scraper pipelines for Williams Transco and other third-party EBBs.
+

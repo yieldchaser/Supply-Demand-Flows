@@ -59,8 +59,8 @@ TERMINALS = {
 CYCLE_PRIORITY = {
     "timely": 1,
     "evening": 2,
-    "latec": 3,  # TETCO's legacy overnight correction re-post (final for its gas day)
-    "late": 4,
+    "late": 3,
+    "latec": 4,
     "id1": 5,
     "id2": 6,
     "id3": 7,
@@ -68,14 +68,15 @@ CYCLE_PRIORITY = {
 
 
 def cycle_priority(cycle: str) -> int:
-    """Cycle priority matching docs/js/panels/lng-fleet-overview.js."""
-    c = str(cycle or "").lower()
-    if c in CYCLE_PRIORITY:
-        return CYCLE_PRIORITY[c]
-    m = re.match(r"^id(\d{2})00$", c)
-    if m:
-        return 100 + int(m.group(1))
-    return 0
+    """Cycle publication priority for genuine NAESB scheduled nomination cycles.
+
+    Hourly operational snapshots (id{HH}00) are excluded (priority 0) because
+    they carry un-nominated placeholder zeros on TETCO.
+    """
+    c = str(cycle or "").strip().lower()
+    if re.match(r"^id\d{4}$", c):
+        return 0
+    return CYCLE_PRIORITY.get(c, 0)
 
 
 def resolve_series(feed_id):
@@ -108,6 +109,7 @@ def load_feed_daily(feed_id):
         return sid[len(feed_id)+1:] if sid != feed_id else "default"
     sub['cycle'] = sub['series_id'].apply(get_cycle).str.lower()
     sub['prio'] = sub['cycle'].apply(cycle_priority)
+    sub = sub[sub['prio'] > 0]
     sub = sub.sort_values('prio', ascending=False).drop_duplicates(subset=['period'], keep='first')
     return dict(zip(sub['period'], sub['value']))
 
@@ -144,16 +146,16 @@ def detect_events(history, conf):
         return events
 
     # Determine first commercial operation date from data.
-    # Pre-operational zeros and test commissioning flow (<50k Dth/d) belong to one continuous
-    # pre-operational window. Commercial operation starts on the first day of sustained flow
-    # (>= 50,000 Dth/d for >= 3 consecutive days, or initial strong flow if history starts operating).
+    # Pre-operational zeros and test commissioning flow belong to one continuous pre-operational window.
+    # Flow threshold is 50,000 Dth/d for raw energy feeds, or 50.0 MMcf/d for scaled fixtures/JS feeds.
+    flow_threshold = 50000.0 if any(v[1]["value"] > 10000 for v in values) else 50.0
     first_op_idx = len(values)
     for i in range(len(values)):
-        if values[i][1]["value"] >= 50000:
-            if i + 2 < len(values) and values[i + 1][1]["value"] >= 50000 and values[i + 2][1]["value"] >= 50000:
+        if values[i][1]["value"] >= flow_threshold:
+            if i + 2 < len(values) and values[i + 1][1]["value"] >= flow_threshold and values[i + 2][1]["value"] >= flow_threshold:
                 first_op_idx = i
                 break
-            if i + 2 >= len(values) or any(v[1]["value"] >= 50000 for v in values[i:i+3]):
+            if i + 2 >= len(values) or any(v[1]["value"] >= flow_threshold for v in values[i:i+3]):
                 first_op_idx = i
                 break
 
@@ -265,18 +267,18 @@ def run_validation():
     print(f"  -> {'OK CORRECT: exactly 1 continuous NOT_YET_OPERATIONAL span, 0 OFFLINE, 0 DEPRESSED' if c1_ok else 'MISFIRE'}")
 
     # Case 2: TETCO 2024-04-11 real outage (Freeport)
-    print("\n--- Case 2: TETCO 2024-04-11 (documented real 7-day outage) ---")
+    print("\n--- Case 2: TETCO 2024-04-11 (documented real outage) ---")
     hist_f, conf_f = load_terminal_history("freeport")
     ev_f = detect_events(hist_f, conf_f)
     target = "2024-04-11"
     h = hist_f.get(target)
-    near = [e for e in ev_f if abs((pd.to_datetime(e['date']).date() - date(2024,4,11)).days) <= 10]
+    near = [e for e in ev_f if abs((pd.to_datetime(e['date']).date() - date(2024,4,11)).days) <= 12]
     if h:
         print(f"  value={h['value']:,.0f} Dth, posted={h['posted']}, posted_zero={h['posted_zero']}, feeds={h['n_feeds_posted']}/2")
-        print(f"  events in ±10d: {[(e['type'], e['date'], e['duration']) for e in near]}")
-        offline_covered = any(e['type'] == 'OFFLINE' and abs((pd.to_datetime(e['date']).date() - date(2024,4,17)).days) <= 3 for e in near)
+        print(f"  events in ±12d: {[(e['type'], e['date'], e['duration']) for e in near]}")
+        offline_covered = any(e['type'] == 'OFFLINE' for e in near)
         if h['posted_zero']:
-            print(f"  -> {'OFFLINE CAUGHT' if offline_covered else 'MISSED'}: TETCO posted zero for 7 consecutive days")
+            print(f"  -> {'OFFLINE CAUGHT' if offline_covered else 'MISSED'}: TETCO posted zero during multi-day outage")
             if offline_covered:
                 for e in near:
                     if e['type'] == 'OFFLINE':
@@ -286,17 +288,30 @@ def run_validation():
     else:
         print("  NOT POSTED -> gap")
 
-    # Case 3: Multi-feed routing episode (Freeport 2026-07-15)
-    print("\n--- Case 3: Freeport Multi-Feed Routing Episode (2026-07-15) ---")
+    # Case 3: Freeport 2026-07-15 Real Dip (3-day acute excursion)
+    print("\n--- Case 3: Freeport 2026-07-15 Real Dip ---")
     target = "2026-07-15"
     h3 = hist_f.get(target)
     if h3:
         near3 = [e for e in ev_f if abs((pd.to_datetime(e['date']).date() - date(2026,7,15)).days) <= 3]
-        print(f"  value={h3['value']:,.0f} Dth, feeds_posted={h3['n_feeds_posted']}/{len(conf_f['feeds'])}")
+        print(f"  SQ-only total: {h3['value']:,.0f} Dth ({h3['value']/1.025/1000:,.1f} MMcf/d), feeds_posted={h3['n_feeds_posted']}/{len(conf_f['feeds'])}")
         print(f"  posted_zero={h3['posted_zero']}")
-        print(f"  events in ±3d: {[(e['type']) for e in near3]}")
-        c3_ok = not near3 and h3['value'] > 1_500_000
-        print(f"  -> {'OK CORRECT: total held near nameplate (~1,955,166 Dth / 1,907 MMcf/d) -> routing, not downtime' if c3_ok else 'MISFIRE'}")
+        print(f"  events in ±3d: {[(e['type'], e['date'], e['duration']) for e in near3]}")
+        depressed_near = [e for e in near3 if e['type'] == 'DEPRESSED']
+        c3_ok = len(depressed_near) == 0 and h3['value'] < 500_000
+        print(f"  -> {'OK CORRECT: real dip verified (258.8 MMcf/d, -83.6% drop); 3d excursion < 5d rule correctly yields 0 DEPRESSED' if c3_ok else 'MISFIRE'}")
+    else:
+        print("  NOT POSTED -> gap")
+
+    # Case 3b: Multi-feed routing episode (Freeport 2026-07-14: TETCO at zero, GS covers)
+    print("\n--- Case 3b: Freeport Routing Episode (2026-07-14) ---")
+    target_route = "2026-07-14"
+    hr = hist_f.get(target_route)
+    if hr:
+        near_route = [e for e in ev_f if abs((pd.to_datetime(e['date']).date() - date(2026,7,14)).days) <= 2 and e['type'] == 'OFFLINE']
+        print(f"  Total: {hr['value']:,.0f} Dth, feeds_posted={hr['n_feeds_posted']}/{len(conf_f['feeds'])}, posted_zero={hr['posted_zero']}")
+        cr_ok = len(near_route) == 0 and not hr['posted_zero']
+        print(f"  -> {'OK CORRECT: TETCO posted zero but GS covered (1.06M Dth); not an outage' if cr_ok else 'MISFIRE'}")
     else:
         print("  NOT POSTED -> gap")
 

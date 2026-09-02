@@ -14,29 +14,32 @@
 
 import { dth_to_mmcf } from './lng-metrics.js';
 
-/** Cycle publication priority (later cycles supersede earlier ones). */
+/** Cycle publication priority for genuine NAESB scheduled nomination cycles. */
 export const CYCLE_PRIORITY = {
   timely: 1,
   evening: 2,
-  latec: 3, // TETCO's legacy overnight correction re-post (final for its gas day)
-  late: 4,
+  late: 3,
+  latec: 4,
   id1: 5,
   id2: 6,
   id3: 7,
 };
 
 /**
- * Cycle priority for a token, falling back to numeric id{HH}00 buckets
- * (TETCO posts hourly intraday snapshots — higher hour = fresher).
+ * Cycle priority for genuine NAESB scheduled nomination cycles.
+ *
+ * Excludes automated hourly snapshot cycles (id{HH}00) entirely by returning 0.
+ * Why: TETCO MLC posts hourly automated capacity snapshots that default to 0.0
+ * for meters without hourly intraday allocations, even on days with full baseload
+ * scheduled flow in timely/evening. Genuine nominated cycles must always win.
  *
  * @param {string} cycle
  * @returns {number}
  */
 export function cyclePriority(cycle) {
   const c = String(cycle || '').toLowerCase();
+  if (/^id\d{4}$/.test(c)) return 0;
   if (CYCLE_PRIORITY[c] !== undefined) return CYCLE_PRIORITY[c];
-  const m = /^id(\d{2})00$/.exec(c);
-  if (m) return 100 + parseInt(m[1], 10);
   return 0;
 }
 
@@ -123,9 +126,10 @@ export function dailyFromFeed(bundle, feed) {
     const sid = String(r.series_id).toLowerCase();
     if (!sid.startsWith(prefix)) return;
     const cycle = sid.slice(prefix.length);
+    const pri = cyclePriority(cycle);
+    if (pri <= 0) return;
     const dateStr = String(r.period).slice(0, 10);
     if (!byDate[dateStr]) byDate[dateStr] = {};
-    const pri = cyclePriority(cycle);
     const prev = byDate[dateStr];
     if (prev._best === undefined || pri > prev._best) {
       prev._best = pri;
@@ -198,15 +202,21 @@ export function detectDowntime(daily, conf) {
   if (!daily || daily.length === 0) return events;
 
   // 1. Determine first commercial operation date from data
-  // Flow sustained >= 50 MMcf/d for >= 3 consecutive days marks operational state.
+  // Flow sustained >= flowThreshold for >= 3 consecutive days marks operational state.
+  // Adaptive: 50,000 for raw Dth feeds, 50 for MMcf/d feeds.
+  const flowThreshold = daily.some((d) => d.value > 10000) ? 50000 : 50;
   let firstOpIdx = daily.length;
   for (let i = 0; i < daily.length; i++) {
-    if (daily[i].value >= 50) {
-      if (i + 2 < daily.length && daily[i + 1].value >= 50 && daily[i + 2].value >= 50) {
+    if (daily[i].value >= flowThreshold) {
+      if (
+        i + 2 < daily.length &&
+        daily[i + 1].value >= flowThreshold &&
+        daily[i + 2].value >= flowThreshold
+      ) {
         firstOpIdx = i;
         break;
       }
-      if (i + 2 >= daily.length || daily.slice(i, i + 3).some((d) => d.value >= 50)) {
+      if (i + 2 >= daily.length || daily.slice(i, i + 3).some((d) => d.value >= flowThreshold)) {
         firstOpIdx = i;
         break;
       }

@@ -21,30 +21,8 @@ import {
 } from '../util/lng-terminals.js';
 import { dth_to_mmcf, get_utilization_level } from '../util/lng-metrics.js';
 
-/** Cycle publication priority (later cycles supersede earlier ones). */
-const CYCLE_PRIORITY = {
-  timely: 1,
-  evening: 2,
-  latec: 3, // TETCO's legacy overnight correction re-post (final for its gas day)
-  late: 4,
-  id1: 5,
-  id2: 6,
-  id3: 7,
-};
-
-/**
- * Cycle priority for a token, falling back to numeric id{HH}00 buckets
- * (TETCO posts hourly intraday snapshots — higher hour = fresher).
- *
- * @param {string} cycle
- * @returns {number}
- */
-export function cyclePriority(cycle) {
-  if (CYCLE_PRIORITY[cycle] !== undefined) return CYCLE_PRIORITY[cycle];
-  const m = /^id(\d{2})00$/.exec(cycle);
-  if (m) return 100 + parseInt(m[1], 10);
-  return 0;
-}
+import { CYCLE_PRIORITY, cyclePriority } from '../util/lng-downtime.js';
+export { cyclePriority };
 
 /**
  * Build a date -> {cycle -> MMcf} map for a direct-SQ terminal.
