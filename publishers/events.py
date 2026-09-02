@@ -165,6 +165,14 @@ def detect_rig_reversal(threshold_rigs: int = 20) -> dict[str, str] | None:
     }
 
 
+def detect_feedgas_downtime() -> list[dict[str, str]]:
+    """Detect active feedgas outages, sustained depression, or acute drops across LNG terminals."""
+    from publishers.alerts import send_feedgas_alerts_if_needed
+
+    raw_alerts = send_feedgas_alerts_if_needed(dry_run=True)
+    return [{"dedup_key": a["dedup_key"], "html_body": a["html_body"]} for a in raw_alerts]
+
+
 def run_all_detectors() -> list[dict[str, str]]:
     """Run all detectors, return list of events that fired."""
     # Explicit Callable annotation: without it mypy infers the list element
@@ -182,4 +190,12 @@ def run_all_detectors() -> list[dict[str, str]]:
                 events.append(result)
         except Exception as exc:
             logger.exception(f"Detector {detector.__name__} failed: {exc}")
+
+    try:
+        feedgas_events = detect_feedgas_downtime()
+        events.extend(feedgas_events)
+    except Exception as exc:
+        logger.exception(f"Detector detect_feedgas_downtime failed: {exc}")
+
     return events
+

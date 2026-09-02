@@ -11,8 +11,10 @@ import pytest
 from publishers.alerts import (
     AlertError,
     build_health_prefix,
+    format_feedgas_alert,
     format_integrity_findings,
     send_alert,
+    send_feedgas_alerts_if_needed,
     send_integrity_alert_if_needed,
 )
 
@@ -248,3 +250,63 @@ def test_send_integrity_alert_unreadable_report_raises(clean_data, tmp_path):
 
     with pytest.raises(AlertError):
         send_integrity_alert_if_needed(bad)
+
+
+def test_format_feedgas_alert_renders_correctly() -> None:
+    """Verify HTML formatting of LNG feedgas alerts."""
+    # OFFLINE alert
+    offline_body = format_feedgas_alert(
+        terminal="Freeport LNG",
+        event_type="OFFLINE",
+        gas_day="2024-04-17",
+        duration=7,
+        flow_mmcf=0.0,
+        baseline_mmcf=1900.0,
+        detail="7 consecutive posted-zeros",
+    )
+    assert "🔴 <b>LNG TERMINAL ALERT: FREEPORT LNG</b>" in offline_body
+    assert "Event: <b>OFFLINE</b>" in offline_body
+    assert "<code>2024-04-17</code> (duration: 7d)" in offline_body
+    assert "Flow: <b>0.0 MMcf/d</b>" in offline_body
+    assert "drop: 100.0%" in offline_body
+    assert "7 consecutive posted-zeros" in offline_body
+
+    # DEPRESSED alert
+    depressed_body = format_feedgas_alert(
+        terminal="Freeport LNG",
+        event_type="DEPRESSED",
+        gas_day="2026-07-20",
+        duration=5,
+        flow_mmcf=800.0,
+        baseline_mmcf=1900.0,
+        detail="below 60% baseline 5d",
+    )
+    assert "🟠 <b>LNG TERMINAL ALERT: FREEPORT LNG</b>" in depressed_body
+    assert "Event: <b>DEPRESSED</b>" in depressed_body
+    assert "drop: 57.9%" in depressed_body
+
+
+def test_send_feedgas_alerts_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """dry_run mode prints rendered message body and makes zero network calls."""
+    import httpx
+    import scripts.task3_validate as t3
+
+    # Mock terminal history with an active outage
+    mock_history = {
+        "2026-08-30": {"value": 1_900_000, "posted": True, "posted_zero": False, "n_feeds_posted": 2},
+        "2026-08-31": {"value": 0, "posted": True, "posted_zero": True, "n_feeds_posted": 2},
+        "2026-09-01": {"value": 0, "posted": True, "posted_zero": True, "n_feeds_posted": 2},
+        "2026-09-02": {"value": 0, "posted": True, "posted_zero": True, "n_feeds_posted": 2},
+    }
+    monkeypatch.setattr(t3, "load_terminal_history", lambda term: (mock_history, t3.TERMINALS[term]))
+
+    # Ensure no network post happens
+    def fail_post(*args, **kwargs):
+        pytest.fail("Network call attempted during dry_run")
+
+    monkeypatch.setattr(httpx, "post", fail_post)
+
+    alerts = send_feedgas_alerts_if_needed(dry_run=True)
+    assert len(alerts) >= 1
+    assert any(a["terminal"] == "freeport" and "OFFLINE" in a["html_body"] for a in alerts)
+

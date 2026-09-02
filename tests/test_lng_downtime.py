@@ -175,3 +175,43 @@ def test_freeport_single_day_dip_does_not_trigger_depressed() -> None:
     events = detect_events(history, conf)
     depressed_events = [e for e in events if e["type"] == "DEPRESSED"]
     assert len(depressed_events) == 0, f"Single-day dip falsely triggered DEPRESSED: {depressed_events}"
+
+
+def test_golden_fixture_agreement() -> None:
+    """Python detector produces exact events specified in golden fixture."""
+    import json
+    from pathlib import Path
+
+    fixture_path = Path("tests/fixtures/downtime_golden_fixture.json")
+    with open(fixture_path, encoding="utf-8") as f:
+        fixture = json.load(f)
+
+    # Convert fixture daily entries to history dict
+    history: dict[str, dict[str, Any]] = {}
+    for item in fixture["daily"]:
+        history[item["dateStr"]] = {
+            "value": item["value"],
+            "posted": item["posted"],
+            "posted_zero": item["postedZero"],
+            "n_feeds_posted": 2 if item["posted"] else 0,
+        }
+
+    conf = {
+        "name": "Synthetic Golden Terminal",
+        "feeds": ["feed_a", "feed_b"],
+        "zero_mode": "both_zero",
+        "zero_days_threshold": fixture["config"]["zeroDaysThreshold"],
+        "depressed_pct": fixture["config"]["depressedPct"],
+        "depressed_days": fixture["config"]["depressedDays"],
+        "is_cargo_zero": fixture["config"]["cargoZero"],
+    }
+
+    events = detect_events(history, conf)
+    expected = fixture["expected_events"]
+    assert len(events) == len(expected), f"Expected {len(expected)} events, got {len(events)}: {events}"
+    for i, exp in enumerate(expected):
+        act = events[i]
+        assert act["type"] == exp["type"], f"Event {i} type mismatch: {act} vs {exp}"
+        assert act["date"] == exp["date"], f"Event {i} date mismatch: {act} vs {exp}"
+        assert act["duration"] == exp["duration"], f"Event {i} duration mismatch: {act} vs {exp}"
+
