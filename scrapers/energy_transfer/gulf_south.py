@@ -38,17 +38,45 @@ POSTINGS_PATH = "/infopost/postings"
 CycleCode = Literal["TIMELY", "EVENING", "ID1", "ID2", "ID3"]
 _CYCLES: list[CycleCode] = ["TIMELY", "EVENING", "ID1", "ID2", "ID3"]
 
+#: How many postings to request from the OAC listing endpoint.
+#:
+#: Measured 2026-09-02 (page_size -> postings / OAC-CSV postings / gas days):
+#:     20  ->  20 /  4 /  2   (2026-08-31..2026-09-01)
+#:     50  ->  50 / 11 /  4   (2026-08-29..2026-09-01)
+#:    100  -> 100 / 23 /  8   (2026-08-25..2026-09-01)
+#:    200  -> 200 / 45 / 15   (2026-08-18..2026-09-01)
+#:
+#: Gulf South serves only ID1/ID2/ID3 as CSV, so ~3 OAC postings per gas day.
+#: The old default of 20 spanned ~2 gas days, which is what made a multi-run
+#: outage permanently lossy: postings for a missed gas day rolled off the
+#: listing before the next successful run could pick them up.
+#:
+#: 100 spans ~8 gas days — ~2.7x the ~3-day outage we want to survive — at a
+#: cost of 1 listing request + ~23 CSV downloads ~= 24 requests ~= 12 s per CI
+#: run (empty ``data/raw/``, 2 req/s client). Choosing 200 would buy 15 gas
+#: days for ~46 requests ~= 23 s, i.e. 2x the cost for a buffer ~5x deeper
+#: than the requirement; 100 is the knee of that curve.
+POSTINGS_PAGE_SIZE = 100
+
 
 def _raw_path(cycle: CycleCode, gas_day: date) -> Path:
     """Return the target raw JSON path for a given cycle + gas day."""
     return RAW_DIR / f"{gas_day.isoformat()}_{cycle}.json"
 
 
-async def fetch_postings_list(client: HttpClient, page_size: int = 20) -> list[dict[str, Any]]:
+async def fetch_postings_list(
+    client: HttpClient,
+    page_size: int = POSTINGS_PAGE_SIZE,
+) -> list[dict[str, Any]]:
     """Fetch the list of postings from the public OAC endpoint.
 
     Why:
         Operational Capacity list details are fetched via POST.
+
+    What:
+        Requests the *page_size* most recent postings, newest first. See
+        ``POSTINGS_PAGE_SIZE`` for how the default was chosen and what it
+        costs per run.
     """
     payload = {
         "infoPostID": 1,
@@ -187,7 +215,7 @@ async def run(
             retryable_status_codes=frozenset({403}),
             backoff_delays=(5.0, 15.0, 45.0),
         ) as client:
-            postings = await fetch_postings_list(client, page_size=20)
+            postings = await fetch_postings_list(client)
             if not postings:
                 raise RuntimeError("No postings returned from Gulf South OAC endpoint.")
 
@@ -198,6 +226,11 @@ async def run(
 
             processed_count = 0
             skipped_count = 0
+            # (cycle, gas_day) pairs actually written this run. The workflow
+            # builds its commit message from this instead of from a wall-clock
+            # guess, which used to produce fiction like "SQ ID2 2026-09-01"
+            # for a run that fetched ID1+ID2+ID3 across two gas days.
+            written: list[dict[str, str]] = []
 
             for item in extracted:
                 posting_cycle = item["cycle"]
@@ -242,6 +275,7 @@ async def run(
                 safe_write_json(out_path, payload)
                 log.info("Written %d rows to %s", len(rows), out_path)
                 processed_count += 1
+                written.append({"cycle": posting_cycle, "gas_day": posting_day_str})
 
             status = "ok"
             if processed_count == 0 and skipped_count > 0 or processed_count == 0:
@@ -264,6 +298,7 @@ async def run(
                 "status": status,
                 "processed_count": processed_count,
                 "skipped_count": skipped_count,
+                "files": written,
             }
 
     except Exception as exc:

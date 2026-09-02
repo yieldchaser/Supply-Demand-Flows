@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
-from scrapers.energy_transfer.gulf_south import _CYCLES, _raw_path
+from scrapers.energy_transfer.gulf_south import _CYCLES, RAW_DIR
 
 log = logging.getLogger(__name__)
 
@@ -58,16 +58,84 @@ def identify_freeport_meters(locations: list[dict[str, Any]]) -> list[dict[str, 
     return matched
 
 
-def run_inventory(gas_day: date) -> dict[str, Any]:
+def newest_gas_day_on_disk(raw_dir: Path | None = None) -> date:
+    """Return the newest gas day actually present in the raw directory.
+
+    Why:
+        The inventory's job is "describe the meters we just pulled", so its
+        input must be *what was pulled*, never a wall-clock guess. Boardwalk
+        posts each gas day's cycles hours after the fact, so ``date.today()``
+        routinely names a gas day that has not been posted yet. The inventory
+        then raised ``FileNotFoundError`` for a day that never existed, and
+        because that step gated the commit it discarded an already-computed
+        curated parquet (gas day 2026-08-27 was lost this way).
+
+        This is the same discipline the Kinder Morgan scraper applies via
+        ``parse_posting_stamp()``/``derive_gas_day()`` — derive the gas day
+        from what the source served, never from the wall clock. Those two
+        functions are deliberately NOT imported here: they parse NAESB posting
+        stamps out of KM's HTML (``CycleDesc: EVENING | Post Date: 08/24/2026``)
+        and apply KM's tariff roll-forward rules. Gulf South has no such stamp
+        in its postings payload; its served effective gas day is already
+        present per-row as the ``Effective Gas Day`` CSV column, so the raw
+        filenames written by ``_raw_path`` are the served truth on disk.
+
+    What:
+        Scans *raw_dir* for ``{YYYY-MM-DD}_{CYCLE}.json`` and returns the
+        greatest parseable gas day. Only cycles listed in ``_CYCLES`` are
+        recognised, so unrelated files cannot contribute a date.
+
+    Failure modes:
+        Raises ``FileNotFoundError`` when *raw_dir* is missing or holds no
+        parseable gas-day files. That is a genuinely empty state — distinct
+        from "we guessed the wrong day" — and must stay loud rather than
+        falling back to the wall clock.
+    """
+    target = RAW_DIR if raw_dir is None else raw_dir
+    if not target.exists():
+        raise FileNotFoundError(
+            f"Raw directory {target} does not exist — nothing has been scraped. "
+            f"Run scrapers.energy_transfer.gulf_south first."
+        )
+
+    known_cycles = {c.upper() for c in _CYCLES}
+    found: set[date] = set()
+    for path in target.iterdir():
+        if not path.is_file() or path.suffix != ".json":
+            continue
+        day_str, sep, cycle_str = path.stem.partition("_")
+        if not sep or cycle_str.upper() not in known_cycles:
+            continue
+        try:
+            found.add(date.fromisoformat(day_str))
+        except ValueError:
+            continue
+
+    if not found:
+        raise FileNotFoundError(
+            f"No gas-day raw files matching {{YYYY-MM-DD}}_{{CYCLE}}.json found in "
+            f"{target}. Nothing has been scraped, so there is no inventory to "
+            f"describe. Run scrapers.energy_transfer.gulf_south first."
+        )
+    return max(found)
+
+
+def run_inventory(gas_day: date, raw_dir: Path | None = None) -> dict[str, Any]:
     """Orchestrate the inventory run for a given gas day.
 
     Finds the latest available cycle file, parses all delivery meters,
     runs the Freeport matching logic, and returns the full map structure.
+
+    *raw_dir* defaults to :data:`RAW_DIR` (the module constant from
+    ``scrapers.energy_transfer.gulf_south``). Tests pass a temporary dir so
+    the inventory never touches the real ``data/raw`` tree.
     """
+    base = RAW_DIR if raw_dir is None else raw_dir
+
     # Find latest available cycle raw file for this gas day
     target_file = None
     for cycle in reversed(_CYCLES):
-        p = _raw_path(cycle, gas_day)
+        p = base / f"{gas_day.isoformat()}_{cycle}.json"
         if p.exists():
             target_file = p
             break
@@ -163,13 +231,24 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
 
-    _gas_day = date.today()
     if len(sys.argv) >= 2:
+        # Explicit argument: manual/backfill use. Honoured verbatim.
         try:
             _gas_day = date.fromisoformat(sys.argv[1])
         except ValueError:
             print(f"Invalid gas_day '{sys.argv[1]}'. Use YYYY-MM-DD.", file=sys.stderr)
             sys.exit(1)
+    else:
+        # No argument: anchor to what the scraper actually pulled, not to the
+        # wall clock. See newest_gas_day_on_disk() for why date.today() was
+        # wrong here (it gates nothing now, but it loses data silently).
+        try:
+            _gas_day = newest_gas_day_on_disk()
+        except FileNotFoundError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
+
+    log.info("Inventory gas day resolved from disk: %s", _gas_day)
 
     try:
         result = run_inventory(_gas_day)
