@@ -1,98 +1,98 @@
 {
   "gulf_south": {
-    "rows": 427846,
-    "distinct_periods": 99,
+    "rows": 436687,
+    "distinct_periods": 100,
     "distinct_series": 4433,
     "max_period": "2026-09-01",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
     "consecutive_flat": 0
   },
   "gie_agsi": {
-    "rows": 82720,
-    "distinct_periods": 2068,
+    "rows": 82756,
+    "distinct_periods": 2069,
     "distinct_series": 40,
-    "max_period": "2026-08-30",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
-    "consecutive_flat": 3
+    "max_period": "2026-08-31",
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
+    "consecutive_flat": 0
   },
   "baker_hughes": {
     "rows": 32893,
     "distinct_periods": 139,
     "distinct_series": 633,
     "max_period": "2026-08-28",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
-    "consecutive_flat": 9
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
+    "consecutive_flat": 10
   },
   "eia_storage": {
     "rows": 3608,
     "distinct_periods": 451,
     "distinct_series": 8,
     "max_period": "2026-08-21",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
-    "consecutive_flat": 11
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
+    "consecutive_flat": 12
   },
   "eia_lng_exports": {
     "rows": 2665,
     "distinct_periods": 65,
     "distinct_series": 45,
     "max_period": "2026-05-01",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
-    "consecutive_flat": 25
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
+    "consecutive_flat": 26
   },
   "eia_supply": {
     "rows": 468,
     "distinct_periods": 78,
     "distinct_series": 6,
     "max_period": "2026-06",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
-    "consecutive_flat": 3
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
+    "consecutive_flat": 4
   },
   "gasnom": {
-    "rows": 64122,
-    "distinct_periods": 97,
+    "rows": 64256,
+    "distinct_periods": 98,
     "distinct_series": 988,
-    "max_period": "2026-09-01",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
-    "consecutive_flat": 3
+    "max_period": "2026-09-02",
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
+    "consecutive_flat": 0
   },
   "quorum": {
-    "rows": 117444,
-    "distinct_periods": 1994,
+    "rows": 117480,
+    "distinct_periods": 1995,
     "distinct_series": 120,
-    "max_period": "2026-09-01",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
-    "consecutive_flat": 1
+    "max_period": "2026-09-02",
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
+    "consecutive_flat": 0
   },
   "bhe": {
-    "rows": 14076,
-    "distinct_periods": 610,
+    "rows": 14148,
+    "distinct_periods": 611,
     "distinct_series": 120,
-    "max_period": "2026-09-01",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
+    "max_period": "2026-09-02",
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
     "consecutive_flat": 0
   },
   "cheniere": {
-    "rows": 6996,
-    "distinct_periods": 100,
+    "rows": 7062,
+    "distinct_periods": 101,
     "distinct_series": 264,
-    "max_period": "2026-09-01",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
+    "max_period": "2026-09-02",
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
     "consecutive_flat": 0
   },
   "enbridge": {
-    "rows": 238120,
-    "distinct_periods": 1105,
+    "rows": 238272,
+    "distinct_periods": 1106,
     "distinct_series": 216,
-    "max_period": "2026-09-01",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
+    "max_period": "2026-09-02",
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
     "consecutive_flat": 0
   },
   "kinder_morgan": {
-    "rows": 103,
-    "distinct_periods": 8,
+    "rows": 119,
+    "distinct_periods": 9,
     "distinct_series": 24,
-    "max_period": "2026-09-01",
-    "checked_at": "2026-09-01T23:42:33.297137+00:00",
-    "consecutive_flat": 3
+    "max_period": "2026-09-02",
+    "checked_at": "2026-09-02T17:06:51.933200+00:00",
+    "consecutive_flat": 0
   }
 }
