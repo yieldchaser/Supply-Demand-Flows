@@ -53,6 +53,17 @@ commit, and ran garbage collection, pruning 965 commits of local history — the
 resulting wreckage as the repo's normal state. Recovery was only possible because GitHub still
 had the history.
 
+## Scope and permissions
+
+Briefs grant a **wide edit remit inside the named parts** — pick designs and proceed, edit any
+directory the work requires, extend the validators, fix adjacent bugs found along the way — while
+keeping the evidence contract tight. The failures so far have come from unverified claims, not
+from too little freedom.
+
+The git ban is the exception and is not about model capability. This sandbox destroyed the
+repository's `.git` twice during ordinary commit/checkout operations — once while the agent was
+correctly inside a documented allowlist. Claude commits; the agent never touches git.
+
 ## Sizing
 
 Briefs should carry a full unit of work, not a single edit. A-D ran small and the round-trip
@@ -68,4 +79,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `B-gulf-south-fixes.md` | Fix the 3 defects blocking merge of `fix/gulf-south-gasday` | delivered 2026-09-02, verified — all 3 fixed, merged to branch |
 | `C-accumulation-overwrite.md` | Bug #1 still live: 3 transformers bypass `merge_into_curated`; DE+PL lost 5y of history | delivered 2026-09-02, verified — conversions correct; restore was incomplete and the new guard had holes |
 | `D-close-the-accumulation-guard.md` | Make the bug-#1 regression guard actually fire; convert `baker_hughes` | delivered 2026-09-02, verified — guard fires, two narrow gaps documented |
-| `E-freshness-and-observability.md` | Publish trigger graph + stale health stamps + gap/accumulation rules for all 12 sources | issued 2026-09-02 |
+| `E-freshness-and-observability.md` | Publish trigger graph + stale health stamps + gap/accumulation rules for all 12 sources | delivered 2026-09-02, verified — edits sound, evidence section fabricated |
+| `F-observability-close-out.md` | Fix E's defects, annotate every gap, merge gasnom health, sweep health wiring | issued 2026-09-02 |
