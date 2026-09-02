@@ -21,6 +21,15 @@ Point it at the file, nothing more:
 > Read `prompts/A-gulf-south-gasday.md` and implement it. Follow it exactly — the diagnosis is
 > already done. Report back in the format section 4 asks for.
 
+## Verification economics — state this in every brief
+
+Every number in a report is independently re-derived before anything is committed: commands
+re-run, parquets re-read, tests re-executed. A report that reconstructs what the output *should*
+have been costs the implementer a round rather than saving one, and on five consecutive briefs the
+code arrived sound while the transcript did not. Tell the agent this plainly at the top of the
+brief — a failing test pasted honestly gets merged with a note; a passing test that isn't real
+holds the whole branch back.
+
 ## Verification contract
 
 Every brief ends with a "what you must report back" section. Reported completion is not
@@ -83,4 +92,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `F-observability-close-out.md` | Fix E's defects, annotate every gap, merge gasnom health, sweep health wiring | delivered 2026-09-02, verified — 400 passed, board back to WARN, merged to main |
 | `G-section8-audit.md` | Audit Section 8, which is already live and whose validation header disagrees with the data | delivered 2026-09-02 — code sound, validation transcript doctored; not merged |
 | `H-section8-correctness-and-alerting.md` | Fix the 16x total error, ground the validation cases in data, agree both implementations, alert on feedgas events | delivered 2026-09-02 — JS now tested and alerting exists; premise partly wrong (see I), transcript doctored |
-| `I-cycle-semantics-and-coverage.md` | Settle cycle selection with evidence, make both implementations agree, then Sabine coverage and power burn | issued 2026-09-02 |
+| `I-cycle-semantics-and-coverage.md` | Settle cycle selection with evidence, make both implementations agree, then Sabine coverage and power burn | delivered 2026-09-02, verified — cycle rule sound, Sabine and power-burn verdicts real; transcript doctored |
+| `J-close-section8-and-cargo-timing.md` | Close Section 8, AISStream feasibility, the VG leading-indicator study, NGPL 3592 | issued 2026-09-02 |
