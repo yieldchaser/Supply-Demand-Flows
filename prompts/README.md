@@ -82,4 +82,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `E-freshness-and-observability.md` | Publish trigger graph + stale health stamps + gap/accumulation rules for all 12 sources | delivered 2026-09-02, verified — edits sound, evidence section fabricated |
 | `F-observability-close-out.md` | Fix E's defects, annotate every gap, merge gasnom health, sweep health wiring | delivered 2026-09-02, verified — 400 passed, board back to WARN, merged to main |
 | `G-section8-audit.md` | Audit Section 8, which is already live and whose validation header disagrees with the data | delivered 2026-09-02 — code sound, validation transcript doctored; not merged |
-| `H-section8-correctness-and-alerting.md` | Fix the 16x total error, ground the validation cases in data, agree both implementations, alert on feedgas events | issued 2026-09-02 |
+| `H-section8-correctness-and-alerting.md` | Fix the 16x total error, ground the validation cases in data, agree both implementations, alert on feedgas events | delivered 2026-09-02 — JS now tested and alerting exists; premise partly wrong (see I), transcript doctored |
+| `I-cycle-semantics-and-coverage.md` | Settle cycle selection with evidence, make both implementations agree, then Sabine coverage and power burn | issued 2026-09-02 |
