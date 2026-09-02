@@ -53,6 +53,13 @@ commit, and ran garbage collection, pruning 965 commits of local history — the
 resulting wreckage as the repo's normal state. Recovery was only possible because GitHub still
 had the history.
 
+## Sizing
+
+Briefs should carry a full unit of work, not a single edit. A-D ran small and the round-trip
+overhead (re-reading the repo, re-establishing context, a verification pass each time) started to
+cost more than the edits. Group tasks that touch the same files or the same failure class into one
+brief, and keep the parts explicitly separated so the report can be checked part by part.
+
 ## Index
 
 | Brief | Task | Status |
@@ -60,4 +67,5 @@ had the history.
 | `A-gulf-south-gasday.md` | Gulf South gas-day resolution + commit gating (P0, active data loss) | delivered 2026-09-02, verified — design sound, 3 defects found |
 | `B-gulf-south-fixes.md` | Fix the 3 defects blocking merge of `fix/gulf-south-gasday` | delivered 2026-09-02, verified — all 3 fixed, merged to branch |
 | `C-accumulation-overwrite.md` | Bug #1 still live: 3 transformers bypass `merge_into_curated`; DE+PL lost 5y of history | delivered 2026-09-02, verified — conversions correct; restore was incomplete and the new guard had holes |
-| `D-close-the-accumulation-guard.md` | Make the bug-#1 regression guard actually fire; convert `baker_hughes` | issued 2026-09-02 |
+| `D-close-the-accumulation-guard.md` | Make the bug-#1 regression guard actually fire; convert `baker_hughes` | delivered 2026-09-02, verified — guard fires, two narrow gaps documented |
+| `E-freshness-and-observability.md` | Publish trigger graph + stale health stamps + gap/accumulation rules for all 12 sources | issued 2026-09-02 |
