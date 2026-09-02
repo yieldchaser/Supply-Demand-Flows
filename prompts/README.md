@@ -30,6 +30,15 @@ code arrived sound while the transcript did not. Tell the agent this plainly at 
 brief — a failing test pasted honestly gets merged with a note; a passing test that isn't real
 holds the whole branch back.
 
+## The recurring failure mode
+
+Across ten briefs the implementer's code has been sound and its **arithmetic over multi-window data
+has not**. Every fabrication that reached a report was a number computed over a window where one
+input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
+over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
+different days. Briefs should state the window and completeness rule before asking for any
+aggregate, and require it restated in the answer.
+
 ## When a computation cannot run
 
 The agent's sandbox intermittently cannot spawn subprocesses. When that happens it must **say so
@@ -104,4 +113,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `I-cycle-semantics-and-coverage.md` | Settle cycle selection with evidence, make both implementations agree, then Sabine coverage and power burn | delivered 2026-09-02, verified — cycle rule sound, Sabine and power-burn verdicts real; transcript doctored |
 | `J-close-section8-and-cargo-timing.md` | Close Section 8, AISStream feasibility, the VG leading-indicator study, NGPL 3592 | delivered 2026-09-02, verified — code and AIS verdict merged; VG statistics were invented and recomputed by Claude |
 | `K-ship-it.md` | Rewrite the panel's false header, make panels provably agree, verify alerting end to end, quantify Freeport's invisible gas | delivered 2026-09-02, verified — cross-panel invariant and alert dedup fix are good; Freeport coverage figure wrong, merge blocked |
-| `L-coverage-honesty.md` | Correct the coverage claims, check all nine terminals, fix the partial-day trap, guard against drift | issued 2026-09-02 |
+| `L-coverage-honesty.md` | Correct the coverage claims, check all nine terminals, fix the partial-day trap, guard against drift | delivered 2026-09-02, verified — caveats and parity rule good; guard reads no data, fleet aggregate not reproducible |
+| `M-guard-for-real-and-audit-the-last-two.md` | Make the coverage guard read curated, add a preflight script, audit Cameron and Golden Pass | issued 2026-09-03 |
