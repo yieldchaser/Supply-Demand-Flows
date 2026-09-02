@@ -1,19 +1,21 @@
 {
   "source": "quorum",
   "status": "ok",
-  "timestamp_utc": "2026-08-23T14:04:31Z",
+  "timestamp_utc": "2026-09-02T21:17:48Z",
   "error": null,
   "metadata": {
-    "gas_day": "2026-08-22",
-    "processed_count": 5,
+    "gas_day": "2026-09-02",
+    "processed_count": 6,
     "skipped_count": 0,
-    "rows": 20,
+    "rows": 27,
     "cycles": [
       "evening",
       "id1",
-      "id2",
-      "id3",
       "timely"
-    ]
+    ],
+    "tenants": {
+      "gator": "ok",
+      "transcameron": "ok"
+    }
   }
 }
