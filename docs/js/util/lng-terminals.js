@@ -32,6 +32,16 @@
  *   reaches liquefaction) must be kind:'context' and never enter terminal
  *   sums — see cove_point, whose honest feedgas number is plant intake
  *   10001-D, not the receipt total.
+ *
+ * FLEET AGGREGATE (60-day complete-day median, verified 2026-09-02):
+ *   Fleet aggregate = 12,825.9 MMcf/d (67.3% of 19,050 MMcf/d operational nameplate;
+ *   61.2% of 20,950 MMcf/d total nameplate including non-operational Port Arthur).
+ *   Construction: daily sum of headline meters across all terminals on complete days,
+ *   then median of those daily sums over the trailing 60 complete days.
+ *   Latest 3 complete days:
+ *     2026-08-30: 13,770.7 MMcf/d (72.3%)
+ *     2026-08-31: 13,644.8 MMcf/d (71.6%)
+ *     2026-09-01: 13,913.8 MMcf/d (73.0%)
  */
 
 /**
@@ -80,7 +90,7 @@ export const LNG_TERMINALS = {
     nameplate: 2100,
     expectedCoveragePct: 52.9,
     expectedMedianMmcf: 1111.5,
-    coverageTolerancePct: 15.0,
+    coverageTolerancePct: 10.0,
     signal: 'sq',
     cycles: ['id1', 'id2', 'id3'],
     platformLabel: 'Boardwalk OAC + Enbridge rtba',
@@ -101,7 +111,7 @@ export const LNG_TERMINALS = {
     nameplate: 3400,
     expectedCoveragePct: 112.4,
     expectedMedianMmcf: 3820.9,
-    coverageTolerancePct: 15.0,
+    coverageTolerancePct: 12.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'Quorum myQuorumCloud',
@@ -122,7 +132,7 @@ export const LNG_TERMINALS = {
     nameplate: 1300,
     expectedCoveragePct: 123.5,
     expectedMedianMmcf: 1605.8,
-    coverageTolerancePct: 15.0,
+    coverageTolerancePct: 8.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'Quorum myQuorumCloud',
@@ -138,19 +148,21 @@ export const LNG_TERMINALS = {
     source: 'gasnom',
     seriesPrefix: 'golden_pass',
     loc: '1097217',
-    flow: 'd',   // D leg = real ramp (R leg is 0 across all 90 days)
+    flow: 'd',   // D leg = consolidated plant intake delivery meter
     locName: 'Golden Pass Terminal (delivery meter)',
     nameplate: 2600,
     expectedCoveragePct: 12.7,
     expectedMedianMmcf: 330.4,
     coverageTolerancePct: 15.0,
+    coverageNote:
+      'MEASURED (commissioning ramp): loc 1097217 is the full-terminal consolidated plant intake meter with 2,600,910 Dth/d design capacity (matching 2,600 MMcf/d nameplate). Current ~330–359 MMcf/d flow is active Train 1 commissioning ramp, not partial pipeline visibility.',
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'GasNom ESG',
     platformNote:
-      'Golden Pass (GasNom ESG) posts all five NAESB cycles — Timely, Evening, ID1, ID2, ID3.',
+      'Golden Pass headline = full-terminal consolidated delivery meter (loc 1097217). Current ~330–359 MMcf/d represents active Train 1 commissioning ramp (~40% of Train 1 capacity).',
     methodLine:
-      'TSQ at Golden Pass Terminal (loc 1097217, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d',
+      'TSQ at Golden Pass Terminal (loc 1097217, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Full plant intake gate · Commissioning ramp',
   },
 
   cameron: {
@@ -164,14 +176,16 @@ export const LNG_TERMINALS = {
     nameplate: 2000,
     expectedCoveragePct: 72.9,
     expectedMedianMmcf: 1458.6,
-    coverageTolerancePct: 15.0,
+    coverageTolerancePct: 8.0,
+    coverageNote:
+      'MEASURED-PARTIAL: Cameron Interstate Pipeline (CIP) loc 772300 design capacity is 1,560,000 Dth/d (1,522 MMcf/d) — runs at ~96% capacity delivering 1,458.6 MMcf/d median, covering 72.9% of Cameron LNG’s 2,000 MMcf/d nameplate. The remaining ~27% (~500 MMcf/d) is delivered via Columbia Gulf Transmission (CGT Cameron Extension, FERC CP15-514), not posted on GasNom.',
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'GasNom ESG',
     platformNote:
-      'Cameron (GasNom ESG) posts all five NAESB cycles — Timely, Evening, ID1, ID2, ID3.',
+      'Cameron Interstate Pipeline (loc 772300 delivery) delivers ~1,459 MMcf/d (72.9% of 2,000 MMcf/d nameplate). This is CIP’s visible share running near its 1.56 Bcf/d design capacity; Columbia Gulf Transmission delivers the remaining ~27% (~500 MMcf/d) unmeasured.',
     methodLine:
-      'TSQ at Cameron LNG complex (loc 772300, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d',
+      'TSQ at Cameron LNG complex via Cameron Interstate Pipeline (loc 772300, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · COVERAGE: ~73% of 2,000 nameplate; remaining ~27% arrives via unmeasured Columbia Gulf Transmission',
   },
 
   cove_point: {
@@ -212,7 +226,7 @@ export const LNG_TERMINALS = {
     nameplate: 750,
     expectedCoveragePct: 97.1,
     expectedMedianMmcf: 728.5,
-    coverageTolerancePct: 15.0,
+    coverageTolerancePct: 7.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: "BHE GT&S EBB (EGTS + CPL's own postings)",
@@ -275,7 +289,7 @@ export const LNG_TERMINALS = {
     nameplate: 4500,
     expectedCoveragePct: 30.3,
     expectedMedianMmcf: 1365.2,
-    coverageTolerancePct: 15.0,
+    coverageTolerancePct: 6.0,
     coverageNote: 'MEASURED-PARTIAL: only CTPL’s EBB-visible share (CT200111-D plant delivery ≈ 1,365 MMcf/d, ~30.3% of 4,500 MMcf/d nameplate) is public. INVISIBLE: (1) CTPL does not meter non-CTPL feedgas (Transco Z3, intrastate, other interconnects); (2) Transco Zone 3 deliveries are unavailable — Williams migrated that reporting to a Shipper-Posted Allocation (SPA), not public SQ. Per NGI feeder-gas nominations Sabine runs near 3.9 Bcf/d; the other ~2.5 Bcf/d is not in any public EBB we scrape.',
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
@@ -309,7 +323,7 @@ export const LNG_TERMINALS = {
     nameplate: 2400,
     expectedCoveragePct: 99.4,
     expectedMedianMmcf: 2384.7,
-    coverageTolerancePct: 15.0,
+    coverageTolerancePct: 7.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'Cheniere LNG Connection + KM pipeline2',

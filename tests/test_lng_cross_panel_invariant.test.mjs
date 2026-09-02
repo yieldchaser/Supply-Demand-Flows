@@ -147,7 +147,7 @@ test('Genuinely-zero feed: pipe posting 0 while sibling flows is a complete day 
   const sec5 = buildMultiFeedData(bundle, LNG_TERMINALS.freeport);
   const sec5Point = sec5.dailySeries.find((d) => d.dateStr === '2026-07-17');
   assert.ok(sec5Point !== undefined, 'Complete day with zero feed must be included in Section 5');
-  assert.strictEqual(sec5Point.value, 1000); // 1,025,000 Dth / 1.025 / 1000 = 1000 MMcf/d
+  assert.ok(Math.abs(sec5Point.value - 1000) < 1e-6, `Expected ~1000 MMcf/d, got ${sec5Point.value}`);
 
   const sec8 = buildDailyTotal(bundle, DOWNTIME_CONF.freeport);
   const sec8Point = sec8.find((d) => d.dateStr === '2026-07-17');

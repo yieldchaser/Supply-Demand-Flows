@@ -71,6 +71,9 @@ jobs:
       - name: Run JS unit tests
         run: node --test tests/*.test.mjs
 
+      - name: Run preflight observatory audit
+        run: python scripts/preflight.py
+
       - name: Build dashboard bundle
         run: python -m publishers.export_dashboard_json
 
