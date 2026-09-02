@@ -101,8 +101,8 @@ sources:
     parquet: data/curated/eia_supply.parquet
     health_file: data/health/eia_supply.json
     staleness:
-      warn_days: 45           # same monthly cadence as eia_lng_exports
-      fail_days: 135
+      warn_days: 75           # EIA Natural Gas Monthly releases on last business day of M+2 (~60-65d normal lag; warns if M+3 is delayed)
+      fail_days: 135          # 4.5 months; covers two missed monthly cycles
     month_end_normalize: true  # snap bare months to month-end before ageing
     period_format: "%Y-%m"   # periods arrive as bare months, e.g. "2026-07"
     mode: accumulation        # rows only ever grow; enables flat-run divergence arm
@@ -112,9 +112,8 @@ sources:
 
   gasnom:
     parquet: data/curated/gasnom.parquet
-    # GasNom writes one health file per pipeline; Golden Pass vouches for
-    # the dataset (largest, most complete pipe of the four).
-    health_file: data/health/gasnom_goldenpass.json
+    # Canonical health merged across all 4 pipelines (goldenpass, cameron, SABINE, portarthurpipeline)
+    health_file: data/health/gasnom.json
     staleness: {warn_days: 2, fail_days: 4}  # daily EBB
     unit_expected: Dth/d
     mode: accumulation

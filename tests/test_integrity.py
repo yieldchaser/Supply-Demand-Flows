@@ -524,8 +524,10 @@ class TestShippedRules:
     def test_monthly_sources_use_publication_lag_thresholds(self, rules: dict[str, Any]) -> None:
         for key in ("eia_lng_exports", "eia_supply"):
             source = rules["sources"][key]
-            assert source["staleness"] == {"warn_days": 45, "fail_days": 135}
             assert source["month_end_normalize"] is True
+            assert source["staleness"]["fail_days"] == 135
+        assert rules["sources"]["eia_lng_exports"]["staleness"]["warn_days"] == 45
+        assert rules["sources"]["eia_supply"]["staleness"]["warn_days"] == 75
         assert rules["sources"]["eia_supply"]["period_format"] == "%Y-%m"
 
     def test_ebb_sources_use_daily_thresholds(self, rules: dict[str, Any]) -> None:
@@ -535,8 +537,10 @@ class TestShippedRules:
             assert source["staleness"] == {"warn_days": 2, "fail_days": 4}
             assert source["unit_expected"] == "Dth/d"
             assert source["mode"] == "accumulation"
-        # quorum must NOT enforce calendar gaps: the tenant has retention holes.
-        assert "gap_rule" not in rules["sources"]["quorum"]
+            # All four daily EBB sources enforce calendar_daily gap detection.
+            # For quorum, known upstream 3-day retention holes emit WARN (never FAIL),
+            # ensuring active observability rather than hiding future gaps behind SKIPPED.
+            assert source["gap_rule"] == "calendar_daily"
 
 
 # ------------------------------------------------------------ render_table
