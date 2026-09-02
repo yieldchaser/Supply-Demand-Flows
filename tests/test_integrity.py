@@ -259,6 +259,27 @@ class TestGaps:
         res = check_gaps(make_frame(daily_periods(10)), make_cfg(gap_rule=None))
         assert res["severity"] == "SKIPPED"
 
+    def test_weekly_friday_rule(self) -> None:
+        fridays = ["2026-08-07", "2026-08-14", "2026-08-21", "2026-08-28"]
+        res = check_gaps(make_frame(fridays), make_cfg(gap_rule="weekly_friday"))
+        assert res["severity"] == "PASS"
+
+        # Missing 2026-08-14
+        hole = ["2026-08-07", "2026-08-21", "2026-08-28"]
+        res_hole = check_gaps(make_frame(hole), make_cfg(gap_rule="weekly_friday"))
+        assert res_hole["severity"] == "WARN"
+        assert "2026-08-14" in res_hole["details"]["missing_dates"]
+
+    def test_monthly_rule(self) -> None:
+        months = ["2026-01", "2026-02", "2026-03", "2026-04"]
+        res = check_gaps(make_frame(months), make_cfg(gap_rule="monthly"))
+        assert res["severity"] == "PASS"
+
+        hole = ["2026-01", "2026-03", "2026-04"]
+        res_hole = check_gaps(make_frame(hole), make_cfg(gap_rule="monthly"))
+        assert res_hole["severity"] == "WARN"
+        assert "2026-02" in res_hole["details"]["missing_dates"]
+
 
 # ------------------------------------------------------------------ coverage
 

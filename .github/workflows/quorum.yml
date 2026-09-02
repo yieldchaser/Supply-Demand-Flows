@@ -80,11 +80,27 @@ jobs:
           fi
           python -m scrapers.quorum.pipelines ${{ matrix.name }} ${{ steps.gasday.outputs.day }}
 
+      - name: Copy health for tenant
+        if: always()
+        run: |
+          if [ -f data/health/quorum.json ]; then
+            cp data/health/quorum.json data/health/quorum_${{ matrix.name }}.json
+          fi
+
       - name: Upload raw payloads
         uses: actions/upload-artifact@v4
         with:
           name: quorum-raw-${{ matrix.tsp }}
           path: data/raw/quorum/
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Upload health payload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quorum-health-${{ matrix.name }}
+          path: data/health/quorum_${{ matrix.name }}.json
           if-no-files-found: ignore
           retention-days: 3
 
@@ -116,6 +132,18 @@ jobs:
           pattern: quorum-raw-*
           path: data/raw/quorum/
           merge-multiple: true
+
+      - name: Download all health payloads
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          pattern: quorum-health-*
+          path: data/health/
+          merge-multiple: true
+
+      - name: Merge tenant health
+        if: always()
+        run: python -m scrapers.quorum.merge_health
 
       - name: Transform raw → curated (accumulate)
         id: transform

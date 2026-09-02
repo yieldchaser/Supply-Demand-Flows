@@ -8,6 +8,13 @@ on:
       - "Baker Hughes Rig Count (weekly)"
       - "GIE AGSI+ Storage (daily)"
       - "EIA LNG Exports (monthly)"
+      - "Gulf South SQ (4× daily)"
+      - "TETCO via Enbridge rtba (5x daily)"
+      - "Quorum IPWS SQ (VG Plaquemines + Calcasieu)"
+      - "GASNom OAC (4 LNG pipelines × 5 cycles)"
+      - "BHE GT&S Cove Point (4× daily)"
+      - "Cheniere OAC (2× daily)"
+      - "Kinder Morgan OpAvail"
     types:
       - completed
   workflow_dispatch:
@@ -17,7 +24,7 @@ permissions:
 
 concurrency:
   group: publish-dashboard
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-and-commit:

@@ -42,11 +42,11 @@ jobs:
             echo "No KM raw payloads — nothing to transform"
           fi
 
-      - name: Commit raw + curated
+      - name: Commit raw + curated + health
         run: |
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
-          git add data/raw/kinder_morgan/ data/curated/kinder_morgan.parquet || true
+          git add data/raw/kinder_morgan/ data/curated/kinder_morgan.parquet data/health/kinder_morgan.json || true
           if git diff --cached --quiet; then
             echo "Nothing new"
           else
