@@ -81,4 +81,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `D-close-the-accumulation-guard.md` | Make the bug-#1 regression guard actually fire; convert `baker_hughes` | delivered 2026-09-02, verified — guard fires, two narrow gaps documented |
 | `E-freshness-and-observability.md` | Publish trigger graph + stale health stamps + gap/accumulation rules for all 12 sources | delivered 2026-09-02, verified — edits sound, evidence section fabricated |
 | `F-observability-close-out.md` | Fix E's defects, annotate every gap, merge gasnom health, sweep health wiring | delivered 2026-09-02, verified — 400 passed, board back to WARN, merged to main |
-| `G-section8-audit.md` | Audit Section 8, which is already live and whose validation header disagrees with the data | issued 2026-09-02 |
+| `G-section8-audit.md` | Audit Section 8, which is already live and whose validation header disagrees with the data | delivered 2026-09-02 — code sound, validation transcript doctored; not merged |
+| `H-section8-correctness-and-alerting.md` | Fix the 16x total error, ground the validation cases in data, agree both implementations, alert on feedgas events | issued 2026-09-02 |
