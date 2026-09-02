@@ -259,6 +259,27 @@ class TestGaps:
         res = check_gaps(make_frame(daily_periods(10)), make_cfg(gap_rule=None))
         assert res["severity"] == "SKIPPED"
 
+    def test_weekly_friday_rule(self) -> None:
+        fridays = ["2026-08-07", "2026-08-14", "2026-08-21", "2026-08-28"]
+        res = check_gaps(make_frame(fridays), make_cfg(gap_rule="weekly_friday"))
+        assert res["severity"] == "PASS"
+
+        # Missing 2026-08-14
+        hole = ["2026-08-07", "2026-08-21", "2026-08-28"]
+        res_hole = check_gaps(make_frame(hole), make_cfg(gap_rule="weekly_friday"))
+        assert res_hole["severity"] == "WARN"
+        assert "2026-08-14" in res_hole["details"]["missing_dates"]
+
+    def test_monthly_rule(self) -> None:
+        months = ["2026-01", "2026-02", "2026-03", "2026-04"]
+        res = check_gaps(make_frame(months), make_cfg(gap_rule="monthly"))
+        assert res["severity"] == "PASS"
+
+        hole = ["2026-01", "2026-03", "2026-04"]
+        res_hole = check_gaps(make_frame(hole), make_cfg(gap_rule="monthly"))
+        assert res_hole["severity"] == "WARN"
+        assert "2026-02" in res_hole["details"]["missing_dates"]
+
 
 # ------------------------------------------------------------------ coverage
 
@@ -503,8 +524,10 @@ class TestShippedRules:
     def test_monthly_sources_use_publication_lag_thresholds(self, rules: dict[str, Any]) -> None:
         for key in ("eia_lng_exports", "eia_supply"):
             source = rules["sources"][key]
-            assert source["staleness"] == {"warn_days": 45, "fail_days": 135}
             assert source["month_end_normalize"] is True
+            assert source["staleness"]["fail_days"] == 135
+        assert rules["sources"]["eia_lng_exports"]["staleness"]["warn_days"] == 45
+        assert rules["sources"]["eia_supply"]["staleness"]["warn_days"] == 75
         assert rules["sources"]["eia_supply"]["period_format"] == "%Y-%m"
 
     def test_ebb_sources_use_daily_thresholds(self, rules: dict[str, Any]) -> None:
@@ -514,8 +537,10 @@ class TestShippedRules:
             assert source["staleness"] == {"warn_days": 2, "fail_days": 4}
             assert source["unit_expected"] == "Dth/d"
             assert source["mode"] == "accumulation"
-        # quorum must NOT enforce calendar gaps: the tenant has retention holes.
-        assert "gap_rule" not in rules["sources"]["quorum"]
+            # All four daily EBB sources enforce calendar_daily gap detection.
+            # For quorum, known upstream 3-day retention holes emit WARN (never FAIL),
+            # ensuring active observability rather than hiding future gaps behind SKIPPED.
+            assert source["gap_rule"] == "calendar_daily"
 
 
 # ------------------------------------------------------------ render_table

@@ -36,7 +36,7 @@ from typing import Any
 
 import pandas as pd
 
-from scrapers.base.safe_writer import safe_write_parquet
+from transformers.base.accumulate import merge_into_curated
 from transformers.errors import TransformError
 
 log = logging.getLogger(__name__)
@@ -217,19 +217,24 @@ def transform(
         raise TransformError("EIA LNG transformer: out_rows is empty after all series.")
 
     df_out = pd.DataFrame(out_rows)
-    safe_write_parquet(curated_parquet_path, df_out)
 
-    period_min = df_out["period"].min()
-    period_max = df_out["period"].max()
-    series_count = df_out["series_id"].nunique()
+    # Accumulate into the curated history rather than overwriting it. A run that
+    # fetches a subset of destinations/periods must append, never clobber — the
+    # shrinkage guard refuses any write that would reduce the row count. See
+    # catalogue bug #1 (accumulation overwrite).
+    merged = merge_into_curated(df_out, curated_parquet_path)
+
+    period_min = merged["period"].min()
+    period_max = merged["period"].max()
+    series_count = merged["series_id"].nunique()
 
     log.info(
         "EIA LNG transformer: %d rows, %d series, %s → %s",
-        len(df_out), series_count, period_min, period_max,
+        len(merged), series_count, period_min, period_max,
     )
 
     return {
-        "rows": len(df_out),
+        "rows": len(merged),
         "period_range": (period_min, period_max),
         "series_count": series_count,
         "active_destinations": sorted(active_codes),

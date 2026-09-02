@@ -88,35 +88,38 @@ def _collision_check(
 def normalize_period(p: str, cfg: Mapping[str, Any]) -> date:
     """Resolve a raw period string to a concrete calendar date.
 
-    Full ISO dates pass through untouched.  Bare ``YYYY-MM`` (or whatever
-    ``period_format`` specifies) resolves to that month, snapped to the last
-    day of the month when ``month_end_normalize`` is set.  Raises ValueError
-    on anything unparseable — schema turns that into FAIL.
+    Full ISO dates pass through untouched unless ``month_end_normalize`` is set.
+    Bare ``YYYY-MM`` (or whatever ``period_format`` specifies) resolves to that month,
+    snapped to the last day of the month when ``month_end_normalize`` is set.
+    Raises ValueError on anything unparseable — schema turns that into FAIL.
     """
     text = str(p).strip()
+    parsed_date: date | None = None
     try:
-        return date.fromisoformat(text)
+        parsed_date = date.fromisoformat(text)
     except ValueError:
         pass
 
-    fmt = cfg.get("period_format")
-    if fmt is not None:
-        try:
-            parsed = datetime.strptime(text, str(fmt))
-        except ValueError as exc:
-            raise ValueError(f"period {p!r} does not match period_format {fmt!r}") from exc
-    elif len(text) == 7 and text[4] == "-":
-        try:
-            parsed = datetime.strptime(text, "%Y-%m")
-        except ValueError as exc:
-            raise ValueError(f"unparseable period {p!r}") from exc
-    else:
-        raise ValueError(f"unparseable period {p!r}")
+    if parsed_date is None:
+        fmt = cfg.get("period_format")
+        if fmt is not None:
+            try:
+                parsed = datetime.strptime(text, str(fmt))
+            except ValueError as exc:
+                raise ValueError(f"period {p!r} does not match period_format {fmt!r}") from exc
+        elif len(text) == 7 and text[4] == "-":
+            try:
+                parsed = datetime.strptime(text, "%Y-%m")
+            except ValueError as exc:
+                raise ValueError(f"unparseable period {p!r}") from exc
+        else:
+            raise ValueError(f"unparseable period {p!r}")
+        parsed_date = parsed.date()
 
     if cfg.get("month_end_normalize"):
-        last_day = calendar.monthrange(parsed.year, parsed.month)[1]
-        return date(parsed.year, parsed.month, last_day)
-    return parsed.date()
+        last_day = calendar.monthrange(parsed_date.year, parsed_date.month)[1]
+        return date(parsed_date.year, parsed_date.month, last_day)
+    return parsed_date
 
 
 def _stale_days(
@@ -312,15 +315,24 @@ def check_stagnation(df: pd.DataFrame, src_cfg: Mapping[str, Any], now: datetime
 
 
 def check_gaps(df: pd.DataFrame, src_cfg: Mapping[str, Any]) -> CheckResult:
-    """Calendar continuity for daily sources — holes WARN, never FAIL.
+    """Calendar continuity — holes WARN, never FAIL.
 
     A hole usually means an upstream posting gap, not local corruption;
     recoverable, so WARN keeps the signal without paging anyone.
+
+    Supports cadences:
+    - ``calendar_daily``: checks every day between oldest and newest period.
+    - ``weekly_friday``: checks that each week ending Friday has a publication
+      (allowing Thursday/Wednesday for market holiday shifts).
+    - ``weekly_thursday``: checks that each week ending Thursday has a publication
+      (allowing Wednesday/Friday for market holiday shifts).
+    - ``monthly``: checks that each calendar month (YYYY-MM) is present.
     """
     rule = src_cfg.get("gap_rule")
     if not rule:
         return _result("gaps", "SKIPPED", "no gap_rule configured")
-    if rule != "calendar_daily":
+    valid_rules = {"calendar_daily", "weekly_friday", "weekly_thursday", "monthly"}
+    if rule not in valid_rules:
         return _result("gaps", "SKIPPED", f"unknown gap_rule {rule!r}")
     if df.empty or "period" not in df.columns:
         return _result("gaps", "SKIPPED", "no periods to scan")
@@ -333,29 +345,147 @@ def check_gaps(df: pd.DataFrame, src_cfg: Mapping[str, Any]) -> CheckResult:
             return _result("gaps", "SKIPPED", "unparseable periods — schema owns this failure")
     unique = sorted(set(unique))
 
-    present = set(unique)
-    span_days = (unique[-1] - unique[0]).days + 1
-    missing: list[str] = []
-    for offset in range(span_days):
-        day = unique[0] + timedelta(days=offset)
-        if day not in present:
-            missing.append(day.isoformat())
-
-    if missing:
-        preview = ", ".join(missing[:15])
+    if len(unique) < 2:
         return _result(
             "gaps",
-            "WARN",
-            f"{len(missing)} missing calendar day(s) between {unique[0]} and {unique[-1]}: "
-            f"{preview}",
-            {"missing_dates": missing},
+            "PASS",
+            f"single period {unique[0]} — no gaps possible",
+            {"days": len(unique)},
         )
-    return _result(
-        "gaps",
-        "PASS",
-        f"calendar complete: {span_days} consecutive day(s) {unique[0]}..{unique[-1]}",
-        {"days": span_days},
-    )
+
+    present = set(unique)
+
+    if rule == "calendar_daily":
+        span_days = (unique[-1] - unique[0]).days + 1
+        missing: list[str] = []
+        for offset in range(span_days):
+            day = unique[0] + timedelta(days=offset)
+            if day not in present:
+                missing.append(day.isoformat())
+
+        if missing:
+            preview = ", ".join(missing[:15])
+            return _result(
+                "gaps",
+                "WARN",
+                f"{len(missing)} missing calendar day(s) between {unique[0]} and {unique[-1]}: "
+                f"{preview}",
+                {"missing_dates": missing},
+            )
+        return _result(
+            "gaps",
+            "PASS",
+            f"calendar complete: {span_days} consecutive day(s) {unique[0]}..{unique[-1]}",
+            {"days": span_days},
+        )
+
+    if rule == "weekly_friday":
+        days_to_fri = (4 - unique[0].weekday()) % 7
+        first_fri = unique[0] + timedelta(days=days_to_fri)
+        cur_fri = first_fri
+        fridays: list[date] = []
+        while cur_fri <= unique[-1]:
+            fridays.append(cur_fri)
+            cur_fri += timedelta(days=7)
+
+        missing_weeks: list[str] = []
+        for fri in fridays:
+            if (
+                fri not in present
+                and (fri - timedelta(days=1)) not in present
+                and (fri - timedelta(days=2)) not in present
+            ):
+                missing_weeks.append(fri.isoformat())
+
+        total_weeks = len(fridays)
+        if missing_weeks:
+            preview = ", ".join(missing_weeks[:15])
+            return _result(
+                "gaps",
+                "WARN",
+                f"{len(missing_weeks)} missing weekly release(s) between {unique[0]} and {unique[-1]}: "
+                f"{preview}",
+                {"missing_dates": missing_weeks},
+            )
+        return _result(
+            "gaps",
+            "PASS",
+            f"calendar complete: {total_weeks} consecutive week(s) {unique[0]}..{unique[-1]}",
+            {"weeks": total_weeks},
+        )
+
+    if rule == "weekly_thursday":
+        days_to_thu = (3 - unique[0].weekday()) % 7
+        first_thu = unique[0] + timedelta(days=days_to_thu)
+        cur_thu = first_thu
+        thursdays: list[date] = []
+        while cur_thu <= unique[-1]:
+            thursdays.append(cur_thu)
+            cur_thu += timedelta(days=7)
+
+        missing_weeks_thu: list[str] = []
+        for thu in thursdays:
+            if (
+                thu not in present
+                and (thu - timedelta(days=1)) not in present
+                and (thu + timedelta(days=1)) not in present
+            ):
+                missing_weeks_thu.append(thu.isoformat())
+
+        total_weeks_thu = len(thursdays)
+        if missing_weeks_thu:
+            preview = ", ".join(missing_weeks_thu[:15])
+            return _result(
+                "gaps",
+                "WARN",
+                f"{len(missing_weeks_thu)} missing weekly release(s) between {unique[0]} and {unique[-1]}: "
+                f"{preview}",
+                {"missing_dates": missing_weeks_thu},
+            )
+        return _result(
+            "gaps",
+            "PASS",
+            f"calendar complete: {total_weeks_thu} consecutive week(s) {unique[0]}..{unique[-1]}",
+            {"weeks": total_weeks_thu},
+        )
+
+    if rule == "monthly":
+        present_months = {(d.year, d.month) for d in unique}
+        cur_year = unique[0].year
+        cur_month = unique[0].month
+        end_year = unique[-1].year
+        end_month = unique[-1].month
+
+        total_months = 0
+        missing_months: list[str] = []
+        while (cur_year, cur_month) <= (end_year, end_month):
+            total_months += 1
+            if (cur_year, cur_month) not in present_months:
+                missing_months.append(f"{cur_year:04d}-{cur_month:02d}")
+            cur_month += 1
+            if cur_month > 12:
+                cur_month = 1
+                cur_year += 1
+
+        start_label = f"{unique[0].year:04d}-{unique[0].month:02d}"
+        end_label = f"{unique[-1].year:04d}-{unique[-1].month:02d}"
+        if missing_months:
+            preview = ", ".join(missing_months[:15])
+            return _result(
+                "gaps",
+                "WARN",
+                f"{len(missing_months)} missing month(s) between {start_label} and {end_label}: "
+                f"{preview}",
+                {"missing_dates": missing_months},
+            )
+        return _result(
+            "gaps",
+            "PASS",
+            f"calendar complete: {total_months} consecutive month(s) {start_label}..{end_label}",
+            {"months": total_months},
+        )
+
+    return _result("gaps", "SKIPPED", f"unhandled gap_rule {rule!r}")
 
 
 def check_coverage(

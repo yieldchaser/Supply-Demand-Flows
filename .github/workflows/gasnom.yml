@@ -104,6 +104,10 @@ jobs:
         if: steps.scrape.outputs.status == 'ok'
         run: python -m transformers.gasnom
 
+      - name: Merge pipeline health
+        if: always()
+        run: python -m scrapers.gasnom.merge_health
+
       - name: Commit
         if: steps.scrape.outputs.status == 'ok'
         env:
@@ -113,11 +117,13 @@ jobs:
         run: |
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
-          git add data/health/gasnom_${SLUG}.json || true
+          git add data/health/gasnom_${SLUG}.json data/health/gasnom.json || true
           git add data/curated/gasnom.parquet || true
           if ! git diff --cached --quiet; then
             git commit -m "data(gasnom): SQ ${SLUG} ${CYCLE} ${GAS_DAY}"
             for i in {1..5}; do
+              python -m scrapers.gasnom.merge_health || true
+              git add data/health/gasnom.json || true
               git pull --rebase --autostash origin main && git push origin main && break || sleep 5
             done
           fi
@@ -135,12 +141,15 @@ jobs:
         env:
           SLUG: ${{ matrix.slug }}
         run: |
+          python -m scrapers.gasnom.merge_health || true
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
-          git add data/health/gasnom_${SLUG}.json || true
+          git add data/health/gasnom_${SLUG}.json data/health/gasnom.json || true
           if ! git diff --cached --quiet; then
             git commit -m "data(gasnom): health update for ${SLUG} (failure recorded)"
             for i in {1..5}; do
+              python -m scrapers.gasnom.merge_health || true
+              git add data/health/gasnom.json || true
               git pull --rebase --autostash origin main && git push origin main && break || sleep 5
             done
           fi

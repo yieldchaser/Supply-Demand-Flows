@@ -34,7 +34,7 @@ from typing import Any
 
 import pandas as pd
 
-from scrapers.base.safe_writer import safe_write_parquet
+from transformers.base.accumulate import merge_into_curated
 from transformers.errors import TransformError
 
 log = logging.getLogger(__name__)
@@ -111,25 +111,34 @@ def transform(
         )
 
     df = pd.DataFrame(out_rows)
-    safe_write_parquet(curated_parquet_path, df)
 
-    period_min = df["period"].min()
-    period_max = df["period"].max()
-    series_count = df["series_id"].nunique()
+    # Accumulate into the curated history instead of clobbering it. A run whose
+    # raw fetch omits a country (e.g. Germany/Poland dropped by the GIE API for
+    # that cycle) must never erase that country's accumulated history — the
+    # merge appends new (series_id, period) rows and updates existing ones on
+    # max ingested_at, and the shrinkage guard refuses any write that would
+    # reduce the row count. This is the fix for catalogue bug #1 (accumulation
+    # overwrite): the prior safe_write_parquet rebuilt from one run's raw and
+    # truncated five years of DE/PL history in a single commit.
+    merged = merge_into_curated(df, curated_parquet_path)
+
+    period_min = merged["period"].min()
+    period_max = merged["period"].max()
+    series_count = merged["series_id"].nunique()
 
     log.info(
         "GIE AGSI transformer: %d rows, %d series, %s → %s",
-        len(df),
+        len(merged),
         series_count,
         period_min,
         period_max,
     )
 
     return {
-        "rows": len(df),
+        "rows": len(merged),
         "period_range": (period_min, period_max),
         "series_count": series_count,
-        "regions": sorted(df["region"].unique().tolist()),
+        "regions": sorted(merged["region"].unique().tolist()),
     }
 
 

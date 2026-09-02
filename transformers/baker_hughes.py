@@ -61,7 +61,7 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import load_workbook
 
-from scrapers.base.safe_writer import safe_write_bytes
+from transformers.base.accumulate import merge_into_curated
 from transformers.errors import TransformError
 
 logger = logging.getLogger(__name__)
@@ -381,12 +381,15 @@ def transform(raw_xlsx_path: Path, curated_parquet_path: Path) -> dict:
 
     out_df = pd.DataFrame(rollup + granular)
 
-    # Serialize to Parquet bytes (snappy compression)
-    import io
-
-    buf = io.BytesIO()
-    out_df.to_parquet(buf, compression="snappy", index=False)
-    safe_write_bytes(curated_parquet_path, buf.getvalue())
+    # Accumulate into the curated history instead of clobbering it. Rebuilding
+    # the curated parquet from a single run's spreadsheet (the old
+    # to_parquet + safe_write_bytes path) would replace the file wholesale and
+    # destroy accumulated history the moment a run ships a short file or drops
+    # basins on parse — exactly how Germany and Poland lost five years of storage
+    # history (catalogue bug #1). merge_into_curated appends new (series_id,
+    # period) rows and, on dedup by max ingested_at, lets a revised week overwrite
+    # the older value rather than duplicate it.
+    merged = merge_into_curated(out_df, curated_parquet_path)
 
     basins_covered = sorted(
         set(
@@ -397,11 +400,11 @@ def transform(raw_xlsx_path: Path, curated_parquet_path: Path) -> dict:
     )
 
     return {
-        "rows": len(out_df),
+        "rows": len(merged),
         "rollup_count": len(rollup),
         "granular_count": len(granular),
-        "period_min": str(out_df["period"].min()),
-        "period_max": str(out_df["period"].max()),
+        "period_min": str(merged["period"].min()),
+        "period_max": str(merged["period"].max()),
         "basins_covered": basins_covered,
     }
 

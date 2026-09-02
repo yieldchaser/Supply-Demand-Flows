@@ -11,14 +11,15 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
-from scrapers.base.safe_writer import safe_write_parquet
 from scrapers.eia_api.supply import PROCESS_CODES
+from transformers.base.accumulate import merge_into_curated
 
 
-def transform(raw_json_path: Path, curated_parquet_path: Path) -> dict:
+def transform(raw_json_path: Path, curated_parquet_path: Path) -> dict[str, Any]:
     """
     Transform EIA supply raw JSON to curated long-format Parquet.
 
@@ -56,10 +57,15 @@ def transform(raw_json_path: Path, curated_parquet_path: Path) -> dict:
         return {"rows": 0, "period_range": (None, None), "series": []}
 
     df = pd.DataFrame(rows)
-    safe_write_parquet(curated_parquet_path, df)
+
+    # Accumulate into the curated history rather than overwriting it. A run that
+    # fetches a subset of process codes / periods must append, never clobber —
+    # the shrinkage guard refuses any write that would reduce the row count.
+    # See catalogue bug #1 (accumulation overwrite).
+    merged = merge_into_curated(df, curated_parquet_path)
 
     return {
-        "rows": len(df),
-        "period_range": (df["period"].min(), df["period"].max()),
-        "series": sorted(df["series_id"].unique().tolist()),
+        "rows": len(merged),
+        "period_range": (merged["period"].min(), merged["period"].max()),
+        "series": sorted(merged["series_id"].unique().tolist()),
     }

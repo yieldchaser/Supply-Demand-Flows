@@ -52,7 +52,8 @@ sources:
       warn_days: 3            # AGSI publishes T-1; weekend lag is normal
       fail_days: 6
     unit_expected: null       # rows mix TWh/GWh/% so schema skips the unit check
-    # no gap_rule: country publication offsets make single-day holes legitimate
+    mode: accumulation        # rows only ever grow; enables flat-run divergence arm
+    gap_rule: calendar_daily  # daily at dataset level (country publication offsets evaluated at source level)
 
   baker_hughes:
     parquet: data/curated/baker_hughes_weekly.parquet
@@ -61,6 +62,8 @@ sources:
       warn_days: 9            # weekly release; tolerate one skipped week
       fail_days: 18
     unit_expected: rigs       # rig counts are unitless integers labelled "rigs"
+    mode: accumulation        # rows only ever grow; enables flat-run divergence arm
+    gap_rule: weekly_friday   # published weekly on Fridays (holiday shifts to Thursday tolerated)
 
   eia_storage:
     parquet: data/curated/eia_storage.parquet
@@ -71,6 +74,7 @@ sources:
       fail_days: 18           # >14d stale on a core source must page (brief: FAIL >14 days)
     unit_expected: Bcf        # weekly lower-48 stocks in Bcf
     mode: accumulation        # rows only ever grow; enables flat-run divergence arm
+    gap_rule: weekly_friday   # weekly data; published Thursdays but period is week-ending Friday
     # Sixth silent-loss incident (2026-08-25): a rebuild-from-thin-raw cut
     # this source 3600→408 rows. The global coverage_drop_fail_pct (20%)
     # plus shrinkage/divergence arms now apply; nothing may silently drop
@@ -89,27 +93,31 @@ sources:
       warn_days: 45           # genuine ~2-month publication lag on monthly EIA API
       fail_days: 135          # keeps the *normal* lag pinned at WARN, never FAIL
     month_end_normalize: true  # monthly periods compare as last-day-of-month
+    mode: accumulation        # rows only ever grow; enables flat-run divergence arm
+    gap_rule: monthly         # monthly cadence (consecutive YYYY-MM periods)
     # no unit_expected: export volumes arrive in mixed units by series
 
   eia_supply:
     parquet: data/curated/eia_supply.parquet
     health_file: data/health/eia_supply.json
     staleness:
-      warn_days: 45           # same monthly cadence as eia_lng_exports
-      fail_days: 135
+      warn_days: 75           # EIA Natural Gas Monthly releases on last business day of M+2 (~60-65d normal lag; warns if M+3 is delayed)
+      fail_days: 135          # 4.5 months; covers two missed monthly cycles
     month_end_normalize: true  # snap bare months to month-end before ageing
     period_format: "%Y-%m"   # periods arrive as bare months, e.g. "2026-07"
+    mode: accumulation        # rows only ever grow; enables flat-run divergence arm
+    gap_rule: monthly         # monthly cadence (consecutive YYYY-MM periods)
 
   # ---- EBB daily sources (scrapers landed 2026-08-23 integration) --------
 
   gasnom:
     parquet: data/curated/gasnom.parquet
-    # GasNom writes one health file per pipeline; Golden Pass vouches for
-    # the dataset (largest, most complete pipe of the four).
-    health_file: data/health/gasnom_goldenpass.json
+    # Canonical health merged across all 4 pipelines (goldenpass, cameron, SABINE, portarthurpipeline)
+    health_file: data/health/gasnom.json
     staleness: {warn_days: 2, fail_days: 4}  # daily EBB
     unit_expected: Dth/d
     mode: accumulation
+    gap_rule: calendar_daily
 
   quorum:
     parquet: data/curated/quorum.parquet
@@ -117,9 +125,7 @@ sources:
     staleness: {warn_days: 2, fail_days: 4}  # daily EBB
     unit_expected: Dth/d
     mode: accumulation
-    # NO gap_rule: the tenant has retention HOLES (e.g. 2025-03-27 serves
-    # empty for both TSPs while older days return data) — single-day gaps
-    # are upstream reality, not ingestion failures.
+    gap_rule: calendar_daily  # upstream retention holes emit WARN (never FAIL) for operator visibility
     # negative_values_fail stays unset: operator posts genuine negative TSQ
     # adjustments (BRL -5,000 on 2023-02-23).
     bands:
@@ -134,6 +140,7 @@ sources:
     staleness: {warn_days: 2, fail_days: 4}  # daily EBB
     unit_expected: Dth/d
     mode: accumulation
+    gap_rule: calendar_daily
     # Zeros are LEGITIMATE here: Cove Point flow is cargo-driven, so flat
     # zero days are real operating state, never flagged.
     bands:
@@ -161,6 +168,7 @@ sources:
     staleness: {warn_days: 2, fail_days: 4}  # daily EBB
     unit_expected: Dth/d
     mode: accumulation
+    gap_rule: calendar_daily
     # Cheniere posts CAPACITY (OAC), not scheduled flow — bands sized to
     # nameplate-style magnitudes, not nomination volumes.
     # negative_values_fail stays unset: observed min -94,704 is operator-posted.
@@ -176,6 +184,7 @@ sources:
     staleness: {warn_days: 2, fail_days: 4}  # multi-cycle daily EBB
     unit_expected: Dth/d
     mode: accumulation
+    gap_rule: calendar_daily
     negative_values_fail: true
     # TETCO OAC/TSQ magnitudes; the Freeport anchor (79999 STRATTON RIDGE)
     # runs ~250-300k Dth/d against a 322k design cap.
@@ -208,6 +217,7 @@ sources:
     staleness: {warn_days: 2, fail_days: 4}  # BEST-AVAILABLE snapshot, ~3x daily
     unit_expected: Dth/d      # raw values since 2026-08-25 (rule 5: frontend converts)
     mode: accumulation
+    gap_rule: calendar_daily
     negative_values_fail: true
     # Confirmed LNG-bound meters only (Sabine recon + CI live-fire 2026-08-25).
     # KMLP 44337 CALCA deliberately absent — Calcasieu corridor, not Sabine.
