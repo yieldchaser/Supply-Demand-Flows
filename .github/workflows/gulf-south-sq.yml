@@ -52,33 +52,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Determine cycle from cron schedule
-        id: cycle
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            CYCLE="${{ inputs.cycle || 'TIMELY' }}"
-          else
-            # Map UTC cron schedule → cycle code
-            HOUR=$(date -u +%H)
-            if [ "$HOUR" = "19" ]; then CYCLE="TIMELY"
-            elif [ "$HOUR" = "02" ]; then CYCLE="EVENING"
-            elif [ "$HOUR" = "17" ]; then CYCLE="ID1"
-            else CYCLE="ID2"
-            fi
-          fi
-          echo "cycle=$CYCLE" >> $GITHUB_OUTPUT
-          echo "Resolved cycle: $CYCLE"
-
-      - name: Determine gas day
-        id: gasday
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.gas_day }}" ]; then
-            GAS_DAY="${{ inputs.gas_day }}"
-          else
-            GAS_DAY=$(date -u +%Y-%m-%d)
-          fi
-          echo "gas_day=$GAS_DAY" >> $GITHUB_OUTPUT
-          echo "Gas day: $GAS_DAY"
+      # NOTE: the "Determine cycle" and "Determine gas day" steps were removed.
+      # They mapped the wall-clock UTC hour / date onto a cycle and gas day,
+      # then used both for commit metadata. Scheduled runs drift (a `30 2` cron
+      # fired at 07:15Z), so the cycle almost always fell through to the `else`
+      # branch and the gas day named a day Boardwalk had not posted yet. The
+      # messages were fiction ("SQ ID2 2026-09-01" for a run that fetched
+      # ID1+ID2+ID3 across two gas days); worse, that gas day was passed to the
+      # meter inventory, which raised FileNotFoundError and — because it gated
+      # the commit — discarded the already-computed curated parquet. Gas days
+      # now come from what the source served, never from the wall clock.
 
       - name: Run Gulf South SQ scraper
         id: scrape
@@ -92,29 +75,109 @@ jobs:
           python -m scrapers.energy_transfer.gulf_south \
           | tee /tmp/scraper_output.json
           STATUS=$(python -c "import json; print(json.load(open('/tmp/scraper_output.json'))['status'])")
+          FILES=$(python -c "import json; print(len(json.load(open('/tmp/scraper_output.json')).get('files', [])))")
           echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "files=$FILES" >> $GITHUB_OUTPUT
 
       - name: Transform raw → curated
+        id: transform
         if: steps.scrape.outputs.status == 'ok'
-        run: python -m transformers.gulf_south
+        run: |
+          PARQUET=data/curated/gulf_south.parquet
+          if [ -f "$PARQUET" ]; then
+            BEFORE=$(python -c "import pandas as pd; print(len(pd.read_parquet('$PARQUET')))")
+          else
+            BEFORE=0
+          fi
+          python -m transformers.gulf_south
+          AFTER=$(python -c "import pandas as pd; print(len(pd.read_parquet('$PARQUET')))")
+          echo "rows_added=$((AFTER-BEFORE))" >> $GITHUB_OUTPUT
+          echo "Curated gulf_south rows: $BEFORE → $AFTER (+$((AFTER-BEFORE)))"
+
+      - name: Record pipeline health
+        if: always()
+        run: |
+          STATUS="${{ steps.scrape.outputs.status }}"
+          if [ -z "$STATUS" ] || [ "$STATUS" = "failed" ]; then
+            echo "Scraper did not run or already recorded a hard failure; stamp left as-is."
+            exit 0
+          fi
+          if [ "$STATUS" = "skipped" ]; then
+            # A staleness-gate hold: the listing served no new postings, the
+            # source is healthy and up to date, and no fetch/transform cycle ran
+            # at all. This is a routine, correct outcome — NOT a no-op run in the
+            # "fetched but landed nothing" sense, and it must not increment the
+            # no-op streak ladder (that ladder is for cycles that actually ran and
+            # fetched). Leave the existing stamp untouched and exit clean.
+            echo "Staleness gate held — no new postings; health stamp left as-is."
+            exit 0
+          fi
+          FILES="${{ steps.scrape.outputs.files }}"
+          if [ "${{ steps.transform.outcome }}" = "failure" ]; then
+            python -m scrapers.energy_transfer.pipeline_health \
+              --rows-added 0 --files-fetched "${FILES:-0}" --transform-failed
+          else
+            python -m scrapers.energy_transfer.pipeline_health \
+              --rows-added "${{ steps.transform.outputs.rows_added }}" \
+              --files-fetched "${FILES:-0}"
+          fi
+
+      - name: Commit curated + health
+        if: steps.scrape.outputs.status == 'ok'
+        run: |
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          # Build the commit message from the scraper's emitted files list using
+          # a standalone, importable helper (scripts/gulf_south_commit_msg.py).
+          # A heredoc was used here before and died with IndentationError because
+          # YAML stripped the block's base indentation, which aborted this step
+          # and discarded the curated parquet. The helper removes that hazard.
+          MSG=$(python scripts/gulf_south_commit_msg.py < /tmp/scraper_output.json)
+          git add data/curated/gulf_south.parquet
+          git add data/health/gulf_south.json
+          if ! git diff --cached --quiet; then
+            git commit -m "$MSG"
+            for i in {1..5}; do
+              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
+            done
+          fi
 
       - name: Run meter inventory
+        id: inventory
         if: steps.scrape.outputs.status == 'ok'
-        run: python -m scrapers.energy_transfer.meter_inventory ${{ steps.gasday.outputs.gas_day }}
+        # A derived artifact must never be able to discard a primary one. The
+        # meter map is regenerable from any later run; the curated parquet on a
+        # ~8-day-window source is not. When this step used to fail, GitHub
+        # skipped the Commit step and the correct, already-computed parquet was
+        # thrown away with the ephemeral runner.
+        continue-on-error: true
+        run: |
+          # No gas-day argument: the inventory derives the gas day from the raw
+          # files the scraper actually wrote. A wall-clock day raised
+          # FileNotFoundError whenever Boardwalk had not yet posted "today".
+          python -m scrapers.energy_transfer.meter_inventory
 
-      - name: Commit
+      - name: Commit meter map
         if: steps.scrape.outputs.status == 'ok'
-        env:
-          CYCLE: ${{ steps.cycle.outputs.cycle }}
-          GAS_DAY: ${{ steps.gasday.outputs.gas_day }}
+        run: |
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          git add config/lng_meter_map.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(gulf-south): refresh LNG meter map"
+            for i in {1..5}; do
+              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
+            done
+          fi
+
+      - name: Commit remaining health updates
+        if: always()
         run: |
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
           git add data/health/gulf_south.json || true
-          git add data/curated/gulf_south.parquet || true
-          git add config/lng_meter_map.json || true
           if ! git diff --cached --quiet; then
-            git commit -m "data(gulf-south): SQ ${CYCLE} ${GAS_DAY}"
+            git commit -m "data(gulf-south): health update"
             for i in {1..5}; do
               git pull --rebase --autostash origin main && git push origin main && break || sleep 5
             done
@@ -122,18 +185,10 @@ jobs:
 
       - name: Report skip
         if: steps.scrape.outputs.status == 'skipped'
-        run: echo "Staleness gate held — already have ${{ steps.cycle.outputs.cycle }} ${{ steps.gasday.outputs.gas_day }}"
+        run: echo "Staleness gate held — no new postings on the listing."
 
-      - name: Report failure
-        if: steps.scrape.outputs.status == 'failed' || failure()
+      - name: Fail the job on scrape failure
+        if: steps.scrape.outputs.status == 'failed'
         run: |
-          git config user.name "blue-tide-bot"
-          git config user.email "bot@bluetide.local"
-          git add data/health/gulf_south.json || true
-          if ! git diff --cached --quiet; then
-            git commit -m "data(gulf-south): health update (failure recorded)"
-            for i in {1..5}; do
-              git pull --rebase --autostash origin main && git push origin main && break || sleep 5
-            done
-          fi
+          echo "Gulf South scraper reported a hard failure."
           exit 1
