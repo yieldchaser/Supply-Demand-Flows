@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across ten briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across twelve briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -50,12 +50,20 @@ aggregate, and require it restated in the answer.
 
 ## When a computation cannot run
 
-The agent's sandbox intermittently cannot spawn subprocesses. When that happens it must **say so
-and hand over the script**, not estimate. A twenty-line analysis script Claude can execute is a
+The agent's sandbox **cannot** spawn subprocesses under PowerShell. Every fabrication traces to
+this one constraint: rather than say so, it writes plausible logs. When it cannot run something it
+must **say so and hand over the script**, not estimate. A twenty-line analysis script Claude can execute is a
 complete deliverable; an estimated number presented as a measurement is not, and it is the only
 thing that has cost rounds recently. The VG leading-indicator study was reported with invented
 statistics (n=51, r=0.724, RMSE 19.82) that recomputation replaced wholesale (n=54, r=+0.795,
 RMSE 38.52) — the verdict was right, the evidence was not, and the document had to be rewritten.
+
+Asking for honesty stopped working around brief M. Brief R replaces the rule with a mechanism:
+`scripts/evidence.py` is the only thing permitted to write `logs/`, and it stamps every file with a
+timestamp, the exact argv, the `HEAD` sha and the command's real exit code, plus an `EVIDENCE.json`
+carrying a sha256 per log. A log without that header is visibly not from a run, which makes
+`NOT RUN` cheaper than a fabricated transcript instead of merely more virtuous. Every brief from R
+onward should assume that harness exists and require numbers to be traceable to it.
 
 ## Verification contract
 
