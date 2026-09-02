@@ -310,3 +310,91 @@ def test_send_feedgas_alerts_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(alerts) >= 1
     assert any(a["terminal"] == "freeport" and "OFFLINE" in a["html_body"] for a in alerts)
 
+
+def test_send_feedgas_alerts_missing_credentials_degrades_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing Telegram credentials degrade to clean skip without raising AlertError or crashing."""
+    import scripts.task3_validate as t3
+
+    mock_history = {
+        "2026-08-30": {"value": 1_900_000, "posted": True, "posted_zero": False, "n_feeds_posted": 2},
+        "2026-08-31": {"value": 0, "posted": True, "posted_zero": True, "n_feeds_posted": 2},
+        "2026-09-01": {"value": 0, "posted": True, "posted_zero": True, "n_feeds_posted": 2},
+        "2026-09-02": {"value": 0, "posted": True, "posted_zero": True, "n_feeds_posted": 2},
+    }
+    monkeypatch.setattr(t3, "load_terminal_history", lambda term: (mock_history, t3.TERMINALS[term]))
+
+    # Explicitly clear credentials
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+
+    # Must not raise AlertError
+    alerts = send_feedgas_alerts_if_needed(dry_run=False)
+    assert len(alerts) >= 1
+    assert any(a["terminal"] == "freeport" for a in alerts)
+
+
+def test_feedgas_alert_dedup_ttl_suppresses_repeat(clean_data, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dedup TTL suppresses duplicate alert of same event within TTL window."""
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake_token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "fake_id")
+
+    import httpx
+
+    post_count = 0
+
+    class MockResponse:
+        status_code = 200
+        def json(self): return {"ok": True}
+
+    def count_post(*args, **kwargs):
+        nonlocal post_count
+        post_count += 1
+        return MockResponse()
+
+    monkeypatch.setattr(httpx, "post", count_post)
+
+    key = "feedgas_freeport_OFFLINE_2024-04-17"
+    # First send succeeds and calls post
+    first = send_alert(key, "Freeport offline", include_health_prefix=False)
+    assert first is True
+    assert post_count == 1
+
+    # Second send within TTL deduplicates without calling post
+    second = send_alert(key, "Freeport offline repeat", include_health_prefix=False)
+    assert second is False
+    assert post_count == 1
+
+
+def test_new_event_on_terminal_with_active_alert_gets_through(clean_data, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A new event on a terminal with an active alert still gets dispatched."""
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake_token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "fake_id")
+
+    import httpx
+
+    post_count = 0
+
+    class MockResponse:
+        status_code = 200
+        def json(self): return {"ok": True}
+
+    def count_post(*args, **kwargs):
+        nonlocal post_count
+        post_count += 1
+        return MockResponse()
+
+    monkeypatch.setattr(httpx, "post", count_post)
+
+    # First event: OFFLINE on 2024-04-17
+    ev1 = "feedgas_freeport_OFFLINE_2024-04-17"
+    res1 = send_alert(ev1, "Freeport offline", include_health_prefix=False)
+    assert res1 is True
+    assert post_count == 1
+
+    # Second distinct event on same terminal: ACUTE_DROP or DEPRESSED
+    ev2 = "feedgas_freeport_acute_drop"
+    res2 = send_alert(ev2, "Freeport acute drop", include_health_prefix=False)
+    assert res2 is True
+    assert post_count == 2
+
+

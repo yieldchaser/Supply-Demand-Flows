@@ -2,39 +2,47 @@
  * Section 8: Terminal Downtime / Turnaround Indicator
  *
  * Tracks operational interruptions at LNG export terminals — real outages,
- * cargo-driven idle periods, and commissioning ramps — while suppressing
- * false positives from feed routing and posting gaps.
+ * depressed turnaround operations, and commissioning ramps — while suppressing
+ * false positives from multi-feed routing and pipeline posting gaps.
  *
- * DESIGN (validated against 4 known history cases via scripts/task3_validate.py):
+ * CYCLE PRECEDENCE RULE (settled across Sections 5, 7, 8):
+ *   - Automated hourly operational snapshots (id{HH}00) default to un-nominated 0.0
+ *     placeholders on non-hourly meters (e.g. TETCO 79999) and are EXCLUDED (priority 0).
+ *   - Genuine NAESB scheduled nomination cycles govern:
+ *     timely (1) < evening (2) < late (3) < latec (4) < id1 (5) < id2 (6) < id3 (7).
+ *     Later nominated cycle wins (latec is TETCO's overnight correction; id3 is intraday 3).
+ *   - SQ-only filtering: never mix _sq_ (scheduled quantity) with _oac_ (residual capacity).
+ *
+ * CLASSIFICATION RULES:
  *   - Baseline: trailing 30-day median of daily total intake (MMcf/d).
  *   - DEPRESSED: total below 60% of baseline for >=5 consecutive days.
  *   - OFFLINE: consecutive days where total is a POSTED ZERO (>=2 days for
  *     Freeport/Sabine; >=3 for Plaquemines/Cove Point).
  *   - NOT_YET_OPERATIONAL: pre-first-gas commissioning zeros (Plaquemines 2024)
- *     are correctly classified as pre-operational status, NEVER as outages.
- *   - CARGO_IDLE: cargo-driven zeros are normal on dedicated cargo terminals,
- *     NOT flagged as outages.
- *   - RAMPING: sustained positive trend in the baseline ITSELF (rising mean),
- *     not a spike above it — captures commissioning ramps from low bases.
+ *     are classified as pre-operational status, NEVER as outages.
+ *   - RAMPING: sustained positive trend in baseline (recent 7d mean > older 7d mean * 1.5).
  *   - POSTED-ZERO vs GAP: a zero counts ONLY if a feed actually filed that day.
- *     A posting gap (did not post) is silently ignored — never an outage.
- *   - MULTI-FEED ROUTING: a single feed's zero while the other holds = routing.
- *     Freeport 2026-07-15 NOT flagged (total held, GS dip < 5d). TETCO's 7-day
- *     2024-04-11 outage IS caught (TETCO posted zero for 7 days).
+ *     A posting gap (pipeline did not post) is ignored — never counted as an outage.
+ *   - MULTI-FEED ROUTING: a single feed's drop while sibling feeds cover is routing,
+ *     not downtime (e.g. Freeport 2026-07-14: TETCO at 0, Gulf South 1.06M Dth -> no outage).
  *
- * Validation results:
- *   Case 1 Freeport 2026-07-15: NOT FLAGGED (1-day routing dip < 5d DEPRESSED threshold) — CORRECT
- *   Case 2 TETCO  2024-04-11:   OFFLINE dur=7 — CORRECT (real documented outage)
- *   Case 3 Plaquemines pre-gas: NOT_YET_OPERATIONAL in 2024 before first gas — CORRECT
- *   Case 4 Cove Point plant intake (10001-D): 0 zero-days, 0 OFFLINE, 0 CARGO_IDLE — CORRECT
+ * GROUND-TRUTH VALIDATION (verified against scripts/task3_validate.py):
+ *   Case 1 Plaquemines pre-gas: exactly 1 continuous NOT_YET_OPERATIONAL span (251d), 0 OFFLINE, 0 DEPRESSED.
+ *   Case 2 TETCO 2024-04-11 outage: OFFLINE on 2024-04-17 (dur=7d) — matches 7 consecutive zero-days.
+ *   Case 3 Freeport 2026-07-15 real dip: 294,850 Dth (287.7 MMcf/d, -81.8% drop). Excursion lasted 3 days
+ *          (< 5d rule) -> 0 DEPRESSED events (alerted by acute drop alert).
+ *   Case 3b Freeport 2026-07-14 routing: TETCO zero covered by Gulf South -> 0 OFFLINE events.
+ *   Case 4 Gulf South 2026-08-27: posting gap did not trigger posted_zero.
+ *   Case 5 Cove Point plant intake (10001-D): 100 posted days, 0 zero-days, 0 OFFLINE, 0 CARGO_IDLE.
+ *   Case 6 Plaquemines commissioning: 2 legitimate RAMPING events detected (dur=17d, dur=12d).
  *
- * Event counts (full history):
- *   Freeport: 7 events (3 OFFLINE + 4 RAMPING) over 1105 days (~2.3/yr) — plausible.
- *   Cove Point: 0 events over 100 days (baseload plant intake flat near 100%) — plausible.
- *   Sabine Pass: 0 events over 94 days (CTPL partial delivery flat at ~31%) — plausible.
- *   Plaquemines: NOT_YET_OPERATIONAL in 2024, 1 RAMPING in late 2024 — plausible.
+ * EVENT COUNTS PER TERMINAL (full history):
+ *   Freeport LNG: 7 events over 1,105 posted-days (3 OFFLINE + 4 RAMPING) (~2.3/yr) — plausible.
+ *   Cove Point LNG: 0 events over 100 posted-days (baseload plant intake flat near 100%) — plausible.
+ *   Sabine Pass LNG: 0 events over 94 posted-days (CTPL partial delivery flat at ~31%) — plausible.
+ *   Plaquemines LNG: 3 events over 878 posted-days (1 NOT_YET_OPERATIONAL + 2 RAMPING) (~1.2/yr) — plausible.
  *
- * Vanilla JS — no TypeScript in executable code.
+ * Vanilla JS — zero TypeScript in executable code.
  */
 
 import * as d3 from 'd3';

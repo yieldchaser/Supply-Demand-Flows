@@ -21,268 +21,27 @@ import {
 } from '../util/lng-terminals.js';
 import { dth_to_mmcf, get_utilization_level } from '../util/lng-metrics.js';
 
-import { CYCLE_PRIORITY, cyclePriority } from '../util/lng-downtime.js';
-export { cyclePriority };
+import {
+  buildSqCycleMaps,
+  buildDailySqSeries,
+  buildProxyImpliedByDate,
+  buildDailyProxySeries,
+  buildDailyFromCycles,
+  buildFeedDaily,
+  summarizeDaily,
+  terminalSummary,
+  cyclePriority,
+} from '../util/lng-fleet-data.js';
 
-/**
- * Build a date -> {cycle -> MMcf} map for a direct-SQ terminal.
- * Zeros are legitimate — never treated as missing.
- *
- * @param {Array<{series_id: string, period: string, value: number}>} rows
- * @param {LngTerminal} t
- * @returns {Object<string, Object<string, number>>}
- */
-export function buildSqCycleMaps(rows, t) {
-  const tAny = /** @type {any} */ (t);
-  const sqPrefix = `${tAny.seriesPrefix}_sq_${String(tAny.loc).toLowerCase()}_${tAny.flow || 'd'}_`;
-  const byDate = {};
-  rows.forEach((r) => {
-    // Case-insensitive: some curated ids keep uppercase loc tokens
-    // (e.g. creole_trail_sq_CT200111_id3).
-    const sid = r.series_id.toLowerCase();
-    if (!sid.startsWith(sqPrefix)) return;
-    const cycle = sid.slice(sqPrefix.length).toLowerCase();
-    if (!byDate[r.period]) byDate[r.period] = {};
-    byDate[r.period][cycle] = dth_to_mmcf(Number(r.value));
-  });
-  return byDate;
-}
-
-/**
- * Build a daily series (one point per gas day, latest cycle wins) for a
- * direct-SQ terminal.
- *
- * @param {Array<{series_id: string, period: string, value: number}>} rows
- * @param {LngTerminal} t
- * @returns {Array<{dateStr: string, date: Date, value: number, cycle: string}>}
- */
-export function buildDailySqSeries(rows, t) {
-  return buildDailyFromCycles(buildSqCycleMaps(rows, t));
-}
-
-/**
- * Build a date -> {cycle -> implied MMcf} map for an oac-proxy terminal:
- *   implied_flow(cycle) = (design ?? opcap) − oac   [Dth -> MMcf]
- * Falls back to opcap when design is absent for that cycle; cycles missing
- * either side are skipped (rendered as "—" upstream).
- *
- * @param {Array<{series_id: string, period: string, value: number}>} rows
- * @param {LngTerminal} t
- * @returns {Object<string, Object<string, number>>}
- */
-export function buildProxyImpliedByDate(rows, t) {
-  const { kindPrefixes } = terminalSeriesPrefixes(t);
-  /** @type {Object<string, Object<string, Object<string, number>>>} */
-  const rawByDate = {};
-  rows.forEach((r) => {
-    // Case-insensitive: some curated ids keep uppercase loc tokens.
-    const sid = r.series_id.toLowerCase();
-    for (const kind of Object.keys(kindPrefixes)) {
-      const p = kindPrefixes[kind];
-      if (!sid.startsWith(p)) continue;
-      const cycle = sid.slice(p.length).toLowerCase();
-      if (!rawByDate[r.period]) rawByDate[r.period] = {};
-      if (!rawByDate[r.period][cycle]) rawByDate[r.period][cycle] = {};
-      rawByDate[r.period][cycle][kind] = Number(r.value);
-      break;
-    }
-  });
-
-  /** @type {Object<string, Object<string, number>>} */
-  const impliedByDate = {};
-  Object.keys(rawByDate).forEach((dateStr) => {
-    Object.keys(rawByDate[dateStr]).forEach((cycle) => {
-      const parts = rawByDate[dateStr][cycle];
-      const capacity =
-        parts.design !== undefined ? parts.design : parts.opcap;
-      if (capacity === undefined || parts.oac === undefined) return;
-      if (!impliedByDate[dateStr]) impliedByDate[dateStr] = {};
-      impliedByDate[dateStr][cycle] = dth_to_mmcf(capacity - parts.oac);
-    });
-  });
-  return impliedByDate;
-}
-
-/**
- * Build a daily series for an oac-proxy terminal.
- *
- * @param {Array<{series_id: string, period: string, value: number}>} rows
- * @param {LngTerminal} t
- * @returns {Array<{dateStr: string, date: Date, value: number, cycle: string}>}
- */
-export function buildDailyProxySeries(rows, t) {
-  return buildDailyFromCycles(buildProxyImpliedByDate(rows, t));
-}
-
-/**
- * Collapse a date -> {cycle -> MMcf} map into a chronologically sorted daily
- * series keeping the highest-priority cycle per day.
- *
- * @param {Object<string, Object<string, number>>} byDate
- * @returns {Array<{dateStr: string, date: Date, value: number, cycle: string}>}
- */
-export function buildDailyFromCycles(byDate) {
-  const out = [];
-  Object.keys(byDate).forEach((dateStr) => {
-    const cycles = byDate[dateStr];
-    let best = null;
-    let bestPrio = -1;
-    Object.keys(cycles).forEach((cy) => {
-      const prio = cyclePriority(cy);
-      if (prio > bestPrio) {
-        bestPrio = prio;
-        best = cy;
-      }
-    });
-    if (best !== null) {
-      out.push({ dateStr, date: new Date(dateStr), value: cycles[best], cycle: best });
-    }
-  });
-  out.sort((a, b) => a.date.getTime() - b.date.getTime());
-  return out;
-}
-
-/**
- * Compute per-terminal summary metrics used by cards + the aggregate line.
- *
- * @param {Object} bundle
- * @param {LngTerminal} t
- * @returns {{ok: boolean, latest?: number, utilPct?: number, spark?: number[],
- *   wow?: {delta: number, pct: number}, days?: number}}
- */
-export function terminalSummary(bundle, t) {
-  // Multi-feed terminals: combine per-feed daily series. Feeds marked
-  // kind:'comparison' (cross-checks) and kind:'proxy' (estimates) never
-  // enter the card's number — a partial measurement plus a full-terminal
-  // estimate summed together would fabricate coverage.
-  if (Array.isArray(t.feeds) && t.feeds.length > 0) {
-    const summable = t.feeds.filter((f) => {
-      const kind = /** @type {any} */ (f).kind;
-      if (kind === 'comparison' || kind === 'proxy' || kind === 'context') return false;
-      return !COMPARISON_FEED_EXCLUSIONS.some((stem) =>
-        f.series.toLowerCase().startsWith(stem)
-      );
-    });
-    const feedDailies = [];
-    for (const feed of summable) {
-      const d = buildFeedDaily(bundle, feed);
-      if (d.length) feedDailies.push(d);
-    }
-    if (feedDailies.length === 0) return { ok: false };
-
-    // Merge by date: total = sum of available feeds that day (zeros are data).
-    const byDate = {};
-    feedDailies.forEach((daily) => {
-      daily.forEach((d) => {
-        if (!byDate[d.dateStr]) byDate[d.dateStr] = { date: d.date, total: 0 };
-        byDate[d.dateStr].total += d.value;
-      });
-    });
-    const merged = Object.entries(byDate)
-      .map(([dateStr, v]) => ({ dateStr, date: v.date, value: v.total }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-    if (merged.length === 0) return { ok: false };
-    // Anchor the headline to the latest day where EVERY feed reported — a
-    // pipe that posts later in the gas day must not fake a fleet collapse.
-    const nFeeds = feedDailies.length;
-    const counts = {};
-    feedDailies.forEach((daily) => {
-      daily.forEach((d) => {
-        counts[d.dateStr] = (counts[d.dateStr] || 0) + 1;
-      });
-    });
-    let headlineSource = null;
-    for (let i = merged.length - 1; i >= 0; i--) {
-      if (counts[merged[i].dateStr] === nFeeds) {
-        headlineSource = merged[i];
-        break;
-      }
-    }
-    return summarizeDaily(merged, t.nameplate, headlineSource);
-  }
-
-  const src = bundle.sources?.[t.source];
-  if (!src || !src.data || !src.data.length) return { ok: false };
-  const daily =
-    t.signal === 'oac-proxy'
-      ? buildDailyProxySeries(src.data, t)
-      : buildDailySqSeries(src.data, t);
-  if (daily.length === 0) return { ok: false };
-  return summarizeDaily(daily, t.nameplate);
-}
-
-/**
- * Build the combined daily series for one feed entry of a multi-feed terminal.
- *
- * @param {Object} bundle
- * @param {{source: string, series: string}} feed
- * @returns {Array<{dateStr: string, date: Date, value: number}>}
- */
-function buildFeedDaily(bundle, feed) {
-  const src = bundle.sources?.[feed.source];
-  if (!src || !src.data) return [];
-  const prefix = `${feed.series.toLowerCase()}_`;
-  /** @type {Object<string, Object<string, number>>} */
-  const byDate = {};
-  src.data.forEach((r) => {
-    const sid = String(r.series_id).toLowerCase();
-    if (!sid.startsWith(prefix)) return;
-    const cycle = sid.slice(prefix.length);
-    if (!byDate[r.period]) byDate[r.period] = {};
-    byDate[r.period][cycle] = dth_to_mmcf(Number(r.value));
-  });
-  const out = [];
-  Object.keys(byDate).forEach((dateStr) => {
-    const cycles = byDate[dateStr];
-    let best = null;
-    let bestPrio = -1;
-    Object.keys(cycles).forEach((cy) => {
-      const prio = cyclePriority(cy);
-      if (prio > bestPrio) {
-        bestPrio = prio;
-        best = cy;
-      }
-    });
-    if (best !== null) {
-      out.push({ dateStr, date: new Date(dateStr), value: cycles[best] });
-    }
-  });
-  out.sort((a, b) => a.date.getTime() - b.date.getTime());
-  return out;
-}
-
-/**
- * Shared summary math for a finished daily series.
- *
- * @param {Array<{dateStr: string, date: Date, value: number}>} daily
- * @param {number} nameplate
- * @returns {{ok: boolean, latest: number, utilPct: number, spark: number[],
- *   wow: {delta: number, pct: number}|null, days: number}}
- */
-function summarizeDaily(daily, nameplate, headlineSource = null) {
-  // headlineSource: optional pre-computed {dateStr, date, value} for the
-  // LATEST card (multi-feed terminals anchor it to the latest fully-reported
-  // day). Sparkline/WoW still run off the full merged series.
-  const latestPoint = headlineSource || daily[daily.length - 1];
-  const latest = latestPoint.value;
-  const utilPct = (latest / nameplate) * 100;
-
-  const sparkWindow = daily.slice(-8);
-  const spark = sparkWindow.map((d) => d.value);
-
-  let wow = null;
-  const target = new Date(latestPoint.date);
-  target.setDate(target.getDate() - 7);
-  const targetStr = target.toISOString().slice(0, 10);
-  const weekAgo = daily.find((d) => d.dateStr === targetStr);
-  if (weekAgo) {
-    wow = {
-      delta: latest - weekAgo.value,
-      pct: weekAgo.value !== 0 ? ((latest - weekAgo.value) / weekAgo.value) * 100 : 0,
-    };
-  }
-  return { ok: true, latest, utilPct, spark, wow, days: daily.length };
-}
+export {
+  buildSqCycleMaps,
+  buildDailySqSeries,
+  buildProxyImpliedByDate,
+  buildDailyProxySeries,
+  buildDailyFromCycles,
+  terminalSummary,
+  cyclePriority,
+};
 
 /**
  * Render a tiny inline SVG sparkline (~80x24) with a current-value dot.
@@ -478,8 +237,8 @@ export function renderLngFleetOverview(
   const freeportCaveat = document.createElement('p');
   freeportCaveat.className = 'fleet-footnote';
   freeportCaveat.innerHTML =
-    '<strong>Freeport</strong> figures are interstate-visible feedgas only — KMTP ' +
-    '(intrastate) is not publicly posted, so totals are conservative.';
+    '<strong>Freeport</strong> measures interstate feedgas only (~1,680 MMcf/d baseload median vs 2,100 MMcf/d nameplate, ~80% coverage). ' +
+    'The remaining ~420 MMcf/d (~20%) is delivered via the unposted KMTP intrastate lateral (~400–450 MMcf/d capacity).';
   caveats.appendChild(freeportCaveat);
   panelEl.appendChild(caveats);
 

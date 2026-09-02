@@ -341,13 +341,17 @@ def send_feedgas_alerts_if_needed(dry_run: bool = False) -> list[dict[str, Any]]
                         print(body)
                         print("-" * 40)
                     else:
-                        send_alert(dedup_key, body, dedup_ttl=timedelta(days=7))
+                        has_creds = bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
+                        if not has_creds:
+                            logger.info("Telegram credentials not configured; cleanly skipping alert dispatch")
+                        else:
+                            send_alert(dedup_key, body, dedup_ttl=timedelta(days=7))
 
         # Check for acute single-day drop >= 40% against baseline
         if baseline_mmcf > 100 and latest_flow_mmcf > 0:
             drop_pct = (baseline_mmcf - latest_flow_mmcf) / baseline_mmcf
             if drop_pct >= 0.40:
-                dedup_key = f"feedgas_{term_key}_drop_{latest_date}"
+                dedup_key = f"feedgas_{term_key}_acute_drop"
                 body = format_feedgas_alert(
                     terminal=conf["name"],
                     event_type="ACUTE_DROP",
@@ -364,7 +368,11 @@ def send_feedgas_alerts_if_needed(dry_run: bool = False) -> list[dict[str, Any]]
                     print(body)
                     print("-" * 40)
                 else:
-                    send_alert(dedup_key, body, dedup_ttl=timedelta(days=7))
+                    has_creds = bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
+                    if not has_creds:
+                        logger.info("Telegram credentials not configured; cleanly skipping alert dispatch")
+                    else:
+                        send_alert(dedup_key, body, dedup_ttl=timedelta(days=7))
 
     return alerts
 
