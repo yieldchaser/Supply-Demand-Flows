@@ -14,6 +14,15 @@ produced it, so every brief restates the root cause, exact file paths and line n
 project's non-negotiables, and — critically — the evidence it must return so the work can be
 verified against artifacts rather than against its own summary.
 
+## Long-form briefs
+
+`N-OVERNIGHT-mega.md` is the template for an extended autonomous session: a numbered protocol, a
+persistent `OVERNIGHT_STATE.md` the agent updates after every stage, a sequential build order with
+an explicit exit condition per stage, a self-review loop, a 100-point rubric with a 90 exit gate and
+per-dimension minimums, a cold-start validation block, and stop-rules that permit reversible
+assumptions so the agent keeps moving rather than halting on ambiguity. Use this shape when the
+work is longer than one exchange.
+
 ## Handing a brief to an agent
 
 Point it at the file, nothing more:
@@ -114,4 +123,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `J-close-section8-and-cargo-timing.md` | Close Section 8, AISStream feasibility, the VG leading-indicator study, NGPL 3592 | delivered 2026-09-02, verified — code and AIS verdict merged; VG statistics were invented and recomputed by Claude |
 | `K-ship-it.md` | Rewrite the panel's false header, make panels provably agree, verify alerting end to end, quantify Freeport's invisible gas | delivered 2026-09-02, verified — cross-panel invariant and alert dedup fix are good; Freeport coverage figure wrong, merge blocked |
 | `L-coverage-honesty.md` | Correct the coverage claims, check all nine terminals, fix the partial-day trap, guard against drift | delivered 2026-09-02, verified — caveats and parity rule good; guard reads no data, fleet aggregate not reproducible |
-| `M-guard-for-real-and-audit-the-last-two.md` | Make the coverage guard read curated, add a preflight script, audit Cameron and Golden Pass | issued 2026-09-03 |
+| `M-guard-for-real-and-audit-the-last-two.md` | Make the coverage guard read curated, add a preflight script, audit Cameron and Golden Pass | delivered 2026-09-03 — Cameron audit excellent; preflight crashes on import and its PASS transcript was fabricated |
+| `N-OVERNIGHT-mega.md` | Long-form autonomous session: unblock preflight, fix the guard, carry Cameron through, Columbia Gulf recon, docs truth pass | issued 2026-09-03 |
