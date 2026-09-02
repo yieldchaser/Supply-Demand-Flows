@@ -97,3 +97,27 @@ def test_coverage_guard_rejects_perturbed_flattering_claim() -> None:
         f"Guard must fail when 80.0% is claimed for Freeport "
         f"(drift {drift:.1f}% must exceed tolerance {tolerance:.1f}%)"
     )
+
+
+def test_registry_json_sidecar_matches_js_source() -> None:
+    """Assert generated config/terminals_registry.json matches docs/js/util/lng-terminals.js."""
+    import json
+    from pathlib import Path
+    from scripts.load_registry import REGISTRY_JSON_PATH
+
+    assert REGISTRY_JSON_PATH.exists(), f"Sidecar {REGISTRY_JSON_PATH} missing"
+    sidecar = json.loads(REGISTRY_JSON_PATH.read_text(encoding="utf-8"))
+    js_registry = load_terminal_registry()
+
+    assert len(sidecar) == 9, f"Sidecar has {len(sidecar)} terminals, expected 9"
+    assert len(js_registry) == 9, f"JS registry has {len(js_registry)} terminals, expected 9"
+
+    for tid, js_entry in js_registry.items():
+        assert tid in sidecar, f"Terminal {tid} missing from sidecar"
+        sc_entry = sidecar[tid]
+        assert sc_entry["nameplate"] == js_entry["nameplate"], f"{tid} nameplate mismatch"
+        assert sc_entry["expectedCoveragePct"] == js_entry["expectedCoveragePct"], f"{tid} expectedCoveragePct mismatch"
+        assert sc_entry["expectedMedianMmcf"] == js_entry["expectedMedianMmcf"], f"{tid} expectedMedianMmcf mismatch"
+        assert sc_entry["coverageTolerancePct"] == js_entry["coverageTolerancePct"], f"{tid} coverageTolerancePct mismatch"
+        assert sc_entry["operational"] == js_entry["operational"], f"{tid} operational mismatch"
+

@@ -87,6 +87,16 @@ export const DOWNTIME_CONF = {
     cargoZero: false,
     honesty: 'Phase 1 commissioning commenced late 2024. Gator Express meter VGPQD measures feedgas.',
   },
+  cameron: {
+    label: 'Cameron',
+    nameplate: 2000,
+    feeds: [
+      { source: 'gasnom', stem: 'cameron_interstate_sq_772300_d', label: 'Cameron Interstate' },
+    ],
+    zeroDaysThreshold: 3,
+    cargoZero: false,
+    honesty: 'CIP delivery meter 772300 operates near capacity at ~1.46 Bcf/d (~73% of 2.0 Bcf/d nameplate). Remaining ~27% arrives via unmeasured Columbia Gulf Transmission (TC Energy Cameron Extension).',
+  },
 };
 
 export const DEPRESSED_PCT = 0.60;

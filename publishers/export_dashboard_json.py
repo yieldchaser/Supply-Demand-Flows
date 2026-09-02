@@ -541,6 +541,10 @@ def build() -> dict[str, Any]:
     #     CT200111-D silent-loss class of bug.
     _audit_registry_bundle_agreement(bundle["sources"])
 
+    # 5d. Emit machine-readable terminal registry sidecar from JS source of truth
+    from scripts.load_registry import export_registry_json
+    export_registry_json()
+
     # 6. Prune stale bundle artifacts (defense against the docs/data graveyard).
     #    Old bundle.{HASH}.json, src.*.{HASH}.json and index.{HASH}.json pile up
     #    on every rebuild (~4.6 GB accumulated across 144 hashes by 2026-08-25).

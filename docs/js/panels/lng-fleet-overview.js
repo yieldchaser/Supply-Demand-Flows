@@ -240,17 +240,24 @@ export function renderLngFleetOverview(
     '<strong>Freeport</strong> measures interstate feedgas only (52.9% median coverage of 2,100 MMcf/d nameplate; 1,111.5 MMcf/d median over 100-day overlap 2026-05-25 to 2026-09-01; peak 30d sustained 1,538.0 MMcf/d = 73.2%). ' +
     'The remaining ~988 MMcf/d against nameplate reflects the unposted KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates and unmeasured supplies.';
   caveats.appendChild(freeportCaveat);
+  const cameronCaveat = document.createElement('p');
+  cameronCaveat.className = 'fleet-footnote';
+  cameronCaveat.innerHTML =
+    '<strong>Cameron</strong> measures Cameron Interstate Pipeline (CIP loc 772300) only (72.9% median coverage of 2,000 MMcf/d nameplate; 1,458.6 MMcf/d median). ' +
+    'CIP operates near capacity at ~96% of its 1.56 Bcf/d pipeline design capacity. The remaining ~27% (~500 MMcf/d) arrives via Columbia Gulf Transmission (TC Energy Cameron Extension, FERC CP15-514), which is not posted on GasNom.';
+  caveats.appendChild(cameronCaveat);
   panelEl.appendChild(caveats);
 
   // ---- Fine print ----
   const footnote = document.createElement('p');
   footnote.className = 'fleet-footnote';
   footnote.innerText =
-    'Fleet total sums measured feedgas: every terminal above is measured at its terminal or lateral interconnects. '
-    + 'Corpus Christi was promoted to MEASURED 2026-08-25 — Cheniere publishes real Scheduled Quantities at CC200221 '
-    + '(the capacity-proxy framing is retired; cycle pinning showed per-cycle values are stable — the historic '
-    + '169k/79k swing was cycle sampling). Its TGP Sinton meter (49861) ships as an independent cross-check only. '
-    + 'Gillrina Road NUECES (TGP 47799) is Corpus-metro demand, not terminal-bound feedgas — excluded from all feedgas sums. '
-    + 'Sabine Pass is measured at ~40% of nameplate (two public laterals); the invisible share is Transco Z3 + unposted feeds.';
+    'Fleet total (12,825.9 MMcf/d median across complete gas days) represents an interstate-visible floor, '
+    + 'not a full physical census. Sabine Pass (~30%), Freeport (~53%), and Cameron (~73%) are measured-partial '
+    + 'at their public interstate delivery meters; unmeasured pipeline laterals (Transco Z3, KMTP, Columbia Gulf) '
+    + 'feed the remainder into the plants. Every terminal above is measured at its terminal or lateral interconnects. '
+    + 'Corpus Christi was promoted to MEASURED 2026-08-25 — Cheniere publishes real Scheduled Quantities at CC200221. '
+    + 'Its TGP Sinton meter (49861) ships as an independent cross-check only. '
+    + 'Gillrina Road NUECES (TGP 47799) is Corpus-metro demand, not terminal-bound feedgas — excluded from all feedgas sums.';
   panelEl.appendChild(footnote);
 }

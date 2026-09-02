@@ -606,7 +606,7 @@ def check_divergence(
     now_aware = now if now.tzinfo is not None else now.replace(tzinfo=UTC)
 
     age_days = (now_aware - stamp).total_seconds() / 86400.0
-    recency = float(defaults.get("health_recency_days", 3))
+    recency = float(src_cfg.get("health_recency_days") or defaults.get("health_recency_days", 3))
     if age_days > recency:
         return _result(
             "divergence",

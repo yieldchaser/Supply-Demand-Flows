@@ -105,37 +105,58 @@ export function renderTerminalDowntimePanel(panelEl, bundle) {
   renderTerminal(chartEl, sidebarEl, footEl, bundle, termKeys[0]);
 }
 
+export function buildDowntimeViewModel(bundle, key) {
+  const conf = CONF[key];
+  if (!conf) return null;
+  const daily = buildDailyTotal(bundle, conf);
+  if (daily.length < 3) {
+    return {
+      conf,
+      daily,
+      events: [],
+      status: { type: 'INSUFFICIENT_DATA', duration: 0, kind: 'neutral' },
+      kpis: [],
+    };
+  }
+  const events = detectDowntime(daily, conf);
+  const status = currentStatus(events, daily[daily.length - 1].dateStr);
+  const kpis = [
+    kpiCardHtml({
+      label: 'Current status',
+      value: status.type,
+      delta: { value: status.duration + 'd', kind: status.kind === 'OFFLINE' ? 'bearish' : 'neutral' },
+      helpText: 'Latest classified state',
+    }),
+    kpiCardHtml({
+      label: 'Total events',
+      value: String(events.length),
+      delta: { value: 'full history', kind: 'neutral' },
+      helpText: 'All detected downtime/turnaround events',
+    }),
+    kpiCardHtml({
+      label: 'Data span',
+      value: `${daily.length}d`,
+      delta: { value: daily[0].dateStr + ' to ' + daily[daily.length - 1].dateStr, kind: 'neutral' },
+      helpText: 'Posted gas days with at least one feed filing',
+    }),
+  ];
+  return { conf, daily, events, status, kpis };
+}
+
 function renderTerminal(chartEl, sidebarEl, footEl, bundle, key) {
   chartEl.innerHTML = '';
   sidebarEl.innerHTML = '';
   footEl.innerHTML = '';
 
-  const conf = CONF[key];
-  const daily = buildDailyTotal(bundle, conf);
-
-  if (daily.length < 3) {
+  const model = buildDowntimeViewModel(bundle, key);
+  if (!model || model.daily.length < 3) {
     chartEl.innerHTML = '<p>Insufficient data for this terminal.</p>';
     return;
   }
 
-  const events = detectDowntime(daily, conf);
-  const status = currentStatus(events, daily[daily.length - 1].dateStr);
-
-  const kpis = [
-    kpiCardHtml({ label: 'Current status', value: status.type,
-                  delta: { value: status.duration + 'd', kind: status.kind === 'OFFLINE' ? 'bearish' : 'neutral' },
-                  helpText: 'Latest classified state' }),
-    kpiCardHtml({ label: 'Total events', value: String(events.length),
-                  delta: { value: 'full history', kind: 'neutral' },
-                  helpText: 'All detected downtime/turnaround events' }),
-    kpiCardHtml({ label: 'Data span', value: `${daily.length}d`,
-                  delta: { value: daily[0].dateStr + ' to ' + daily[daily.length - 1].dateStr, kind: 'neutral' },
-                  helpText: 'Posted gas days with at least one feed filing' }),
-  ];
-  sidebarEl.innerHTML = kpis.join('');
-
-  drawTimeline(chartEl, daily, conf, events);
-  renderEventList(footEl, events, conf);
+  sidebarEl.innerHTML = model.kpis.join('');
+  drawTimeline(chartEl, model.daily, model.conf, model.events);
+  footEl.innerHTML = renderEventListHtml(model.events, model.conf);
 }
 
 function currentStatus(events, latestDateStr) {
@@ -222,44 +243,38 @@ function drawTimeline(container, daily, conf, events) {
 }
 
 /**
- * Render the event list table + honesty footnote.
+ * Render the event list table + honesty footnote markup.
  */
-function renderEventList(footEl, events, conf) {
-  const wrap = document.createElement('div');
-  wrap.className = 'downtime-events';
-  const h = document.createElement('h3');
-  h.textContent = `${conf.label} · ${events.length} events (full history)`;
-  wrap.appendChild(h);
-
-  if (!events.length) {
-    const p = document.createElement('p');
-    p.className = 'downtime-events__empty';
-    p.textContent = conf.label === 'Sabine Pass'
+export function renderEventListHtml(events, conf) {
+  let tableHtml = '';
+  if (!events || !events.length) {
+    const emptyMsg = conf.label === 'Sabine Pass'
       ? 'No downtime events — terminal runs flat at ~31% nameplate (measured-partial). Correct behavior.'
       : 'No downtime events in the measured window.';
-    wrap.appendChild(p);
+    tableHtml = `<p class="downtime-events__empty">${emptyMsg}</p>`;
   } else {
-    const table = document.createElement('table');
-    table.className = 'downtime-table';
-    table.innerHTML = `
-      <thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>Detail</th></tr></thead>
-      <tbody>
-        ${events.map((e) => `
-          <tr>
-            <td class="num">${e.date}</td>
-            <td><span class="badge badge--${e.type.toLowerCase()}">${e.type}</span></td>
-            <td class="num">${e.duration}d</td>
-            <td>${e.detail}</td>
-          </tr>`).join('')}
-      </tbody>`;
-    wrap.appendChild(table);
+    tableHtml = `
+      <table class="downtime-table">
+        <thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>Detail</th></tr></thead>
+        <tbody>
+          ${events.map((e) => `
+            <tr>
+              <td class="num">${e.date}</td>
+              <td><span class="badge badge--${e.type.toLowerCase()}">${e.type}</span></td>
+              <td class="num">${e.duration}d</td>
+              <td>${e.detail}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
   }
-  footEl.appendChild(wrap);
 
-  const honest = document.createElement('p');
-  honest.className = 'downtime-honesty';
-  honest.innerHTML = `⚠ ${conf.honesty}`;
-  footEl.appendChild(honest);
+  return `
+    <div class="downtime-events">
+      <h3>${conf.label} · ${events ? events.length : 0} events (full history)</h3>
+      ${tableHtml}
+    </div>
+    <p class="downtime-honesty">⚠ ${conf.honesty}</p>
+  `;
 }
 
 /* Export for non-module fallback */

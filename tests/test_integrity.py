@@ -378,6 +378,15 @@ class TestDivergence:
         assert res["severity"] == "SKIPPED"
         assert "recency" in res["message"]
 
+    def test_cadence_scaled_health_recency(self) -> None:
+        """Weekly source with 5-day-old health stamp runs when health_recency_days is 9."""
+        # 5 days old relative to NOW (2026-08-24T12:00:00Z)
+        health = {"status": "ok", "timestamp_utc": "2026-08-19T09:00:00Z"}
+        weekly_cfg = make_cfg(health_recency_days=9)
+        res = check_divergence(make_frame([day(1)]), health, {}, weekly_cfg, DEFAULTS, NOW)
+        assert res["severity"] == "PASS"
+        assert "no divergence signal" in res["message"]
+
     def test_accumulation_flat_arm_suppressed_when_fresh(self) -> None:
         """Flat accumulation count is benign when the latest period is fresh.
 

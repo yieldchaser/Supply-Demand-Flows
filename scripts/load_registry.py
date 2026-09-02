@@ -1,7 +1,7 @@
 """Load LNG terminal registry metadata directly from docs/js/util/lng-terminals.js.
 
-Ensures Python tests and validators read the single source of truth without
-requiring hand-maintained JSON duplicates that can rot.
+Ensures Python tests, validators, and publishers read the single source of truth
+without requiring hand-maintained JSON duplicates that can rot.
 """
 
 from __future__ import annotations
@@ -16,35 +16,39 @@ REGISTRY_JSON_PATH = Path("config/terminals_registry.json")
 
 
 def load_terminal_registry(js_path: Path = REGISTRY_JS_PATH) -> dict[str, dict[str, Any]]:
-    """Parse structured metadata for all terminals from lng-terminals.js.
-    
-    Extracts: id, nameplate, expectedCoveragePct, expectedMedianMmcf,
-    coverageTolerancePct, and operational flag.
-    """
+    """Parse structured metadata for all terminals from lng-terminals.js using robust brace tracking."""
     if not js_path.exists():
         raise FileNotFoundError(f"Registry JS not found at {js_path}")
 
     content = js_path.read_text(encoding="utf-8")
 
-    # Match each terminal definition block inside LNG_TERMINALS
-    # e.g. "freeport: {\n ... \n },"
-    term_pattern = re.compile(
-        r"^\s*([a-z_]+):\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}",
-        re.MULTILINE
-    )
-
+    # Match each terminal block inside LNG_TERMINALS (indented by 2 spaces)
+    term_re = re.compile(r"^\s{2}(\w+):\s*\{", re.MULTILINE)
     registry: dict[str, dict[str, Any]] = {}
 
-    for match in term_pattern.finditer(content):
-        term_key = match.group(1)
-        block = match.group(2)
+    for m in term_re.finditer(content):
+        term_key = m.group(1)
+        block_start = m.end()
 
-        # Extract structured numeric fields
+        # Track brace depth to capture full block including nested feeds arrays
+        depth = 1
+        i = block_start
+        while i < len(content) and depth > 0:
+            c = content[i]
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+            i += 1
+        block = content[m.start():i]
+
+        # Extract structured fields
         nameplate_m = re.search(r"nameplate:\s*(\d+(?:\.\d+)?)", block)
         expected_cov_m = re.search(r"expectedCoveragePct:\s*(\d+(?:\.\d+)?)", block)
         expected_med_m = re.search(r"expectedMedianMmcf:\s*(\d+(?:\.\d+)?)", block)
         tolerance_m = re.search(r"coverageTolerancePct:\s*(\d+(?:\.\d+)?)", block)
         operational_m = re.search(r"operational:\s*(true|false)", block)
+        display_m = re.search(r"display:\s*'([^']+)'", block)
 
         if not nameplate_m:
             continue
@@ -54,9 +58,11 @@ def load_terminal_registry(js_path: Path = REGISTRY_JS_PATH) -> dict[str, dict[s
         expected_med = float(expected_med_m.group(1)) if expected_med_m else 0.0
         tolerance = float(tolerance_m.group(1)) if tolerance_m else 0.0
         operational = operational_m.group(1) != "false" if operational_m else True
+        display = display_m.group(1) if display_m else term_key.title()
 
         registry[term_key] = {
             "id": term_key,
+            "display": display,
             "nameplate": nameplate,
             "expectedCoveragePct": expected_cov,
             "expectedMedianMmcf": expected_med,

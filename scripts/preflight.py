@@ -17,6 +17,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+# Ensure repository root is in sys.path regardless of execution method
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import pandas as pd
 import yaml
 
@@ -131,7 +136,6 @@ def run_task3_cases() -> tuple[bool, list[tuple[str, bool, str]]]:
     cases.append(("Case 1: Plaquemines pre-operational zero filtering", c1_ok, f"{len(offline_p)} OFFLINE events"))
 
     # Case 2: TETCO 2024-04-11 outage detection (dur=7)
-    ev_2 = [e for e in ev_p if e["type"] == "OFFLINE"] # check freeport
     hist_f, conf_f = load_terminal_history("freeport")
     ev_f = detect_events(hist_f, conf_f)
     outages_f = [e for e in ev_f if e["type"] == "OFFLINE" and e["date"] == "2024-04-17"]

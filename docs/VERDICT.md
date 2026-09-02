@@ -315,4 +315,71 @@ against feedgas across US Gulf Coast terminals (lat 27.0–30.5°N, lon -98.0 to
 - Cargo timing from AIS requires an external always-on streaming service, which is out of scope
   for this repository's serverless architecture.
 
+---
+
+## 2026-09-03 — Columbia Gulf Transmission recon (FERC CP15-514 Cameron Access Project)
+
+Forensic reconnaissance into TC Energy's Columbia Gulf Transmission system to identify Cameron LNG's
+unmeasured ~500 MMcf/d feedgas supply:
+
+### 1. Physical Infrastructure & Meter Identification
+- **Pipeline & Project**: Columbia Gulf Transmission, LLC (TC Energy). Cameron Access Project (FERC Docket CP15-514, inservice 2018).
+- **Physical Structure**: 34 miles of 36"/30" pipe reversing flow along the West Lateral system from the Lake Arthur Compressor Station (10,200 hp, Jefferson Davis Parish) southward to Cameron Parish.
+- **Delivery Meter**: **Meter Station MS-4246 (`Cameron LNG`)**, loc code `4246`, Cameron Parish, LA.
+- **Design Capacity**: 800,000 Dth/d (~780 MMcf/d), delivering Cameron's foundation customer feedgas contracts (~500,000 Dth/d firm).
+- **Pass-Through vs. Dedicated**: MS-4246 is a dedicated terminal intake meter connecting directly to the Cameron LNG liquefaction complex.
+- **Twin-Meter / Double-Counting Check**: Physical separation is complete. Cameron Interstate Pipeline (CIP, loc 772300) approaches from the north-east (connecting TGP/TETCO/LEAP/Acadian); Columbia Gulf MS-4246 connects independently to the West Lateral. Zero double-counting risk.
+
+### 2. Platform Architecture & Data Access Constraints
+- **Platform**: TC Energy electronic bulletin board via **TC eConnects** (`ebb.tceconnects.com` / `tceconnects.com`).
+- **Underlying Technology**: ASP.NET WebForms utilizing the proprietary **Microsoft Report Viewer** control (`Reserved.ReportViewerWebControl.axd`).
+- **Machine-Readability**:
+  1. No public, unauthenticated REST/JSON API endpoint exists for Operationally Available Capacity or Scheduled Quantities.
+  2. The EBB web interface requires client-side JavaScript execution, dynamic ViewState validation, and ReportViewer session state management.
+  3. Simple HTTP GET/POST queries (via `requests`, `httpx`, or `curl`) cannot retrieve tabular nomination cycles; requests fail with 404 or return empty ReportViewer script wrappers.
+  4. Programmatic retrieval would require full browser automation (Playwright/Selenium) executing the ASP.NET ReportViewer control lifecycle.
+
+### 3. Verdict & Architectural Decision
+- **Verdict: NEGATIVE for static HTTP scraper.** Do not build a fragile HTTP-based scraper against TC eConnects's ASP.NET ReportViewer.
+- **Why**: Scrapers in Blue Tide rely on lightweight, fast, deterministic HTTP clients (`HttpClient`, `requests`). Introducing brittle session-token hacks against ReportViewer violates project reliability standards and breaks repeatedly in GHA ephemeral runners.
+- **What Would Reverse This Decision**:
+  1. Discovery of an unauthenticated direct CSV/Excel export endpoint or NAESB EDM flat-file drop on TC eConnects.
+  2. Integration of a stable, tested Playwright headless browser scraper once the project's base browser infrastructure is fully hardened.
+- **Immediate Impact**: Cameron LNG remains documented as **`measured-partial`** (~73% coverage of 2,000 MMcf/d nameplate, running at ~96% of CIP's 1.56 Bcf/d pipeline capacity). The missing ~27% (~500 MMcf/d) is prominently caveated across all dashboard panels, handoff docs, and registry metadata as arriving via Columbia Gulf MS-4246.
+
+---
+
+## 2026-09-03 — Kinder Morgan Texas Pipeline (KMTP) recon for Freeport LNG
+
+Forensic investigation into whether Freeport LNG's unmeasured feedgas (~47% of 2,100 MMcf/d nameplate)
+can be captured via Kinder Morgan Texas Pipeline (KMTP) or Texas state filings:
+
+### 1. Regulatory Jurisdiction & EBB Exemption
+- **Entity**: Kinder Morgan Texas Pipeline, LLC (KMTP, TSP code `131905205`) and Kinder Morgan Tejas Pipeline, LLC (TSP `879826576`).
+- **Regulatory Framework**: KMTP is an **intrastate pipeline system** operating wholly within Texas, regulated by the Railroad Commission of Texas (RRC) under Texas Utilities Code § 121.
+- **FERC Exemption**: As an intrastate pipeline, KMTP is **exempt from FERC 18 CFR § 284.12** standard informational posting rules that mandate public electronic bulletin boards (EBBs) displaying scheduled daily flow quantities (TSQ) and operationally available capacity (OAC) by meter point.
+- **Kinder Morgan DART System Check**: While KMTP has a nominal presence on Kinder Morgan's EBB (`pipeline2.kindermorgan.com`), it publishes **Notices only** (critical notices, maintenance, OFOs). It does not publish public point-level Scheduled Quantities or Operationally Available Capacity.
+
+### 2. Texas Railroad Commission (RRC) Filings Audit
+- **RRC Reporting Requirements**: Intrastate operators in Texas must hold T-4 permits and submit annual/quarterly safety filings.
+- **Public Data Access**: The RRC maintains GIS pipeline infrastructure maps and safety violation databases (PIPES), but **does not collect, mandate, or publish daily, weekly, or monthly flow or meter-point volume data**.
+- **Commercial Secrecy**: Texas intrastate transportation contracts and physical off-take volumes are private, commercially confidential agreements between pipeline operators and shippers.
+
+### 3. Realistic Gap Analysis (Operational vs. Nameplate)
+- **Terminal Nameplate**: 2,100 MMcf/d (3 trains × 700 MMcf/d, FERC CP12-509).
+- **Interstate Measured Median**: 1,111.5 MMcf/d (52.9% of nameplate) across the 100-day dual-feed overlap (Gulf South 24329 + TETCO 79999).
+- **Peak Interstate 30-Day Sustained**: 1,538.0 MMcf/d (73.2% of nameplate).
+- **Realistic Sustained Plant Capacity**: Factoring in Texas Gulf Coast summer ambient derates (~5–8% capacity loss on air-cooled liquefaction), planned compressor maintenance, and ship loading turnaround, sustained operational peak is typically ~88–92% of nameplate (~1,850–1,930 MMcf/d).
+- **True KMTP Volume**:
+  * Against realistic sustained capacity (~1,890 MMcf/d), KMTP deliveries average **~778 MMcf/d**.
+  * During peak interstate delivery periods (1,538 MMcf/d), KMTP intake drops to **~352 MMcf/d**, perfectly matching KMTP's 40-mile Stratton Ridge lateral physical design capacity of **~400–450 MMcf/d**.
+
+### 4. Verdict & Architectural Conclusion
+- **Verdict: NEGATIVE. No public or regulatory pipeline data exists for KMTP.**
+- **Rationale**: KMTP is a private intrastate asset under Texas state law with zero public EBB reporting requirements; the Texas RRC does not disclose meter volumes.
+- **What Would Reverse This**: Passage of Texas state legislation or FERC rulemaking mandating intrastate pipeline flow transparency, or Freeport LNG publishing consolidated plant intake numbers.
+- **Systemic Action**: Freeport LNG remains classified as **`measured-partial`** (multi-feed, 52.9% median coverage of 2,100 MMcf/d nameplate). Caveats on all panels and handoff documentation accurately describe the ~988 MMcf/d gap as unmeasured KMTP intrastate supply plus ambient derates.
+
+
+
 

@@ -58,6 +58,7 @@ sources:
   baker_hughes:
     parquet: data/curated/baker_hughes_weekly.parquet
     health_file: data/health/baker_hughes_rigs.json
+    health_recency_days: 9    # weekly Friday release cadence (7d interval + 2d grace)
     staleness:
       warn_days: 9            # weekly release; tolerate one skipped week
       fail_days: 18
@@ -68,6 +69,7 @@ sources:
   eia_storage:
     parquet: data/curated/eia_storage.parquet
     health_file: data/health/eia_storage.json
+    health_recency_days: 9    # weekly Thursday release cadence (7d interval + 2d grace)
     skip_checks: [flow_legs]   # series are per-region aggregates; uniqueness is per (name, period)
     staleness:
       warn_days: 9            # weekly Thursday release with multi-day lag
@@ -88,6 +90,7 @@ sources:
   eia_lng_exports:
     parquet: data/curated/eia_lng_exports.parquet
     health_file: data/health/eia_lng.json
+    health_recency_days: 45   # monthly Census publication cadence (~30d interval + 15d grace)
     skip_checks: [flow_legs]   # coarse country ids repeat (id,period) across series_name rows; uniqueness lives on name, not id
     staleness:
       warn_days: 105          # EIA export destination series (EVE) compiled from Census foreign trade data; normal lag is 90-115d
@@ -100,6 +103,7 @@ sources:
   eia_supply:
     parquet: data/curated/eia_supply.parquet
     health_file: data/health/eia_supply.json
+    health_recency_days: 45   # monthly Natural Gas Monthly release cadence (~30d interval + 15d grace)
     staleness:
       warn_days: 75           # EIA Natural Gas Monthly releases on last business day of M+2 (~60-65d normal lag; warns if M+3 is delayed)
       fail_days: 135          # 4.5 months; covers two missed monthly cycles
