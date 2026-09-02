@@ -1,69 +1,108 @@
 # N / OVERNIGHT — Blue Tide: get the stack mergeable, then extend coverage
 
 **Repo:** `yieldchaser/Supply-Demand-Flows` · **Branch:** `fix/section8-audit`, head `612951a`
-**Expected duration:** long. Work continuously through the stages below. Do not stop to ask
-whether to continue.
+**Duration:** long — this is sized so you will not run out of work. Work continuously through the
+stages. Do not stop to ask whether to continue. When you reach the end, go to §09 and keep going.
 
 ---
 
 ## 00 / RUNTIME
 
 - Windows sandbox. Your subprocess runner has intermittently hung on `pwsh`; `python`, `node` and
-  `grep` have all worked at times. **Test early which of them work tonight** and record the result
-  in your state file. If a runner is dead, say so once and hand over scripts instead of estimating.
-- `python`, `pandas`, `pytest`, `ruff`, `mypy`, `node` (v18+, `node --test`) are available.
+  `grep` have each worked at times. **First action: test which runners work tonight** and record it
+  in your state file. If one is dead, say so once and route around it — do not estimate outputs.
+- Available: `python`, `pandas`, `pytest`, `ruff`, `mypy`, `node` (v18+, `node --test`).
 - **No git. At all.** Not `add`, `commit`, `status`, `diff`, `log`, `show`. This sandbox has
-  destroyed this repository's `.git` twice during ordinary commit operations and the recovery both
-  times was a full re-fetch from GitHub. Claude commits in the morning. Leave everything in the
-  working tree.
+  destroyed this repository's `.git` twice during ordinary commit operations; both recoveries were
+  full re-fetches from GitHub. Claude commits in the morning. Leave everything in the working tree.
 
 ## 01 / TASK
 
-You are finishing a production data pipeline, not prototyping one. **Perform the actual work** —
-edit files, run commands, paste output. Do not produce a plan and stop.
+You are finishing a production data pipeline that publishes to a live public dashboard, not
+prototyping one. **Do the actual work** — edit files, run commands, capture output. Never produce a
+plan and stop.
 
-The stack on this branch is one working session from being merged into a live public dashboard.
-Three things currently block it, and beyond them there is real coverage work that has never been
-attempted. Both are specified below.
+**Stop only for:** credentials you do not have, an action destructive outside this repository, or an
+ambiguity that cannot be resolved without changing what the project is. Everything else: pick the
+option you can defend, record the decision and its reversal condition in your state file, continue.
+A reversible assumption written down beats a halt.
 
-**Stop only for:** credentials you do not have, an action that would be destructive outside this
-repository, or an ambiguity that cannot be resolved without changing what the project is. Anything
-else — pick the option you can defend, record the decision and the reasoning in your state file,
-and keep moving. A reversible assumption recorded in writing is always better than a halt.
+**Time-box every stage.** If a stage resists after roughly three serious attempts, write what you
+tried and what you would need into `Blocked / needs Claude`, and move to the next stage. Do not
+spend the night on one problem, and never fake an exit condition to escape one.
 
 ## 02 / PROTOCOL
 
-**Maintain `OVERNIGHT_STATE.md` in the repo root** from your first action. It is your memory across
-context compaction and the thing that will be read first in the morning. Structure:
+### 2a. State file
+
+**Create `OVERNIGHT_STATE.md` in the repo root as your first action** and update it after **every**
+stage. It is your memory across context compaction and the first thing read in the morning.
 
 ```
-# Overnight state — <date>
+# Overnight state — 2026-09-03
 ## Runner check
-python: works|hangs   node: works|hangs   pytest: works|hangs   (record once, early)
+python: ? | node: ? | pytest: ? | ruff: ? | mypy: ?      (fill in immediately)
 ## Stage log
-- [x] N1 ... one line, with the evidence that closed it
+- [x] N1 <one line> — evidence: logs/N1-preflight.txt
 - [ ] N2 ...
 ## Decisions taken
 - <decision> — <why> — <what would reverse it>
 ## Numbers measured tonight
-- <quantity> = <value> — <command that produced it> — <window and completeness rule>
+- <quantity> = <value> — <exact command> — <window + completeness rule> — logs/<file>
 ## Blocked / needs Claude
-- <thing> — <why>
+- <thing> — <what I tried> — <what would unblock it>
+## Rubric self-score (§08)
 ```
 
-Update it after **every** stage, not at the end. If you are compacted mid-run, that file is what
-lets you resume without redoing work.
+**On resuming after any compaction: re-read `OVERNIGHT_STATE.md` before doing anything else.**
 
-**Every number you record must carry the command that produced it and the window it covers.** This
-is the single discipline that has failed most often here: coverage computed over a window where one
-feed did not exist, aggregates summed across misaligned windows, and — last round — a
-`PREFLIGHT VERDICT: PASS` transcript for a script that crashes on import and has never run once.
+### 2b. Evidence artefacts — this is not optional
 
-## 03 / BUILD ORDER
+Create a `logs/` directory in the repo root. **Every command whose output you cite must be
+redirected to a file there**, named for the stage:
+
+```
+python scripts/preflight.py            > logs/N1-preflight.txt 2>&1
+python -m pytest -q -m "not network"   > logs/N3-pytest.txt 2>&1
+node --test tests/*.test.mjs           > logs/N3-node.txt 2>&1
+```
+
+Your report cites the file path beside every number. In the morning those files are read and the
+commands re-run; a `logs/` file that does not match a re-run, or a cited number with no file behind
+it, invalidates the whole stage.
+
+This exists because the last four rounds each reported at least one result that had not happened —
+most recently a full `PREFLIGHT VERDICT: PASS` transcript for a script that crashes on import and
+has never executed. Writing to a file first makes the honest path the easy path.
+
+### 2c. Every number carries its window
+
+For any rate, median or aggregate, record **the date range and the completeness rule** alongside
+the value. Every fabricated figure in this project's history was a window error: coverage over
+1,105 days when one of two feeds has 100 (80% claimed, 52.9% real); a fleet total summing
+per-terminal medians landing on different days.
+
+## 03 / FORBIDDEN SHORTCUTS
+
+Any of these invalidates the stage, regardless of what else is true:
+
+- deleting, skipping, `xfail`-ing or commenting out a failing test
+- loosening an assertion to make it pass, rather than fixing the cause
+- `continue-on-error`, `|| true`, or a bare `except:` added to quiet a failing gate
+- `# type: ignore` or `# noqa` added instead of fixing the finding
+- widening a tolerance or threshold without measured variability or a cited external cadence
+- editing `data/health/*.json` by hand — they are outputs
+- publishing an estimate as a measurement
+- removing or softening a UI caveat
+
+If a check fires and you believe the check is wrong, that is a legitimate finding: write the
+argument in your state file, leave the check firing, and move on.
+
+## 04 / BUILD ORDER — P0
 
 Sequential. Do not start a stage until the previous one's exit condition is met and logged.
 
-### N1 — make preflight actually run *(exit: pasted output of a real run)*
+### N1 — make preflight actually run · P0 · exit: `logs/N1-preflight.txt` from a real run
 
 `scripts/preflight.py` crashes immediately:
 
@@ -71,16 +110,14 @@ Sequential. Do not start a stage until the previous one's exit condition is met 
 ModuleNotFoundError: No module named 'scripts.load_registry'
 ```
 
-There is no `scripts/__init__.py`. Fix the import path (package marker, or drop the `scripts.`
-prefix, or `sys.path` handling — your call, justify it). Then run it and paste **whatever it
-prints**, including failures. Its current hardcoded expectations are wrong and will surface as
-mismatches; that is the point.
+No `scripts/__init__.py` exists. Fix the import path (package marker, relative import, or `sys.path`
+handling — your call, justify it). Run it. Capture **whatever it prints**, including failures.
 
-Known-wrong values inside it that must come from real reads: it prints `baker_hughes 138 rows`
-(real: 32,893), `eia_lng 65` (real: 2,665), and an integrity board with all twelve sources PASS
-when five currently WARN on gaps.
+Its hardcoded expectations are wrong and will surface: it prints `baker_hughes 138 rows` (real
+32,893), `eia_lng 65` (real 2,665), and an integrity board of twelve PASS when five currently WARN
+on gaps. Replace every hardcoded expectation with a real read.
 
-### N2 — the coverage guard, working *(exit: guard passes on truth, fails on a perturbed claim)*
+### N2 — a coverage guard that reads data · P0 · exit: guard passes on truth, fails on a perturbation
 
 Both tests in `tests/test_coverage_guard.py` fail:
 
@@ -89,172 +126,232 @@ assert 5 == 9        # scripts/load_registry.py extracted 5 of 9 terminals
 KeyError: 'nameplate'
 ```
 
-The regex parser over `lng-terminals.js` is too fragile for this job. **Replace the mechanism.**
-The registry is the single source of truth and must stay so, so generate a machine-readable
-sidecar from it rather than hand-maintaining a copy — for example have
-`publishers/export_dashboard_json.py` emit the machine-checkable fields, or add a small generator
-with a test asserting the sidecar is in sync with the JS. State the trade-off you accepted.
+Regex-parsing JavaScript is too fragile for a load-bearing guard. **Replace the mechanism.** The
+registry stays the single source of truth, so *generate* a machine-readable sidecar from it — e.g.
+have `publishers/export_dashboard_json.py` emit the machine-checkable fields, plus a test asserting
+the sidecar matches the JS. Never hand-maintain a second copy; that is the same rot in a new place.
 
-The guard must recompute coverage from `data/curated/*.parquet` using the settled cycle rule
-(SQ only, hourly `id{HH}00` excluded) and the complete-day rule, compare against the registry
-within per-terminal tolerance, and fail loudly naming terminal, claimed, measured and drift.
+The guard recomputes coverage from `data/curated/*.parquet` under the settled cycle rule (SQ only,
+hourly `id{HH}00` excluded) and the complete-day rule, compares against the registry within
+per-terminal tolerance, and fails naming terminal, claimed, measured, drift.
 
-### N3 — a green board *(exit: `pytest` at 431+ passed / 1 known failure, `node --test` 13/0, preflight PASS or an honest FAIL)*
+### N3 — green board · P0 · exit: `logs/N3-pytest.txt`, `logs/N3-node.txt`, `logs/N3-preflight.txt`
 
-Get the suite back to a single known failure (`test_build_universe_covers_expected_totals`, 717 vs
-719 — not yours to fix). If preflight legitimately reports FAIL because the integrity board has
-WARNs, that is an honest result: decide whether preflight's verdict should treat WARN as pass, and
-justify it. **Do not make it green by weakening a check.**
+Target: pytest at **1 known failure** (`test_build_universe_covers_expected_totals`, 717 vs 719 —
+not yours), node **13/0**, preflight running to a verdict.
 
-Also: `publish-dashboard.yml` now runs preflight before building the bundle. Merging that while it
-crashes would break publishing. Either make it robust and keep it, or move it to its own workflow.
+`publish-dashboard.yml` currently runs preflight before building the bundle. Merging that while it
+crashes breaks publishing. Either make it robust and keep it there, or move it to its own workflow —
+decide and justify.
 
-### N4 — Cameron becomes measured-partial *(exit: registry, UI caveats and every aggregate claim consistent)*
+If preflight legitimately reports FAIL because five sources WARN on gaps, that is an honest result.
+Decide whether its verdict should treat WARN as pass and justify it. **Do not make it green by
+weakening a check.**
 
-Your Cameron audit is the strongest finding in weeks and it holds up: CIP delivery point `772300`
-has a design capacity of 1,560,000 Dth/d (~1,522 MMcf/d), so at a measured median of 1,458.6 it is
-running at ~96% of *its own* capacity, not 73% of a terminal. Cameron is measured-partial, like
-Sabine, with the remainder on Columbia Gulf Transmission's Cameron extension.
+### N4 — Cameron becomes measured-partial everywhere · P0 · exit: registry, UI and every aggregate consistent
 
-Carry that through everywhere:
+Your Cameron audit holds up and is the strongest finding in weeks: CIP delivery point `772300` has
+a design capacity of 1,560,000 Dth/d (~1,522 MMcf/d), so a measured 1,458.6 median is **~96% of the
+pipeline's own capacity**, not 73% of a terminal. Receipts into CIP close against deliveries to
+0.18%. Cameron is measured-partial, like Sabine, with the remainder on Columbia Gulf Transmission.
 
-- registry status and `coverageNote`, matching how Sabine and Freeport are described,
-- the UI caveat on every panel that shows Cameron,
-- **the fleet aggregate's meaning.** With Sabine ~30%, Freeport ~53% and now Cameron ~73%, the
-  12,825.9 MMcf/d figure is an interstate-visible **floor**, not a census. Say that wherever the
-  number appears, including `docs/js/util/lng-terminals.js` and `BLUE_TIDE_HANDOFF.md`.
-- Do **not** change a confidence tier — recommend it; the agreement gate governs that.
+Carry it through: registry status and `coverageNote` in the shape Sabine and Freeport use; the UI
+caveat on every panel showing Cameron; and **the fleet aggregate's meaning** — with Sabine ~30%,
+Freeport ~53% and Cameron ~73%, the 12,825.9 MMcf/d figure is an interstate-visible **floor**, not a
+census. Say so wherever it appears, including `docs/js/util/lng-terminals.js` and
+`BLUE_TIDE_HANDOFF.md`.
 
-Your ~16,376 MMcf/d "true physical feedgas" estimate must **not** appear in the UI. It is an
-estimate built on capacity assumptions, and this project does not publish estimates as
-measurements. Keep it in your state file as analysis.
+Do **not** change a confidence tier — recommend it; the agreement gate governs that. Your
+~16,376 MMcf/d "true physical feedgas" estimate must **not** reach the UI: it rests on capacity
+assumptions, and this project does not publish estimates as measurements. Keep it in state as
+analysis.
 
-### N5 — Columbia Gulf recon *(exit: a verdict in `docs/VERDICT.md`, scraper only if the evidence supports it)*
+### N5 — the publisher ships 7.8% of gasnom · P0 · exit: explained, with the ratio for all twelve sources
 
-This is the next real coverage win and nobody has looked. Cameron's invisible ~500 MMcf/d arrives
-on TC Energy's Columbia Gulf Transmission (Cameron extension, FERC CP15-514).
+Open since the first audit and never answered. Live bundle against curated:
 
-Establish, as research first:
+```
+gasnom       curated  64,256   live shard   5,038   =  7.8%
+gulf_south   curated 436,687   live shard  57,226   = 13.1%
+quorum       curated 117,480   live shard  28,594   = 24.3%
+cheniere     curated   7,062   live shard   2,520   = 35.7%
+bhe          curated  14,148   live shard  14,028   = 99.2%
+```
 
-1. Does Columbia Gulf publish a public, unauthenticated EBB with scheduled quantities? TC Energy's
-   platform, its endpoints, whether it needs a session, what cycles it posts.
-2. Can you locate the specific delivery meter into Cameron LNG? Name and location code.
-3. Is it a dedicated delivery or does that pipe serve other customers (the pass-through question
-   that decided Cove Point)?
-4. Would adding it double-count against anything already scraped (the twin-meter question)?
+Bug #6 in this project's catalogue was exactly this shape: curated was full, the publisher's
+relevance prune shipped 5% of it, and the integrity monitor watched *curated* so nothing fired —
+gasnom rendered 95% thinned in the UI for weeks.
 
-**If it is public and clean, build the scraper** to this project's conventions: `HttpClient`,
+Read `publishers/export_dashboard_json.py`. Establish for every source whether the ratio is the
+intended relevance prune (only `high`-confidence, classified series reach the bundle) or silent
+loss. `_audit_bundle_coverage` exists and is deploy-blocking — determine what it actually asserts
+and whether a 7.8% shard would trip it. Report the table for all twelve with a verdict each. Fix
+only what is genuinely broken; a large prune that is *intended and audited* is fine, and saying so
+with evidence closes the question.
+
+### N6 — Columbia Gulf recon · P0 · exit: a verdict in `docs/VERDICT.md`, scraper only if evidence supports it
+
+The next real coverage win. Cameron's invisible ~500 MMcf/d arrives on TC Energy's Columbia Gulf
+Transmission Cameron extension (FERC CP15-514).
+
+Research first: does Columbia Gulf publish a public unauthenticated EBB with scheduled quantities —
+platform, endpoints, session requirement, cycles posted? Can you locate the specific delivery meter
+into Cameron LNG, by name and location code? Is that pipe dedicated to the terminal or does it serve
+other customers (the pass-through question that decided Cove Point)? Would adding it double-count
+against anything already scraped (the twin-meter question)?
+
+**If public and clean, build the scraper** to this project's conventions: `HttpClient`,
 `SafeWriter`, `HealthWriter` with `record_no_op` on empty runs and `record_guard_failure` when a
-guard raises, `assert_response_identity` on a response type that structurally contains the marker,
-a transformer routing through `merge_into_curated`, canonical schema
-`source|series_id|series_name|period|value|unit|region|ingested_at`, `series_id` carrying every
-dimension including flow and cycle, `config/meters/` entry, `integrity_rules.yaml` entry with
-`mode: accumulation` and a `gap_rule`, tests, and a workflow on a NAESB-aligned cron that commits
-its own health file.
+guard raises, `assert_response_identity` verified on a response type that structurally contains the
+marker and matched loosely on a stable token, a transformer through `merge_into_curated`, canonical
+schema `source|series_id|series_name|period|value|unit|region|ingested_at`, `series_id` carrying
+every dimension including flow and cycle, a `config/meters/` entry, an `integrity_rules.yaml` entry
+with `mode: accumulation` and a `gap_rule`, tests, and a workflow on a NAESB-aligned cron that
+commits its own health file.
 
-**If it is not public, write the negative in `docs/VERDICT.md`** with what you searched and what
-would change the answer — the same shape as the Sabine and AISStream verdicts. A clear negative
-ends the question for the next person; a vague one makes them redo it.
+**If not public, write the negative in `docs/VERDICT.md`** with what you searched and what would
+change the answer — the shape of the Sabine and AISStream verdicts. A clear negative closes the
+question; a vague one makes the next person redo it.
 
-### N6 — the alert path, end to end *(exit: replay output pasted, counts per terminal)*
+## 05 / BUILD ORDER — P1
 
-With the parity fix in place, replay feedgas alerting over the last 90 days and over full history.
-Report alerts per terminal per month. Confirm the partial-day false `ACUTE_DROP` is gone. Confirm
-dry-run makes no network call and missing credentials degrade to a clean skip.
+Reach these only with N1–N6 logged complete. Same rules, same evidence.
 
-If the rate is zero everywhere across full history, say so — an alert that never fires is untested,
-and you should construct a synthetic case proving it *would* fire on a real outage.
+### N7 — KMTP recon for Freeport
 
-### N7 — documentation truth pass *(exit: every asserted number traces to a command)*
+Freeport measures 52.9% of nameplate. Same question as Cameron, different pipe: Kinder Morgan Texas
+Pipeline's intrastate lateral is unposted, and intrastate pipelines are not FERC-jurisdictional so
+they may post nothing at all. Establish whether KMTP publishes anything public, whether Texas RRC
+filings expose the volume at any useful frequency, and what the gap really is once measured against
+realistic utilisation rather than nameplate. Verdict to `docs/VERDICT.md` either way.
 
-Sweep `docs/js/`, `BLUE_TIDE_HANDOFF.md`, `docs/VERDICT.md` and `analysis/` for numeric assertions.
-For each: does it trace to a computation, and is it still true? Fix or delete what does not. This
-codebase has repeatedly shipped comments describing a world that no longer exists — "25 cargo
-zeros", "Plaquemines: no curated data", "~80% coverage", a fleet figure from three ramps ago.
+### N8 — the five gap WARNs, annotated
 
-Record in your state file a list of every number you changed, with the command behind the new one.
+`gulf_south 2026-08-27`, `baker_hughes 2026-01-02`, `gasnom 2026-08-23..25`, `quorum 2025-03-25..27`,
+`cheniere 2026-08-25`. Two are already explained (gasnom was a `contents: read` push denial fixed
+2026-08-26; quorum was an upstream tenant serving empty CSVs). Classify each remaining one as
+upstream posting hole, our outage, legitimate non-posting, or unknown-with-next-step. **Backfill
+nothing** — annotation is the deliverable.
 
-## 04 / REVIEW LOOP
+### N9 — divergence checks that never run
 
-After each stage, before logging it complete, re-derive your own claims:
+`baker_hughes` and `eia_storage` divergence is SKIPPED because their health stamp is older than the
+3-day recency window (3.6d, 3.9d) — correct behaviour for weekly sources, but it means the check
+never runs for them at all. Decide whether the recency window should scale with the source's
+cadence, and implement it if so with the cadence cited.
 
-1. **Re-run, do not remember.** If you reported a count, run the command again and read it.
-2. **Check the window.** For any rate or aggregate: over what dates, and did every input exist
-   across all of them? Every fabrication in this project's history has been a window error.
-3. **Check the direction of error.** A number that makes coverage look better than it is gets
-   double-checked. The 80%-versus-52.9% error would have shipped a flattering falsehood to readers.
-4. **Paste, do not summarise.** Unedited output, warnings and failures included.
+### N10 — Section 8 renders
 
-If a stage's exit condition cannot be met, log why in `Blocked / needs Claude` and move to the next
-stage. Do not loop on it and do not fake the exit.
+No test asserts the panel actually renders. `renderTerminalDowntimePanel` imports D3 and touches the
+DOM, which is why it was never covered. Get a smoke test in place — a minimal DOM stub, or split the
+last DOM-dependent seam so the render path is reachable from `node --test`. Assert it produces
+markup for a fixture bundle and does not throw when a terminal has zero events.
 
-## 05 / RUBRIC — exit gate 90/100
+### N11 — alert path end to end
 
-Score yourself honestly in the state file before you finish.
+Replay feedgas alerting over the last 90 days and over full history with the parity fix in place.
+Report alerts per terminal per month; confirm the partial-day false `ACUTE_DROP` is gone; confirm
+dry-run makes no network call and missing credentials degrade to a clean skip. If the rate is zero
+across all history, construct a synthetic case proving it *would* fire on a real outage — an alert
+that has never fired is untested.
+
+### N12 — documentation truth pass
+
+Sweep `docs/js/`, `BLUE_TIDE_HANDOFF.md`, `docs/VERDICT.md`, `analysis/`. For every numeric
+assertion: does it trace to a computation, and is it still true? Fix or delete what does not. This
+codebase has shipped comments describing a world that no longer exists — "25 cargo zeros",
+"Plaquemines: no curated data", "~80% coverage", a fleet figure from three ramps ago. List every
+number you changed with the command behind the new one.
+
+## 06 / REVIEW LOOP
+
+After each stage, before logging it complete:
+
+1. **Re-run, do not remember.** Reported a count? Run it again and read the file.
+2. **Check the window.** Over what dates, and did every input exist across all of them?
+3. **Check the direction of error.** Anything making coverage look *better* gets double-checked —
+   the 80%-vs-52.9% error would have shipped a flattering falsehood to readers.
+4. **Confirm the artefact exists.** Every cited number has a `logs/` file behind it.
+
+## 07 / VALIDATION — cold start
+
+From a clean shell, redirecting each to `logs/`:
+
+```
+python scripts/preflight.py                                                    > logs/final-preflight.txt 2>&1
+python -m pytest -q -m "not network"                                           > logs/final-pytest.txt 2>&1
+node --test tests/*.test.mjs                                                   > logs/final-node.txt 2>&1
+grep -rnE ": (string|number|boolean|any)\b|interface |\bas (string|number|HTMLElement)" docs/js/  > logs/final-tsgrep.txt 2>&1
+python -m ruff check <changed .py>                                             > logs/final-ruff.txt 2>&1
+python -m mypy --strict <new .py>                                              > logs/final-mypy.txt 2>&1
+```
+
+The grep must show JSDoc hits only — TypeScript syntax in executable JS silently breaks rendering.
+
+## 08 / RUBRIC — exit gate 90/100
+
+Self-score in the state file before finishing.
 
 | dimension | points | minimum |
 |---|---|---|
-| Every reported number reproduced by a pasted command | 30 | 27 |
-| Suite green: pytest 1 known failure, node 13/0, preflight runs | 20 | 18 |
-| Coverage guard reads curated and fails on a perturbed claim | 15 | 13 |
-| Cameron carried through registry, UI and aggregate consistently | 15 | 13 |
-| Columbia Gulf: scraper to convention, or a verdict that closes the question | 10 | 8 |
-| `OVERNIGHT_STATE.md` complete enough to resume from cold | 10 | 9 |
+| Every reported number backed by a `logs/` file that matches a re-run | 25 | 23 |
+| Suite green: pytest 1 known failure, node 13/0, preflight runs | 15 | 13 |
+| Coverage guard reads curated, fails on a perturbed claim | 12 | 10 |
+| Cameron carried through registry, UI and aggregate consistently | 12 | 10 |
+| Publisher prune ratios explained for all twelve sources | 10 | 8 |
+| Columbia Gulf: scraper to convention, or a verdict that closes it | 10 | 8 |
+| P1 stages attempted, with honest outcomes | 8 | 4 |
+| `OVERNIGHT_STATE.md` complete enough to resume cold | 8 | 7 |
 
-Below 90, keep working. A dimension below its minimum is a fail regardless of total. **Reporting an
-honest failure scores full marks on dimension 1; a fabricated pass scores zero across the board**,
-because everything gets re-derived in the morning and a false transcript costs a whole round.
+Below 90, keep working — pick from §09. A dimension under its minimum fails regardless of total.
+**An honest failure scores full marks on dimension 1. A fabricated pass scores zero across the
+board**, because everything is re-derived in the morning and a false transcript costs a whole round.
 
-## 06 / VALIDATION — cold start
+## 09 / IF YOU REACH THE END WITH TIME LEFT
 
-Last, from a clean shell:
+Do not idle and do not stop. In order:
 
-```
-python scripts/preflight.py
-python -m pytest -q -m "not network"
-node --test tests/*.test.mjs
-grep -rnE ": (string|number|boolean|any)\b|interface |\bas (string|number|HTMLElement)" docs/js/
-python -m ruff check <your changed .py files>
-python -m mypy --strict <your new .py files>
-```
+1. Raise any rubric dimension below its minimum.
+2. Clear anything in `Blocked / needs Claude` that turns out to be unblockable by you — convert each
+   into a precise question with the evidence attached.
+3. Strengthen the weakest guard in the repo. Candidates: the accumulation guard misses a module that
+   calls `merge_into_curated` for one file while direct-writing another, and misses `pq.write_table`;
+   the cross-panel invariant covers one terminal; nothing tests that `series_id` carries a flow token
+   on write.
+4. Extend the golden fixture to every event class the detector can emit.
+5. Write `docs/VERDICT.md` entries for anything you investigated tonight that did not become code.
 
-Paste all six outputs verbatim at the end of your report. The grep must show JSDoc hits only —
-TypeScript syntax in executable JS silently breaks rendering here.
-
-## 07 / NON-NEGOTIABLES
+## 10 / NON-NEGOTIABLES
 
 1. **When a guard fires, fix the cause.** Never demote a meter, loosen a threshold, or disable a
-   check to quiet an alarm. Threshold changes need evidence — measured variability or a cited
-   external cadence.
+   check to quiet an alarm.
 2. **Never fabricate a number, a test result, or a command output.** If it did not run, say so.
 3. **Never compute a rate or aggregate over a window where an input does not exist**, and never sum
-   quantities whose windows differ. State the window and completeness rule before computing.
-4. **Never mix `_sq_` and `_oac_`** in a flow total. OAC is a residual, anticorrelated with TSQ.
-5. **Twin-meter check before summing any two feeds**; look for a plant-intake meter before summing
-   feeders. Both rules exist because violating them shipped wrong numbers.
+   quantities whose windows differ.
+4. **Never mix `_sq_` and `_oac_`** in a flow total — OAC is a residual, anticorrelated with TSQ.
+5. **Twin-meter check before summing two feeds**; plant-intake meter before summing feeders.
 6. **Never publish an estimate as a measurement.** "Observatory, not oracle. Zero randomness."
 7. **Do not change any nameplate** — FERC docket citations, denominator of every utilisation figure.
-8. **Do not remove UI caveats.** Sharpen them; never soften.
+8. **Do not remove UI caveats.** Sharpen; never soften.
 9. **Confidence tiers unchanged** — recommend only.
-10. **`merge_into_curated` always** for curated writes; a test enforces it.
+10. **`merge_into_curated` always** for curated writes.
 11. **RAW `Dth/d` in Python; convert only in frontend JS** (`mmcf = dth / 1.025 / 1000`).
-12. **Vanilla JS only in `docs/`** — zero TypeScript in executable code, design tokens only,
-    `safeRender` on every panel, 390px reflow.
+12. **Vanilla JS only in `docs/`** — zero TypeScript in executable code, design tokens, `safeRender`
+    on every panel, 390px reflow.
 13. **No git commands.**
 
 Known pre-existing and NOT yours to fix: ~35 mypy errors in
 `scrapers/base/playwright_client.py`, mypy gaps in untouched `transformers/baker_hughes.py`, some
-ruff in `tests/test_gie_agsi_scraper.py`, and `test_build_universe_covers_expected_totals`
-(717 vs 719).
+ruff in `tests/test_gie_agsi_scraper.py`, `test_build_universe_covers_expected_totals` (717 vs 719).
 
-## 08 / REPORT
+## 11 / REPORT
 
-At the end, in addition to `OVERNIGHT_STATE.md`:
+Alongside `OVERNIGHT_STATE.md`:
 
 1. Diff summary — every file, one line of reasoning.
-2. Stage-by-stage: exit condition met or not, with the evidence.
-3. The six cold-start outputs, verbatim.
-4. Your rubric score per dimension with justification.
+2. Stage by stage: exit condition met or not, with the `logs/` path proving it.
+3. The six cold-start outputs, verbatim, with their file paths.
+4. Rubric self-score per dimension with justification.
 5. Anything contradicting this brief — its numbers are measurements and have been wrong before; if
    the repo disagrees, the repo wins and I want to see it.
 6. Anything noticed and not fixed.
