@@ -263,3 +263,56 @@ Cove Point's `cpl_sq_10001_d` or Corpus Christi's `CC200221`).
 - Because Cheniere only publishes informational postings for its own pipeline (Creole Trail LP), Cheniere's API physically cannot see the remaining ~69% arriving via Transco and other operators.
 - **Conclusion**: `CT200111-D` is already the maximum possible measurement of Creole Trail delivery into Sabine Pass. The observatory's classification of Sabine Pass as `MEASURED-PARTIAL (~31%)` with explicit UI caveats is the honest, optimal reporting structure. The remaining gas cannot be captured without separate scraper pipelines for Williams Transco and other third-party EBBs.
 
+## 2026-09-02 — AISStream vessel tracking & cargo timing feasibility verdict
+
+An architectural feasibility evaluation was conducted for ingesting `aisstream.io` real-time
+AIS vessel tracking data to measure LNG cargo loadings (berth dwell, cadence, departures)
+against feedgas across US Gulf Coast terminals (lat 27.0–30.5°N, lon -98.0 to -88.0°W).
+
+### 1. Protocol and Free-Tier Constraints
+- **WebSocket-Only, Push-Only Architecture**: AISStream.io does NOT offer a REST API for historical,
+  daily, or point-in-time snapshot queries on the free tier. Access is strictly via a live WebSocket
+  stream (`wss://stream.aisstream.io/v0/stream`).
+- **No Historical Retention**: When disconnected, all unobserved AIS bursts are lost. There is no
+  backfill or replay capability.
+- **Server-Side Filtering Limitations**: AISStream's subscription filter supports bounding boxes,
+  MMSI lists, and message types, but **does NOT filter by ship type on the server**. Every vessel
+  position burst in the Gulf box is pushed to the client (~50–300 msgs/sec).
+
+### 2. Physical & Analytical Identification Limits
+- **Coarse AIS Ship Type Codes**: In ITU-R M.1371 / AIS specifications, all tankers broadcast
+  coarse codes `ShipType: 80` through `89` ("Tanker, all ships of this type"). There is no distinct
+  AIS broadcast code for specialized liquefied gas / LNG carriers.
+- **Noise in the Gulf of Mexico**: Within the bounding box (lat 27–30.5, lon -98 to -88), hundreds
+  of crude VLCCs, Aframaxes, clean product MR tankers, and chemical parcel tankers transit daily
+  between the Houston Ship Channel, Corpus Christi, Texas City, Port Arthur, LOOP, and Baton Rouge.
+- **Filtering Requirement**: Accurately isolating an LNG carrier loading requires:
+  1. Strict micro-geofence berth polygons around individual terminal jetties (e.g. Sabine Pass
+     Berths 1–2, Cameron LNG Berths 1–2, Freeport Velasco terminal, Calcasieu Pass berths).
+  2. A curated static cross-reference registry of global LNG carrier IMO/MMSI numbers (e.g. GIIGNL
+     fleet list) or dimensional filtering (length > 280m, beam > 43m, draught 9–12m).
+
+### 3. Hosting & State Machine Incompatibility with GitHub Actions
+- **Berth Dynamics**: An LNG carrier berthing, cooldown, loading, and departure sequence spans
+  **18 to 36 hours**.
+- **Ephemeral Batch Mismatch**: GitHub Actions operates as an ephemeral batch runner (1–5 minute
+  execution windows triggered every 6 to 24 hours). An ephemeral runner connecting to a WebSocket
+  for 60 seconds captures only a tiny 1-minute slice of vessel pings, completely missing arrival
+  timestamps, loading duration, and departure events.
+- **Always-On Daemon Required**: Establishing cargo liftings requires a persistent, 24/7 daemon
+  process running on a dedicated host (VPS/ECS/fly.io) maintaining an in-memory/SQLite state machine
+  tracking `{mmsi, berth_id, arrived_at, departed_at, dwell_hours}`.
+- **Git Storage Bloat**: High-frequency AIS pings cannot be committed to Git without inflating
+  the repository size by gigabytes per month.
+
+### 4. Verdict & Architectural Decision
+- **Verdict: NEGATIVE. Do not build an AIS scraper in this repository.**
+- Blue Tide is an open-source static observatory operating entirely on GitHub Actions batch
+  workflows, Parquet file storage, and GitHub Pages hosting.
+- Building a dummy batch scraper connecting for 60 seconds on Actions would produce empty or
+  statistically corrupted data, violating Non-negotiable #2 ("Never fabricate a number, a test
+  result, or a command output").
+- Cargo timing from AIS requires an external always-on streaming service, which is out of scope
+  for this repository's serverless architecture.
+
+

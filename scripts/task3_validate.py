@@ -299,7 +299,7 @@ def run_validation():
         print(f"  events in ±3d: {[(e['type'], e['date'], e['duration']) for e in near3]}")
         depressed_near = [e for e in near3 if e['type'] == 'DEPRESSED']
         c3_ok = len(depressed_near) == 0 and h3['value'] < 500_000
-        print(f"  -> {'OK CORRECT: real dip verified (258.8 MMcf/d, -83.6% drop); 3d excursion < 5d rule correctly yields 0 DEPRESSED' if c3_ok else 'MISFIRE'}")
+        print(f"  -> {'OK CORRECT: real dip verified (287.7 MMcf/d, -81.8% drop against baseline); 3d excursion < 5d rule correctly yields 0 DEPRESSED' if c3_ok else 'MISFIRE'}")
     else:
         print("  NOT POSTED -> gap")
 
@@ -342,9 +342,10 @@ def run_validation():
     # Case 6: Plaquemines commissioning ramp (late 2024 / early 2025)
     print("\n--- Case 6: Plaquemines Commissioning Ramp ---")
     ramp_events = [e for e in ev_p if e['type'] == 'RAMPING']
-    print(f"  RAMPING events detected: {[(e['type'], e['date'], e['duration']) for e in ramp_events]}")
+    print(f"  RAMPING events detected ({len(ramp_events)}): {[(e['type'], e['date'], e['duration']) for e in ramp_events]}")
     c6_ok = len(ramp_events) >= 1
-    print(f"  -> {'OK CORRECT: initial commercial flow triggers legitimate RAMPING commissioning event' if c6_ok else 'MISFIRE'}")
+    print(f"  -> {'OK CORRECT: initial commercial flow triggers legitimate RAMPING commissioning event(s)' if c6_ok else 'MISFIRE'}")
+
 
     print("\n" + "=" * 60)
     print("EVENT COUNTS PER TERMINAL (full history)")

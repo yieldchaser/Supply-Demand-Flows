@@ -184,14 +184,20 @@ test('Pre-operational commissioning zeros produce single NOT_YET_OPERATIONAL spa
 test('Cycle priority order: later cycle supersedes earlier cycle', () => {
   assert.strictEqual(cyclePriority('timely'), 1);
   assert.strictEqual(cyclePriority('evening'), 2);
+  assert.strictEqual(cyclePriority('late'), 3);
+  assert.strictEqual(cyclePriority('latec'), 4);
   assert.strictEqual(cyclePriority('id1'), 5);
   assert.strictEqual(cyclePriority('id2'), 6);
   assert.strictEqual(cyclePriority('id3'), 7);
-  assert.strictEqual(cyclePriority('id0900'), 109);
-  assert.strictEqual(cyclePriority('id2300'), 123);
+
+  // Hourly operational snapshots (id{HH}00) are placeholders and return 0
+  assert.strictEqual(cyclePriority('id0900'), 0);
+  assert.strictEqual(cyclePriority('id2300'), 0);
 
   // id3 > timely
   assert.ok(cyclePriority('id3') > cyclePriority('timely'));
-  // id2300 > id3
-  assert.ok(cyclePriority('id2300') > cyclePriority('id3'));
+  // Genuinely nominated cycles always beat placeholder snapshots
+  assert.ok(cyclePriority('timely') > cyclePriority('id2300'));
+  assert.ok(cyclePriority('id3') > cyclePriority('id2300'));
 });
+
