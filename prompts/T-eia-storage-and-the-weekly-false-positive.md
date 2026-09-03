@@ -2,7 +2,8 @@
 
 Branch `fix/section8-audit`, head `94f762d`. Working tree clean apart from data files. I commit.
 
-Short brief. One source, two bugs, one of which will fire every week forever if left alone. This
+Short brief. One source. One alarm that will fire every week forever if left alone, plus a
+freshness gate and a workflow comment that both describe something other than what happens. This
 blocks the merge because the merge deploys, and I will not ship a first post-audit publish while
 the storage panel's integrity board reads FAIL.
 
@@ -102,50 +103,57 @@ divergence**. Build the fixture from those numbers; they are the live ones.
 
 ---
 
-## 02 / T2 — THE FRESHNESS GATE READS A FILENAME THAT LIES
+## 02 / T2 — THE SKIP GATE IS DEAD CODE, AND A COMMENT IS LYING
 
-This one is a real bug and it is live.
+I revised this section after reading `.github/workflows/eia-storage.yml`. My first diagnosis was
+wrong and the corrected one is milder — read it as written, not as a production outage.
 
-`scrapers/eia_api/storage.py` decides whether to fetch by comparing the EIA API's latest date
-against `_get_latest_local_date()`, which derives freshness from **raw filenames**:
+`.gitignore:24` ignores `data/raw/`, and `git ls-files data/raw/eia_storage` returns **0 files**.
+Raw payloads are never committed. So every CI run starts with an empty raw directory, and:
 
-```python
-return max(p.stem.replace("eia_storage_", "") for p in files)
-```
+- `_get_latest_local_date()` returns `None`, which can never equal `latest_api_date`.
+  **The staleness skip gate cannot fire in CI.** `record_skipped()` is unreachable there.
+- Every scheduled run therefore performs a full 8-year, `length=5000` refetch and ends in
+  `record_success()`. The workflow runs three times a week (`0 15 * * 4`, `0 3 * * 5`,
+  `0 15 * * 6`), so that is three full refetches weekly regardless of whether anything changed.
+- Because the stamp is written on every run, **`status: "ok"` in `data/health/eia_storage.json`
+  carries no information about whether the dataset advanced.** It means "the fetch completed",
+  not "there is new data". This is worth stating plainly somewhere durable.
+- The transform step's comment — `Accumulate ALL retained raw files` / "Accumulate EVERY retained
+  raw file, oldest first" — is **false in CI**. `sorted(Path('data/raw/eia_storage').rglob('*.json'))`
+  finds exactly one file: the one the scraper just wrote. Accumulation works only because
+  `merge_into_curated` dedups against the committed curated parquet. The loop is not doing what it
+  claims and the comment should say what actually happens.
 
-and the file is named from `latest_api_date`, which comes from `client.get_latest_date()` — a
-different endpoint from the one that returns the rows.
+This also resolves a discrepancy I flagged earlier and have since explained — do not spend time on
+it. The `2026-08-29T18:09:40Z` `ok` stamp is the Saturday cron. The single local raw file
+(`eia_storage_2026-08-21.json`, mtime 2026-08-25, **contents maxing at `2026-08-14`**, 3,600 rows)
+is a local artifact from a local run and never reaches CI.
 
-Measured on the host:
+That local file does expose a genuine code defect, at low severity: `_get_latest_local_date()`
+derives freshness from the **filename**, and the filename comes from `client.get_latest_date()` —
+a different endpoint from the one supplying the rows. On 2026-08-25 those two disagreed by a week,
+so the stored file is named for data it does not contain. On a developer machine with a populated
+raw directory, the gate then compares equal and skips forever on a short payload. It cannot bite CI
+today, but it is wrong and it is three lines.
 
-| | |
-|---|---|
-| Only raw file present | `data/raw/eia_storage/2026/08/eia_storage_2026-08-21.json` |
-| Its mtime | 2026-08-25 17:42 |
-| Its filename claims | `2026-08-21` |
-| **Its contents max at** | **`2026-08-14`** — 3,600 rows, 450 distinct periods |
-| Curated parquet | 3,608 rows, 451 periods, max `2026-08-21` |
-| Health stamp | `status: "ok"`, `2026-08-29T18:09:40Z`, `metadata.rows: 3608` |
+**What to do:**
 
-So on 2026-08-25 the latest-date endpoint said `2026-08-21` while the series endpoint returned data
-only through `2026-08-14`, and the file was named for the former. The skip gate now evaluates
-`latest_local == latest_api_date` as `"2026-08-21" == "2026-08-21"` with `existing_rows` 3,600
-≥ 500 → **skip, forever**, even though the stored payload is a week short of its own name.
+1. Make `_get_latest_local_date()` return the maximum `period` actually present in the newest
+   stored payload rather than parsing the filename. `_count_existing_rows()` already opens and
+   parses that file, so the read is not new work. Keep the filename convention as it is.
+2. Correct the transform step's comment in `.github/workflows/eia-storage.yml` to describe what
+   really happens: one raw file per run, with `merge_into_curated` against committed curated
+   providing the accumulation and the shrink guard.
+3. `tests/test_eia_storage_scraper.py` exists and covers this scraper. Your change must not break
+   it, and it should gain a case for the content-derived freshness path.
 
-Two things to establish, in this order:
+**Do not** start committing `data/raw/` to make the gate work, **do not** change the cron cadence,
+and **do not** hand-edit curated or health JSON.
 
-1. **Derive freshness from content, not the filename.** `_get_latest_local_date()` must return the
-   maximum `period` actually present in the newest stored payload. The filename may stay as it is;
-   it must stop being the source of truth. Note `_count_existing_rows()` already opens and parses
-   that file, so the read is not new work.
-2. **Reconcile the health stamp.** `record_success()` runs only after a successful `guarded_write`,
-   yet no raw file has been written since 2026-08-25 while health records success on 2026-08-29
-   with `rows: 3608` — a count that matches *curated*, not the 3,600 in the raw file. Find out what
-   wrote that stamp. If a run can record success without producing an artifact, that is the
-   "reports ok while writing nothing" pattern and it is the more serious of the two findings.
-   **If you cannot determine this from the code, say so and stop** — do not guess a mechanism.
-
-Do not "fix" this by deleting the raw file or hand-editing curated. Fix the gate.
+For the record, so you do not chase it: `2026-08-21` is the correct newest period. Week ending
+Friday `2026-08-28` publishes Thursday `2026-09-03` at about 14:30 UTC, and the Thursday
+`0 15 * * 4` cron is scheduled to pick it up.
 
 ---
 
@@ -202,8 +210,9 @@ describe an outcome you did not observe.
 | **Stage 0: node, pytest, ruff, preflight all still green after your changes** | **30** |
 | T1 — flat arm no longer fires on structural publication lag; option stated and justified | 25 |
 | T1 — regression test built from the live numbers, and it fails before your fix | 15 |
-| T2 — freshness derived from payload content rather than filename | 20 |
-| T2 — health-stamp discrepancy explained, or honestly declared undetermined | 10 |
+| T2 — freshness derived from payload content rather than filename | 15 |
+| T2 — workflow comment corrected to describe what CI actually does | 10 |
+| T2 — `tests/test_eia_storage_scraper.py` still green, with a case for the new path | 5 |
 | Every number traceable to `logs/EVIDENCE.json`, or declared `NOT RUN` | — gate |
 
 Below 85 is not done. One fabricated number caps the brief at 50.
@@ -219,7 +228,8 @@ That is the only thing standing between here and a live dashboard that tells the
 2. **T1 decision** — (a) or (b), why, and the diff.
 3. **T1 test** — the fixture's numbers, and confirmation it is red before the fix and green after
    (or `NOT RUN`).
-4. **T2** — what `_get_latest_local_date()` now reads, and what you found about the health stamp.
+4. **T2** — what `_get_latest_local_date()` now reads, the corrected workflow comment, and the
+   state of `tests/test_eia_storage_scraper.py`.
 5. **T3** — what step 2 printed for `eia_storage`, or `NOT RUN`.
 6. **Ruff** — before and after, exact integers.
 7. **Anything you noticed and did not fix.**
