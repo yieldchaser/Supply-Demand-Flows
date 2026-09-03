@@ -218,3 +218,168 @@ demoting meters.
    ~2.59M Dth/d (sendout != feedgas intake). Split into three bands: plant intake
    (cpl_sq_10001_*, max 1.1M), sendout OAC (cpl_oac_10001_*, max 3.0M), sendout
    opcap (cpl_opcap_10001_*, max 2.2M). bhe now PASS.
+
+## 2026-09-02 — Sabine Pass plant intake exhaustive audit (Cheniere Creole Trail TSP 200 & Corpus Christi TSP 400)
+
+Exhaustive enumeration of all locations published by Cheniere's public API for Creole Trail
+(TSP 200) and Corpus Christi (TSP 400) was conducted across the full curated raw payload library
+to investigate whether a consolidated plant-intake meter exists for Sabine Pass (analogous to
+Cove Point's `cpl_sq_10001_d` or Corpus Christi's `CC200221`).
+
+### 1. Creole Trail Pipeline (TSP 200) — complete 11-meter census
+- `CT109413` (GILLIS-TETCO-R): Receipt, design 650k Dth/d. Gillis hub interconnect.
+- `CT109441` (GILLIS-TRANSCO-R): Receipt, design 900k Dth/d. Gillis hub interconnect.
+- `CT109451` (GILLIS-TRUNK-R): Receipt, design 1,000k Dth/d. Gillis hub interconnect.
+- `CT109461` (GILLIS-LEAP-R): Receipt, design 1,000k Dth/d. Gillis hub interconnect.
+- `CT109471` (GILLIS-ACADIAN-R): Receipt, design 1,000k Dth/d. Gillis hub interconnect.
+- `CT200111` (CREOLE TRAIL-SPLIQ-D): Delivery, design 1,700,000 Dth/d. Pipeline delivery into Sabine Pass Liquefaction. Typically flows ~1,390,000 Dth/d (~1,356 MMcf/d).
+- `CT209441` (GILLIS-TRANSCO-D): Delivery, design 900k Dth/d. Bi-directional delivery at Gillis. Flow 0.0.
+- `SPLNG` (Sabine Pass LNG Rec): Receipt, design 25,000 Dth/d. Auxiliary terminal receipt point. Flow 0.0.
+- `SPLNGD` (Sabine Pass LNG Del): Delivery, design 25,000 Dth/d. Small auxiliary delivery tap. Flow ~9,500 Dth/d (~9.2 MMcf/d).
+- `TETCO` (TETCO Gillis): Delivery, design 650k Dth/d. Bi-directional delivery at Gillis. Flow 0.0.
+- `TRUNK` (Trunkline Gillis): Delivery, design 1,000k Dth/d. Bi-directional delivery at Gillis. Flow 0.0.
+
+### 2. Corpus Christi Pipeline (TSP 400) — complete 11-meter census
+- `CC100221` (CORPUS CHRISTI-CCLIQ-R): Receipt, design 35k Dth/d. Terminal return. Flow 0.0.
+- `CC108011` (TAFT RECEIPT-R): Receipt, design 50k Dth/d. Flow 0.0.
+- `CC121033` (TGP-SINTON-R): Receipt, design 750k Dth/d. Interconnect at Sinton.
+- `CC121041` (TRANSCO-SAN PAT CO-R): Receipt, design 400k Dth/d. Interconnect in San Patricio Co.
+- `CC121053` (NGPL-SINTON-R): Receipt, design 1,000k Dth/d. Interconnect at Sinton.
+- `CC121063` (EPROD-SAN PAT CO-R): Receipt, design 750k Dth/d. Interconnect in San Patricio Co.
+- `CC121073` (KM TEJAS-SINTON-R): Receipt, design 1,000k Dth/d. Interconnect at Sinton.
+- `CC121083` (TEJAS II-SINTON-R): Receipt, design 1,000k Dth/d. Interconnect at Sinton.
+- `CC200221` (CORPUS CHRISTI-CCLIQ-D): Delivery, design 2,750,000 Dth/d. Consolidated delivery into CCLIQ. Captures ~100% of terminal feedgas (~1,868–2,450 MMcf/d).
+- `CC221033` (TGP-SINTON-D): Delivery, design 500k Dth/d. Bi-directional delivery. Flow 0.0.
+- `CC221073` (KM TEJAS-SINTON-D): Delivery, design 1,000k Dth/d. Bi-directional delivery. Flow 0.0.
+
+### 3. Twin-meter check and pass-through audit
+- **Creole Trail mass balance**: On TSP 200, the sum of the five Gillis receipts (TETCO + Transco + Trunkline + LEAP + Acadian) equals 1,423,371 Dth/d. Delivery meter `CT200111` equals 1,390,562 Dth/d. The 32,809 Dth/d difference is 2.3% pipeline fuel and shrinkage along the 94-mile lateral. Correlation is $r = 0.985$. The five receipt meters and `CT200111` are two ends of the same pipe. Summing them would double-count.
+- **Pass-through**: Unlike Cove Point (where 37% bypasses the plant to regional utilities), Creole Trail has 0 local utility deliveries. 100% of non-fuel gas delivered by Creole Trail enters Sabine Pass Liquefaction.
+
+### 4. Plant intake verdict for Sabine Pass
+- **Verdict: NO consolidated plant-intake meter exists on Cheniere's EBB for Sabine Pass.**
+- Unlike Corpus Christi (where Cheniere owns the primary transmission artery carrying ~100% of plant supply), Sabine Pass Liquefaction (4,500 MMcf/d nameplate) is an unbundled facility supplied by multiple independent pipeline systems (Creole Trail, Williams Transco Zone 3, Kinder Morgan NGPL, and Kinetica).
+- Creole Trail's total design capacity is 1.7 Bcf/d (~37% of Sabine nameplate), and its operational delivery is ~1.4 Bcf/d (~31% of nameplate).
+- Because Cheniere only publishes informational postings for its own pipeline (Creole Trail LP), Cheniere's API physically cannot see the remaining ~69% arriving via Transco and other operators.
+- **Conclusion**: `CT200111-D` is already the maximum possible measurement of Creole Trail delivery into Sabine Pass. The observatory's classification of Sabine Pass as `MEASURED-PARTIAL (~31%)` with explicit UI caveats is the honest, optimal reporting structure. The remaining gas cannot be captured without separate scraper pipelines for Williams Transco and other third-party EBBs.
+
+## 2026-09-02 — AISStream vessel tracking & cargo timing feasibility verdict
+
+An architectural feasibility evaluation was conducted for ingesting `aisstream.io` real-time
+AIS vessel tracking data to measure LNG cargo loadings (berth dwell, cadence, departures)
+against feedgas across US Gulf Coast terminals (lat 27.0–30.5°N, lon -98.0 to -88.0°W).
+
+### 1. Protocol and Free-Tier Constraints
+- **WebSocket-Only, Push-Only Architecture**: AISStream.io does NOT offer a REST API for historical,
+  daily, or point-in-time snapshot queries on the free tier. Access is strictly via a live WebSocket
+  stream (`wss://stream.aisstream.io/v0/stream`).
+- **No Historical Retention**: When disconnected, all unobserved AIS bursts are lost. There is no
+  backfill or replay capability.
+- **Server-Side Filtering Limitations**: AISStream's subscription filter supports bounding boxes,
+  MMSI lists, and message types, but **does NOT filter by ship type on the server**. Every vessel
+  position burst in the Gulf box is pushed to the client (~50–300 msgs/sec).
+
+### 2. Physical & Analytical Identification Limits
+- **Coarse AIS Ship Type Codes**: In ITU-R M.1371 / AIS specifications, all tankers broadcast
+  coarse codes `ShipType: 80` through `89` ("Tanker, all ships of this type"). There is no distinct
+  AIS broadcast code for specialized liquefied gas / LNG carriers.
+- **Noise in the Gulf of Mexico**: Within the bounding box (lat 27–30.5, lon -98 to -88), hundreds
+  of crude VLCCs, Aframaxes, clean product MR tankers, and chemical parcel tankers transit daily
+  between the Houston Ship Channel, Corpus Christi, Texas City, Port Arthur, LOOP, and Baton Rouge.
+- **Filtering Requirement**: Accurately isolating an LNG carrier loading requires:
+  1. Strict micro-geofence berth polygons around individual terminal jetties (e.g. Sabine Pass
+     Berths 1–2, Cameron LNG Berths 1–2, Freeport Velasco terminal, Calcasieu Pass berths).
+  2. A curated static cross-reference registry of global LNG carrier IMO/MMSI numbers (e.g. GIIGNL
+     fleet list) or dimensional filtering (length > 280m, beam > 43m, draught 9–12m).
+
+### 3. Hosting & State Machine Incompatibility with GitHub Actions
+- **Berth Dynamics**: An LNG carrier berthing, cooldown, loading, and departure sequence spans
+  **18 to 36 hours**.
+- **Ephemeral Batch Mismatch**: GitHub Actions operates as an ephemeral batch runner (1–5 minute
+  execution windows triggered every 6 to 24 hours). An ephemeral runner connecting to a WebSocket
+  for 60 seconds captures only a tiny 1-minute slice of vessel pings, completely missing arrival
+  timestamps, loading duration, and departure events.
+- **Always-On Daemon Required**: Establishing cargo liftings requires a persistent, 24/7 daemon
+  process running on a dedicated host (VPS/ECS/fly.io) maintaining an in-memory/SQLite state machine
+  tracking `{mmsi, berth_id, arrived_at, departed_at, dwell_hours}`.
+- **Git Storage Bloat**: High-frequency AIS pings cannot be committed to Git without inflating
+  the repository size by gigabytes per month.
+
+### 4. Verdict & Architectural Decision
+- **Verdict: NEGATIVE. Do not build an AIS scraper in this repository.**
+- Blue Tide is an open-source static observatory operating entirely on GitHub Actions batch
+  workflows, Parquet file storage, and GitHub Pages hosting.
+- Building a dummy batch scraper connecting for 60 seconds on Actions would produce empty or
+  statistically corrupted data, violating Non-negotiable #2 ("Never fabricate a number, a test
+  result, or a command output").
+- Cargo timing from AIS requires an external always-on streaming service, which is out of scope
+  for this repository's serverless architecture.
+
+---
+
+## 2026-09-03 — Columbia Gulf Transmission recon (FERC CP15-514 Cameron Access Project)
+
+Forensic reconnaissance into TC Energy's Columbia Gulf Transmission system to identify Cameron LNG's
+unmeasured ~500 MMcf/d feedgas supply:
+
+### 1. Physical Infrastructure & Meter Identification
+- **Pipeline & Project**: Columbia Gulf Transmission, LLC (TC Energy). Cameron Access Project (FERC Docket CP15-514, inservice 2018).
+- **Physical Structure**: 34 miles of 36"/30" pipe reversing flow along the West Lateral system from the Lake Arthur Compressor Station (10,200 hp, Jefferson Davis Parish) southward to Cameron Parish.
+- **Delivery Meter**: **Meter Station MS-4246 (`Cameron LNG`)**, loc code `4246`, Cameron Parish, LA.
+- **Design Capacity**: 800,000 Dth/d (~780 MMcf/d), delivering Cameron's foundation customer feedgas contracts (~500,000 Dth/d firm).
+- **Pass-Through vs. Dedicated**: MS-4246 is a dedicated terminal intake meter connecting directly to the Cameron LNG liquefaction complex.
+- **Twin-Meter / Double-Counting Check**: Physical separation is complete. Cameron Interstate Pipeline (CIP, loc 772300) approaches from the north-east (connecting TGP/TETCO/LEAP/Acadian); Columbia Gulf MS-4246 connects independently to the West Lateral. Zero double-counting risk.
+
+### 2. Platform Architecture & Data Access Constraints
+- **Platform**: TC Energy electronic bulletin board via **TC eConnects** (`ebb.tceconnects.com` / `tceconnects.com`).
+- **Underlying Technology**: ASP.NET WebForms utilizing the proprietary **Microsoft Report Viewer** control (`Reserved.ReportViewerWebControl.axd`).
+- **Machine-Readability**:
+  1. No public, unauthenticated REST/JSON API endpoint exists for Operationally Available Capacity or Scheduled Quantities.
+  2. The EBB web interface requires client-side JavaScript execution, dynamic ViewState validation, and ReportViewer session state management.
+  3. Simple HTTP GET/POST queries (via `requests`, `httpx`, or `curl`) cannot retrieve tabular nomination cycles; requests fail with 404 or return empty ReportViewer script wrappers.
+  4. Programmatic retrieval would require full browser automation (Playwright/Selenium) executing the ASP.NET ReportViewer control lifecycle.
+
+### 3. Verdict & Architectural Decision
+- **Verdict: NEGATIVE for static HTTP scraper.** Do not build a fragile HTTP-based scraper against TC eConnects's ASP.NET ReportViewer.
+- **Why**: Scrapers in Blue Tide rely on lightweight, fast, deterministic HTTP clients (`HttpClient`, `requests`). Introducing brittle session-token hacks against ReportViewer violates project reliability standards and breaks repeatedly in GHA ephemeral runners.
+- **What Would Reverse This Decision**:
+  1. Discovery of an unauthenticated direct CSV/Excel export endpoint or NAESB EDM flat-file drop on TC eConnects.
+  2. Integration of a stable, tested Playwright headless browser scraper once the project's base browser infrastructure is fully hardened.
+- **Immediate Impact**: Cameron LNG remains documented as **`measured-partial`** (~73% coverage of 2,000 MMcf/d nameplate, running at ~96% of CIP's 1.56 Bcf/d pipeline capacity). The missing ~27% (~500 MMcf/d) is prominently caveated across all dashboard panels, handoff docs, and registry metadata as arriving via Columbia Gulf MS-4246.
+
+---
+
+## 2026-09-03 — Kinder Morgan Texas Pipeline (KMTP) recon for Freeport LNG
+
+Forensic investigation into whether Freeport LNG's unmeasured feedgas (~47% of 2,100 MMcf/d nameplate)
+can be captured via Kinder Morgan Texas Pipeline (KMTP) or Texas state filings:
+
+### 1. Regulatory Jurisdiction & EBB Exemption
+- **Entity**: Kinder Morgan Texas Pipeline, LLC (KMTP, TSP code `131905205`) and Kinder Morgan Tejas Pipeline, LLC (TSP `879826576`).
+- **Regulatory Framework**: KMTP is an **intrastate pipeline system** operating wholly within Texas, regulated by the Railroad Commission of Texas (RRC) under Texas Utilities Code § 121.
+- **FERC Exemption**: As an intrastate pipeline, KMTP is **exempt from FERC 18 CFR § 284.12** standard informational posting rules that mandate public electronic bulletin boards (EBBs) displaying scheduled daily flow quantities (TSQ) and operationally available capacity (OAC) by meter point.
+- **Kinder Morgan DART System Check**: While KMTP has a nominal presence on Kinder Morgan's EBB (`pipeline2.kindermorgan.com`), it publishes **Notices only** (critical notices, maintenance, OFOs). It does not publish public point-level Scheduled Quantities or Operationally Available Capacity.
+
+### 2. Texas Railroad Commission (RRC) Filings Audit
+- **RRC Reporting Requirements**: Intrastate operators in Texas must hold T-4 permits and submit annual/quarterly safety filings.
+- **Public Data Access**: The RRC maintains GIS pipeline infrastructure maps and safety violation databases (PIPES), but **does not collect, mandate, or publish daily, weekly, or monthly flow or meter-point volume data**.
+- **Commercial Secrecy**: Texas intrastate transportation contracts and physical off-take volumes are private, commercially confidential agreements between pipeline operators and shippers.
+
+### 3. Realistic Gap Analysis (Operational vs. Nameplate)
+- **Terminal Nameplate**: 2,100 MMcf/d (3 trains × 700 MMcf/d, FERC CP12-509).
+- **Interstate Measured Median**: 1,111.5 MMcf/d (52.9% of nameplate) across the 100-day dual-feed overlap (Gulf South 24329 + TETCO 79999).
+- **Peak Interstate 30-Day Sustained**: 1,538.0 MMcf/d (73.2% of nameplate).
+- **Realistic Sustained Plant Capacity**: Factoring in Texas Gulf Coast summer ambient derates (~5–8% capacity loss on air-cooled liquefaction), planned compressor maintenance, and ship loading turnaround, sustained operational peak is typically ~88–92% of nameplate (~1,850–1,930 MMcf/d).
+- **True KMTP Volume**:
+  * Against realistic sustained capacity (~1,890 MMcf/d), KMTP deliveries average **~778 MMcf/d**.
+  * During peak interstate delivery periods (1,538 MMcf/d), KMTP intake drops to **~352 MMcf/d**, perfectly matching KMTP's 40-mile Stratton Ridge lateral physical design capacity of **~400–450 MMcf/d**.
+
+### 4. Verdict & Architectural Conclusion
+- **Verdict: NEGATIVE. No public or regulatory pipeline data exists for KMTP.**
+- **Rationale**: KMTP is a private intrastate asset under Texas state law with zero public EBB reporting requirements; the Texas RRC does not disclose meter volumes.
+- **What Would Reverse This**: Passage of Texas state legislation or FERC rulemaking mandating intrastate pipeline flow transparency, or Freeport LNG publishing consolidated plant intake numbers.
+- **Systemic Action**: Freeport LNG remains classified as **`measured-partial`** (multi-feed, 52.9% median coverage of 2,100 MMcf/d nameplate). Caveats on all panels and handoff documentation accurately describe the ~988 MMcf/d gap as unmeasured KMTP intrastate supply plus ambient derates.
+
+
+
+

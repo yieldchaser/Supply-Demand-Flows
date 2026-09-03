@@ -318,8 +318,28 @@ def _audit_registry_bundle_agreement(
     print("Registry<->config<->bundle agreement: PASS")
 
 
+# Empirical row-count baselines measured from active bundle index (hash 66c9d2c6).
+# Used by _audit_bundle_coverage to prevent silent bundle shrinkage / over-pruning.
+BUNDLE_ROW_BASELINES: dict[str, int] = {
+    "baker_hughes_weekly": 32893,
+    "bhe": 14028,
+    "cheniere": 2520,
+    "eia_lng_exports": 2665,
+    "eia_storage": 3608,
+    "eia_supply": 468,
+    "enbridge": 59516,
+    "gasnom": 5038,
+    "gie_agsi": 82720,
+    "gulf_south": 57226,
+    "kinder_morgan": 51,
+    "quorum": 28594,
+}
+BUNDLE_ROW_SHRINKAGE_TOLERANCE: float = 0.20
+
+
 def _audit_bundle_coverage(index_rows: dict[str, int]) -> None:
-    """Fail the publish when configured meters ship nothing into the bundle.
+    """Fail the publish when configured meters ship nothing into the bundle
+    or when bundle rows drop below shrinkage baselines.
 
     Why:
         The 2026-08-26 gasnom incident: a meter-config re-inventory wrote loc
@@ -330,11 +350,13 @@ def _audit_bundle_coverage(index_rows: dict[str, int]) -> None:
         failing the DEPLOY (publish workflow runs this before committing).
 
     What:
-        Two rules, both fatal:
+        Three rules, all fatal:
           1. Every bundled source must ship rows > 0 (an empty shard is a
              bug even for a legitimately quiet source — handle those with an
              explicit config exclusion, not silence).
-          2. For every EBB source with a meter config, EVERY configured
+          2. No source may silently shrink below its baseline threshold
+             (must retain >= 80% of verified historical baseline rows).
+          3. For every EBB source with a meter config, EVERY configured
              loc id (high + candidates) must resolve to at least one real
              curated series. Unresolved ids mean id-space drift: fix the
              config or backfill the history — never ship a half-empty shard.
@@ -353,6 +375,16 @@ def _audit_bundle_coverage(index_rows: dict[str, int]) -> None:
                 f"{src_key}: shipped 0 rows in the bundle index — "
                 "over-pruned, empty curated, or wrong source key"
             )
+            continue
+        baseline = BUNDLE_ROW_BASELINES.get(src_key)
+        if baseline is not None:
+            tol = 0.30 if src_key == "kinder_morgan" else BUNDLE_ROW_SHRINKAGE_TOLERANCE
+            min_rows = int(baseline * (1.0 - tol))
+            if rows < min_rows:
+                problems.append(
+                    f"{src_key}: shipped {rows} rows in bundle index, falling below "
+                    f"shrinkage floor {min_rows} (baseline {baseline}, max drop {tol:.0%})"
+                )
 
     for src_key, cfg_path in sorted(EBB_METER_CONFIGS.items()):
         if not cfg_path.exists():
@@ -540,6 +572,10 @@ def build() -> dict[str, Any]:
     #     zero rows (panel would render empty). Catches the 2026-08-26 Sabine
     #     CT200111-D silent-loss class of bug.
     _audit_registry_bundle_agreement(bundle["sources"])
+
+    # 5d. Emit machine-readable terminal registry sidecar from JS source of truth
+    from scripts.load_registry import export_registry_json
+    export_registry_json()
 
     # 6. Prune stale bundle artifacts (defense against the docs/data graveyard).
     #    Old bundle.{HASH}.json, src.*.{HASH}.json and index.{HASH}.json pile up

@@ -32,6 +32,16 @@
  *   reaches liquefaction) must be kind:'context' and never enter terminal
  *   sums — see cove_point, whose honest feedgas number is plant intake
  *   10001-D, not the receipt total.
+ *
+ * FLEET AGGREGATE (60-day complete-day median, verified 2026-09-02):
+ *   Fleet aggregate = 12,825.9 MMcf/d (67.3% of 19,050 MMcf/d operational nameplate;
+ *   61.2% of 20,950 MMcf/d total nameplate including non-operational Port Arthur).
+ *   Construction: daily sum of headline meters across all terminals on complete days,
+ *   then median of those daily sums over the trailing 60 complete days.
+ *   Latest 3 complete days:
+ *     2026-08-30: 13,770.7 MMcf/d (72.3%)
+ *     2026-08-31: 13,644.8 MMcf/d (71.6%)
+ *     2026-09-01: 13,913.8 MMcf/d (73.0%)
  */
 
 /**
@@ -72,20 +82,22 @@ export const LNG_TERMINALS = {
   freeport: {
     id: 'freeport',
     display: 'Freeport',
-    // Multi-feed: Gulf South (Boardwalk) + TETCO (Enbridge rtba) both feed
-    // the Freeport lateral at Stratton Ridge. KMTP (intrastate) is not
-    // publicly posted — figures are conservative.
     feeds: [
       { source: 'gulf_south', series: 'gulf_south_sq_24329_d', label: 'Gulf South' },
       { source: 'enbridge', series: 'tetco_sq_79999_d', label: 'TETCO' },
     ],
     locName: 'Stratton Ridge — dual feed (Gulf South + TETCO)',
     nameplate: 2100,
+    expectedCoveragePct: 52.9,
+    expectedMedianMmcf: 1111.5,
+    coverageTolerancePct: 10.0,
+    coverageNote:
+      'MEASURED-PARTIAL: interstate-visible feeds only (Gulf South + TETCO, 52.9% median coverage of 2,100 MMcf/d nameplate). KMTP intrastate lateral (~400–450 MMcf/d capacity) is unmetered on public EBBs.',
     signal: 'sq',
     cycles: ['id1', 'id2', 'id3'],
     platformLabel: 'Boardwalk OAC + Enbridge rtba',
     platformNote:
-      'Gulf South posts ID1/ID2/ID3 only; TETCO (Enbridge rtba) posts Timely/Evening/Intraday. Figures are interstate-visible feedgas only — KMTP (intrastate) is not publicly posted, so totals are conservative.',
+      'Gulf South posts ID1/ID2/ID3 only; TETCO (Enbridge rtba) posts Timely/Evening/Intraday. Figures are interstate-visible feedgas only (52.9% median of 2,100 MMcf/d nameplate over 100-day overlap). KMTP (intrastate) is not publicly posted.',
     methodLine:
       'Combined TSQ into Freeport LNG: Gulf South Stratton Ridge 24329 + TETCO Stratton Ridge 79999 (both delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Interstate-visible only',
   },
@@ -99,6 +111,9 @@ export const LNG_TERMINALS = {
     flow: 'd',
     locName: 'Venture Global Plaquemines LNG Delivery (VGPQD)',
     nameplate: 3400,
+    expectedCoveragePct: 112.4,
+    expectedMedianMmcf: 3820.9,
+    coverageTolerancePct: 12.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'Quorum myQuorumCloud',
@@ -117,6 +132,9 @@ export const LNG_TERMINALS = {
     flow: 'd',
     locName: 'Venture Global Calcasieu Pass Delivery (VGCPD)',
     nameplate: 1300,
+    expectedCoveragePct: 123.5,
+    expectedMedianMmcf: 1605.8,
+    coverageTolerancePct: 8.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'Quorum myQuorumCloud',
@@ -132,16 +150,21 @@ export const LNG_TERMINALS = {
     source: 'gasnom',
     seriesPrefix: 'golden_pass',
     loc: '1097217',
-    flow: 'd',   // D leg = real ramp (R leg is 0 across all 90 days)
+    flow: 'd',   // D leg = consolidated plant intake delivery meter
     locName: 'Golden Pass Terminal (delivery meter)',
     nameplate: 2600,
+    expectedCoveragePct: 12.7,
+    expectedMedianMmcf: 330.4,
+    coverageTolerancePct: 15.0,
+    coverageNote:
+      'MEASURED (commissioning ramp): loc 1097217 is the full-terminal consolidated plant intake meter with 2,600,910 Dth/d design capacity (matching 2,600 MMcf/d nameplate). Current ~330–359 MMcf/d flow is active Train 1 commissioning ramp, not partial pipeline visibility.',
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'GasNom ESG',
     platformNote:
-      'Golden Pass (GasNom ESG) posts all five NAESB cycles — Timely, Evening, ID1, ID2, ID3.',
+      'Golden Pass headline = full-terminal consolidated delivery meter (loc 1097217). Current ~330–359 MMcf/d represents active Train 1 commissioning ramp (~40% of Train 1 capacity).',
     methodLine:
-      'TSQ at Golden Pass Terminal (loc 1097217, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d',
+      'TSQ at Golden Pass Terminal (loc 1097217, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Full plant intake gate · Commissioning ramp',
   },
 
   cameron: {
@@ -153,36 +176,23 @@ export const LNG_TERMINALS = {
     flow: 'd',
     locName: 'Cameron LNG (Del)',
     nameplate: 2000,
+    expectedCoveragePct: 72.9,
+    expectedMedianMmcf: 1458.6,
+    coverageTolerancePct: 8.0,
+    coverageNote:
+      'MEASURED-PARTIAL: Cameron Interstate Pipeline (CIP) loc 772300 design capacity is 1,560,000 Dth/d (1,522 MMcf/d) — runs at ~96% capacity delivering 1,458.6 MMcf/d median, covering 72.9% of Cameron LNG’s 2,000 MMcf/d nameplate. The remaining ~27% (~500 MMcf/d) is delivered via Columbia Gulf Transmission (CGT Cameron Extension, FERC CP15-514), not posted on GasNom.',
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'GasNom ESG',
     platformNote:
-      'Cameron (GasNom ESG) posts all five NAESB cycles — Timely, Evening, ID1, ID2, ID3.',
+      'Cameron Interstate Pipeline (loc 772300 delivery) delivers ~1,459 MMcf/d (72.9% of 2,000 MMcf/d nameplate). This is CIP’s visible share running near its 1.56 Bcf/d design capacity; Columbia Gulf Transmission delivers the remaining ~27% (~500 MMcf/d) unmeasured.',
     methodLine:
-      'TSQ at Cameron LNG complex (loc 772300, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d',
+      'TSQ at Cameron LNG complex via Cameron Interstate Pipeline (loc 772300, delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · COVERAGE: ~73% of 2,000 nameplate; remaining ~27% arrives via unmeasured Columbia Gulf Transmission',
   },
 
   cove_point: {
     id: 'cove_point',
     display: 'Cove Point',
-    // PROMOTED to MULTI-FEED MEASURED 2026-08-26; REVISED 2026-08-26 (forensics):
-    //
-    // MASS BALANCE PROOF: receipts_3f / (plant_intake + local_deliv) = 1.017
-    // ± 0.036 over 92 days — the three receipt meters are INDEPENDENT
-    // parallel feeds, not sequential re-measurements. Corr(45001,40704)=0.11,
-    // corr(37001,40704)=0.43: no lockstep. Twin check: cpl-47001-R ≡
-    // egts-40704-D (mean diff 204 Dth/d = 0.12%, r=0.9991) — SAME molecules,
-    // so only ONE of the pair may be summed.
-    //
-    // WHAT THE FEEDGAS SUM SHOULD BE: the LNG plant's intake is metered
-    // directly at loc 10001-D ("COVE POINT PLANT", D leg) — mean 767 MMcf/d
-    // = 102% of nameplate (max 110%). The receipt sum (45001+37001+47001 ≈
-    // 1,250 MMcf/d) is TOTAL CPL PIPELINE THROUGHPUT: ~62% feeds the plant,
-    // ~37% goes straight through to local LDC/power deliveries (WGL,
-    // Chalk Point, Possum Point...) without ever touching liquefaction.
-    //
-    // VERDICT: for a FEEDGAS panel, the honest meter is 10001-D (plant
-    // intake), NOT the receipt sum which would print 139-167% of nameplate.
     source: 'bhe',
     feeds: [
       {
@@ -190,7 +200,7 @@ export const LNG_TERMINALS = {
         series: 'cpl_sq_10001_d',
         label: 'Plant intake (measured)',
         kind: 'measured',
-        note: 'Consolidated liquefaction feedgas at the plant meter. THE feedgas number — 102% of nameplate typical.',
+        note: 'Consolidated liquefaction feedgas at the plant meter. 97–102% of nameplate typical.',
       },
       {
         source: 'bhe',
@@ -216,11 +226,14 @@ export const LNG_TERMINALS = {
     ],
     locName: 'Plant intake 10001-D + feeder receipts 45001/37001/47001',
     nameplate: 750,
+    expectedCoveragePct: 97.1,
+    expectedMedianMmcf: 728.5,
+    coverageTolerancePct: 7.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: "BHE GT&S EBB (EGTS + CPL's own postings)",
     platformNote:
-      "MEASURED via Cove Point LNG LP's own postings. Headline = plant intake (10001-D): actual gas entering liquefaction. Feeder receipts shown as context — they include pass-through deliveries to local utilities that never reach the plant, so their sum EXCEEDS feedgas by design.",
+      "MEASURED via Cove Point LNG LP's own postings. Headline = plant intake (10001-D): actual gas entering liquefaction (97–102% of nameplate). Feeder receipts shown as context — they include pass-through deliveries to local utilities that never reach the plant, so their sum EXCEEDS feedgas by design.",
     methodLine:
       'MEASURED: plant intake at CPL loc 10001-D · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Feeder context: Transco PV 45001 + Columbia Loudoun 37001 + EGTS Loudoun 47001 (receipt legs; mass balance closes at 1.017±0.036 vs plant+local) · Excluded from sums: 10002 storage cycling, duplicate EGTS twin · Strategic: Transco volumes public via CPL — Williams scraper not needed',
   },
@@ -228,22 +241,6 @@ export const LNG_TERMINALS = {
   sabine_pass: {
     id: 'sabine_pass',
     display: 'Sabine Pass',
-    // 2026-08-26 receipt-side audit: Creole Trail's EBB posts five independent
-    // Gillis-hub feeder receipts (CT109413/441/451/461/471) + a consolidated
-    // plant-delivery meter CT200111-D (the Cove-Point-10001 analogue).
-    //
-    // COVERAGE REALITY (same lesson as Cove Point): CT200111-D = 1,408 MMcf/d
-    // = 31% of the 4,500 MMcf/d nameplate. Cheniere's EBB only sees FEEDGAS
-    // THAT CTPL ITSELF DELIVERS INTO THE PLANT. Sabine's other trains are fed
-    // by pipes CTPL does not meter (e.g. the NGPL lateral, Transco Z3 via
-    // other interconnects, intrastate). NGI feeder-gas nominations put Sabine
-    // near 3.9 Bcf/d (Aug 2026, even during compressor maintenance) — i.e.
-    // CTPL's posted view is roughly ONE THIRD of true terminal feedgas.
-    //
-    // Therefore this is MEASURED-PARTIAL, NOT fully measured. We headline the
-    // consolidated plant-delivery meter (CT200111-D) and label coverage
-    // explicitly, exactly as Cove Point demotes its feeder receipts to
-    // context. Summing all six would fabricate ~100% coverage.
     feeds: [
       {
         source: 'cheniere',
@@ -280,47 +277,41 @@ export const LNG_TERMINALS = {
         series: 'creole_trail_sq_CT200111_d',
         label: 'CTPL→SPL plant delivery (measured, partial)',
         kind: 'measured-partial',
-        note: 'Consolidated CTPL delivery into SPL — the Cove-Point-10001 analogue. ~31% of nameplate; CTPL does not meter the other feedgas paths.',
+        note: 'Consolidated CTPL delivery into SPL — ~30.3% of nameplate (1,365 MMcf/d); CTPL does not meter the other feedgas paths.',
       },
       {
         source: 'kinder_morgan',
         series: 'km_ngpl_sq_3592_d',
         label: 'NGPL lateral (diagnostic — live 0.0)',
         kind: 'context',
-        note: 'Separate physical delivery into SPL via NGPL. The KM scraper cycle-pin was fixed (2026-08-26: identity now verified on the GET, inherited for the AJAX POST delta) so per-cycle pulls succeed. STATE CHANGE, not a misread: during Sabine recon (2026-08-24) this lateral posted TSQ 472,702 with OAC 27,298 — summing exactly to 500,000 design capacity, an internally consistent real reading under the residual-OAC convention (OAC = capacity − scheduled). As of 2026-08-23→08-27 KM reports TSQ 0 with OAC at full 500,000 — equally consistent, describing an IDLE lateral. Both are coherent, different states; the lateral was flowing ~473 MMcf/d around 08-24 and has since gone idle (plausible for a Henry Hub-area lateral whose supply mix shifts between feeds). Held as kind:"context" at 0 because the CURRENT data is 0 — NOT demoted to silence the agreement gate. THIS IS A REAL FEED THAT WENT IDLE, NOT A NEVER-REAL METER: if it returns to posting non-zero TSQ, the agreement gate will flag it and it should be promoted back to kind:"measured" with the dated recon evidence (~473 MMcf/d, 2026-08-24) cited. Do not let a currently-idle real feed be forgotten as "never real".',
+        note: 'Separate physical delivery into SPL via NGPL. The KM scraper cycle-pin was fixed so per-cycle pulls succeed. As of current data, KM reports TSQ 0 with OAC at full 500,000 (idle lateral). Held as kind:"context" at 0 because current data is 0.',
       },
     ],
     locName: 'CTPL plant delivery (CT200111-D) + five Gillis feeders + NGPL 3592',
     nameplate: 4500,
-    coverageNote: 'MEASURED-PARTIAL: only CTPL’s EBB-visible share (CT200111-D plant delivery + NGPL 3592) is public — ~31% of the 4,500 MMcf/d nameplate. INVISIBLE: (1) CTPL does not meter non-CTPL feedgas (Transco Z3, intrastate, other interconnects); (2) Transco Zone 3 deliveries are unavailable — Williams migrated that reporting to a Shipper-Posted Allocation (SPA), not public SQ. Per NGI feeder-gas nominations Sabine runs near 3.9 Bcf/d; the other ~2.5 Bcf/d is not in any public EBB we scrape. NGPL 3592 currently posts 0.0 (KM OpAvail best_available cycle returned empty for that loc on 2026-08-25 — a scraper-cycle artifact, not a real plant idle; CT200111-D alone is the headline).',
+    expectedCoveragePct: 30.3,
+    expectedMedianMmcf: 1365.2,
+    coverageTolerancePct: 6.0,
+    coverageNote: 'MEASURED-PARTIAL: only CTPL’s EBB-visible share (CT200111-D plant delivery ≈ 1,365 MMcf/d, ~30.3% of 4,500 MMcf/d nameplate) is public. INVISIBLE: (1) CTPL does not meter non-CTPL feedgas (Transco Z3, intrastate, other interconnects); (2) Transco Zone 3 deliveries are unavailable — Williams migrated that reporting to a Shipper-Posted Allocation (SPA), not public SQ. Per NGI feeder-gas nominations Sabine runs near 3.9 Bcf/d; the other ~2.5 Bcf/d is not in any public EBB we scrape.',
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'Cheniere LNG Connection + KM pipeline2',
     platformNote:
-      'MEASURED-PARTIAL: consolidated plant-delivery meter CT200111-D (1,408 MMcf/d ≈ 31% of nameplate) plus the NGPL lateral. This is CTPL’s visible share only — Sabine runs near 3.9 Bcf/d per NGI feeder-gas nominations; the remainder is non-CTPL feedgas we cannot see. NOT full coverage.',
+      'MEASURED-PARTIAL: consolidated plant-delivery meter CT200111-D (1,365 MMcf/d ≈ 30.3% of nameplate) plus the NGPL lateral. This is CTPL’s visible share only — Sabine runs near 3.9 Bcf/d per NGI feeder-gas nominations; the remainder is non-CTPL feedgas we cannot see. NOT full coverage.',
     methodLine:
-      'MEASURED-PARTIAL: CTPL plant delivery CT200111-D + KM NGPL 3592 lateral · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · COVERAGE GAP: CTPL EBB ≈ 31% of 4,500 nameplate; other Sabine feedgas not public (cf. Cove Point lesson) · Gillis feeders demoted to context (same molecules as CT200111-D, ±8%)',
+      'MEASURED-PARTIAL: CTPL plant delivery CT200111-D + KM NGPL 3592 lateral · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · COVERAGE GAP: CTPL EBB ≈ 30.3% of 4,500 nameplate; other Sabine feedgas not public · Gillis feeders demoted to context',
   },
 
   corpus_christi: {
     id: 'corpus_christi',
     display: 'Corpus Christi',
-    // PROMOTED to MEASURED 2026-08-25: Cheniere's own LNG Connection site
-    // PUBLISHES Scheduled Quantities (schedD_QTY) — the "no public SQ"
-    // premise behind the oac-proxy holding was wrong. corpus_christi_sq_
-    // CC200221_d carries 90+ days of full-terminal history (median
-    // 2.46M Dth/d ≈ 100% of nameplate) and cross-corroborates with KM's
-    // independent TGP Sinton meter (identical 169,489 Dth/d on overlap).
-    // Cycle pinning resolved the old "169k vs 79k" swing as cycle-sampling:
-    // per-cycle values are stable; the 08-22 ~50k drop was a genuine
-    // mid-day revision.
     feeds: [
       {
         source: 'cheniere',
         series: 'corpus_christi_sq_CC200221_d',
         label: 'CCPL measured',
         kind: 'measured',
-        note: 'Cheniere LNG Connection published TSQ at CCLIQ (full terminal).',
+        note: 'Cheniere LNG Connection published TSQ at CCLIQ (full terminal, median 2.38M–2.46M Dth/d ≈ 99.4% of nameplate).',
       },
       {
         source: 'kinder_morgan',
@@ -332,19 +323,25 @@ export const LNG_TERMINALS = {
     ],
     locName: 'CCLIQ measured + TGP Sinton cross-check',
     nameplate: 2400,
+    expectedCoveragePct: 99.4,
+    expectedMedianMmcf: 2384.7,
+    coverageTolerancePct: 7.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: 'Cheniere LNG Connection + KM pipeline2',
     platformNote:
       'Corpus Christi headline = MEASURED published TSQ at CCPL interconnect CC200221 (all five cycles). The earlier capacity-proxy framing is retired: schedD_QTY is published on lngconnection.cheniere.com. TGP Sinton (49861) ships as a secondary comparison only.',
     methodLine:
-      'MEASURED: Cheniere CCPL published TSQ at CC200221 (CCLIQ delivery), all cycles · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Cross-check: KM TGP Sinton 49861 (independent meter) · Former OAC-proxy framing retired 2026-08-25 after cycle pinning showed per-cycle stability',
+      'MEASURED: Cheniere CCPL published TSQ at CC200221 (CCLIQ delivery), all cycles · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Cross-check: KM TGP Sinton 49861 (independent meter)',
   },
 
   port_arthur: {
     id: 'port_arthur',
     display: 'Port Arthur',
     nameplate: 1900,
+    expectedCoveragePct: 0.0,
+    expectedMedianMmcf: 0.0,
+    coverageTolerancePct: 0.0,
     signal: 'sq',
     operational: false,
     statusText: 'Not operational — Phase 1 expected 2027',

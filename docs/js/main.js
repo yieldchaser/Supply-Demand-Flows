@@ -21,6 +21,7 @@ import { renderLngFleetOverview } from './panels/lng-fleet-overview.js';
 import { renderLngFeedSubstitutionPanel } from './panels/lng-feed-substitution.js';
 import { renderTerminalDowntimePanel } from './panels/lng-terminal-downtime.js';
 import { renderBasinEgressPanel } from './panels/basin-egress.js';
+import { renderLngComparisonPanel } from './panels/lng-comparison.js';
 
 /**
  * Render a single panel inside its own try/catch so that a failure
@@ -104,45 +105,71 @@ async function main() {
   renderHeader(bundle);
   renderHealthStrip(bundle);
 
-  // EIA panels — live charts
-  await lazySection(bundle, SECTIONS.storage, 'storage', () =>
-    renderStoragePanel(document.getElementById('panel-storage'), bundle));
-  await lazySection(bundle, SECTIONS.balance, 'balance', () =>
-    renderBalancePanel(document.getElementById('panel-balance'), bundle));
+  // EIA & Baker Hughes core panels — render immediately using pre-fetched core sources
+  safeRender('storage', () => renderStoragePanel(document.getElementById('panel-storage'), bundle));
+  safeRender('balance', () => renderBalancePanel(document.getElementById('panel-balance'), bundle));
+  safeRender('rigs', () => renderRigsPanel(document.getElementById('panel-rigs'), bundle));
+  safeRender('basins', () => renderBasinsPanel(document.getElementById('panel-basins'), bundle));
 
-  // Baker Hughes panels — live charts
-  await lazySection(bundle, SECTIONS.rigs, 'rigs', () =>
-    renderRigsPanel(document.getElementById('panel-rigs'), bundle));
-  await lazySection(bundle, SECTIONS.basins, 'basins', () =>
-    renderBasinsPanel(document.getElementById('panel-basins'), bundle));
+  /**
+   * Defer below-the-fold sections until scrolled near viewport or browser is idle.
+   * Prevents 10+ MB of non-core shards from blocking initial render.
+   */
+  function deferSection(panelId, sourceKeys, sectionName, renderFn) {
+    const el = document.getElementById(panelId);
+    let triggered = false;
+
+    const execute = () => {
+      if (triggered) return;
+      triggered = true;
+      lazySection(bundle, sourceKeys, sectionName, renderFn);
+    };
+
+    if (el && typeof IntersectionObserver !== 'undefined') {
+      const obs = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          obs.disconnect();
+          execute();
+        }
+      }, { rootMargin: '400px' });
+      obs.observe(el);
+
+      // Idle fallback so background panels eventually load without interaction
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => execute(), { timeout: 3500 });
+      } else {
+        setTimeout(execute, 2000);
+      }
+    } else {
+      setTimeout(execute, 50);
+    }
+  }
 
   // Interlude: Transatlantic Storage Divergence (cross-source derived metric)
-  await lazySection(bundle, SECTIONS.divergence, 'divergence', () =>
+  deferSection('panel-divergence', SECTIONS.divergence, 'divergence', () =>
     renderDivergencePanel(document.getElementById('panel-divergence'), bundle));
 
   // Section 2: Basin Momentum Deep
-  await lazySection(bundle, SECTIONS['basin-table'], 'basin-table', () =>
+  deferSection('panel-basin-table', SECTIONS['basin-table'], 'basin-table', () =>
     renderBasinTable(document.getElementById('panel-basin-table'), bundle));
-  await lazySection(bundle, SECTIONS['basin-scatter'], 'basin-scatter', () =>
+  deferSection('panel-basin-scatter', SECTIONS['basin-scatter'], 'basin-scatter', () =>
     renderBasinScatter(document.getElementById('panel-basin-scatter'), bundle));
-  await lazySection(bundle, SECTIONS['basin-share'], 'basin-share', () =>
+  deferSection('panel-basin-share', SECTIONS['basin-share'], 'basin-share', () =>
     renderBasinShare(document.getElementById('panel-basin-share'), bundle));
-  await lazySection(bundle, SECTIONS['basin-extremes'], 'basin-extremes', () =>
+  deferSection('panel-basin-extremes', SECTIONS['basin-extremes'], 'basin-extremes', () =>
     renderBasinExtremes(document.getElementById('panel-basin-extremes'), bundle));
 
   // Section 3: European Storage Context
-  await lazySection(bundle, SECTIONS['eu-storage'], 'eu-storage', () =>
+  deferSection('panel-eu-storage', SECTIONS['eu-storage'], 'eu-storage', () =>
     renderEuStoragePanel(document.getElementById('panel-eu-storage'), bundle));
 
   // Section 4: US LNG Exports Tracker
-  await lazySection(bundle, SECTIONS['lng-total'], 'lng-total', () =>
+  deferSection('panel-lng-total', SECTIONS['lng-total'], 'lng-total', () =>
     renderLngTotalPanel(document.getElementById('panel-lng-total'), bundle));
-  await lazySection(bundle, SECTIONS['lng-shares'], 'lng-shares', () =>
+  deferSection('panel-lng-shares', SECTIONS['lng-shares'], 'lng-shares', () =>
     renderLngSharesPanel(document.getElementById('panel-lng-shares'), bundle));
 
-  // Section 5: LNG Feedgas Observatory — fleet grid ABOVE the hero panel.
-  // Both share selection state: clicking a fleet card re-renders the hero
-  // with that terminal, highlights the card, and scrolls to the hero.
+  // Section 5: LNG Feedgas Observatory
   let activeTerminalId;
   const fleetEl = document.getElementById('panel-lng-fleet');
   const heroEl = document.getElementById('panel-lng-feedgas');
@@ -151,7 +178,7 @@ async function main() {
     const handleSelect = (id) => {
       activeTerminalId = id;
       renderLngSection();
-      heroEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (heroEl) heroEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
     renderLngFleetOverview(fleetEl, bundle, {
       activeTerminalId,
@@ -161,20 +188,23 @@ async function main() {
       onSelect: handleSelect,
     });
   }
-  await lazySection(bundle, SECTIONS.lng, 'lng-fleet', () => renderLngSection());
+  deferSection('panel-lng-fleet', SECTIONS.lng, 'lng-fleet', () => renderLngSection());
+  deferSection('panel-lng-comparison', SECTIONS.lng, 'lng-comparison', () =>
+    renderLngComparisonPanel(document.getElementById('panel-lng-comparison'), bundle)
+  );
 
-  // Section 6: Basin Egress — the supply-side counterpart to LNG feedgas.
-  await lazySection(bundle, SECTIONS['basin-egress'], 'basin-egress', () =>
+  // Section 6: Basin Egress
+  deferSection('panel-basin-egress', SECTIONS['basin-egress'], 'basin-egress', () =>
     renderBasinEgressPanel(document.getElementById('panel-basin-egress'), bundle)
   );
 
-  // Section 7: Feed Substitution at Multi-Feed Terminals.
-  await lazySection(bundle, SECTIONS['lng-substitution'], 'lng-substitution', () =>
+  // Section 7: Feed Substitution
+  deferSection('panel-lng-feed-substitution', SECTIONS['lng-substitution'], 'lng-substitution', () =>
     renderLngFeedSubstitutionPanel(document.getElementById('panel-lng-feed-substitution'), bundle)
   );
 
-  // Section 8: Terminal Downtime / Turnaround Indicator.
-  await lazySection(bundle, SECTIONS['lng-downtime'], 'lng-downtime', () =>
+  // Section 8: Terminal Downtime
+  deferSection('panel-lng-downtime', SECTIONS['lng-downtime'], 'lng-downtime', () =>
     renderTerminalDowntimePanel(document.getElementById('panel-lng-downtime'), bundle)
   );
 

@@ -31,29 +31,8 @@ import {
 } from './lng-fleet-overview.js';
 import { renderCycleRevisions } from './lng-cycle-revisions.js';
 
-const CYCLE_PRIORITY = {
-  timely: 1,
-  evening: 2,
-  latec: 3, // TETCO's legacy overnight correction re-post (final for its gas day)
-  late: 4,
-  id1: 5,
-  id2: 6,
-  id3: 7,
-};
-
-/**
- * Cycle priority for a token, falling back to numeric id{HH}00 buckets
- * (TETCO posts hourly intraday snapshots — higher hour = fresher).
- *
- * @param {string} cycle
- * @returns {number}
- */
-function cyclePriority(cycle) {
-  if (CYCLE_PRIORITY[cycle] !== undefined) return CYCLE_PRIORITY[cycle];
-  const m = /^id(\d{2})00$/.exec(cycle);
-  if (m) return 100 + parseInt(m[1], 10);
-  return 0;
-}
+import { cyclePriority, DOWNTIME_CONF, detectDowntime, buildDailyTotal } from '../util/lng-downtime.js';
+import { formatCsvWithProvenance } from '../util/export-data.js';
 
 /** Stacked-area fill colors per feed index (base -> top). */
 const FEED_COLORS = [
@@ -62,126 +41,12 @@ const FEED_COLORS = [
   { area: 'rgba(251, 191, 36, 0.25)', line: '#fbbf24' },  // amber (future feeds)
 ];
 
-/**
- * Build a date -> {cycle -> MMcf} map for one feed of a multi-feed terminal.
- * `seriesStem` is the registry's series stem ("{prefix}_sq_{loc}_{flow}").
- *
- * @param {Array<{series_id: string, period: string, value: number}>} rows
- * @param {string} seriesStem — e.g. "gulf_south_sq_24329_d"
- * @returns {Object<string, Object<string, number>>}
- */
-function buildFeedCycleMaps(rows, seriesStem) {
-  const prefix = `${seriesStem.toLowerCase()}_`;
-  const byDate = {};
-  rows.forEach((r) => {
-    const sid = r.series_id.toLowerCase();
-    if (!sid.startsWith(prefix)) return;
-    const cycle = sid.slice(prefix.length).toLowerCase();
-    if (!byDate[r.period]) byDate[r.period] = {};
-    byDate[r.period][cycle] = dth_to_mmcf(Number(r.value));
-  });
-  return byDate;
-}
+import {
+  buildFeedCycleMaps,
+  buildMultiFeedData,
+} from '../util/lng-feedgas-data.js';
 
-/**
- * Build a combined daily series + per-feed daily maps for multi-feed terminals.
- * Combined = sum of the highest-priority cycle available per feed that day.
- *
- * @param {Object} bundle
- * @param {LngTerminal} t
- * @returns {{
- *   dailySeries: Array<{dateStr: string, date: Date, value: number}>,
- *   rowsByDate: Object<string, Object<string, number>>,  // date -> {feedLabel -> MMcf}
- *   feedLabels: string[],
- *   latestSplit: Object<string, number>|null,
- * }}
- */
-export function buildMultiFeedData(bundle, t) {
-  const feedLabels = [];
-  const feedMaps = [];
-  /** Labels that may enter the summed flow series ('proxy' shows but never sums). */
-  const summableLabels = new Set();
-  for (const feed of t.feeds || []) {
-    // 'comparison' feeds are cross-checks — never rendered as flow at all
-    // (they stay documented in registry notes + card caveats).
-    // 'context' feeds (Cove Point feeder receipts) are shown as documentation
-    // but never enter the feedgas sum: they include pass-through deliveries
-    // to local utilities, so their total exceeds liquefaction intake by design.
-    const kind = /** @type {any} */ (feed).kind;
-    if (kind === 'comparison' || kind === 'context') continue;
-    const src = bundle.sources?.[feed.source];
-    if (!src || !src.data) continue;
-    const map = buildFeedCycleMaps(src.data, feed.series);
-    if (Object.keys(map).length === 0) continue;
-    feedLabels.push(feed.label);
-    feedMaps.push({ label: feed.label, map });
-    // 'measured-partial' and default feeds enter sums; 'proxy' is rendered
-    // SIDE BY SIDE with measured feeds but never added to any total —
-    // summing an estimate into a measurement would fabricate coverage.
-    if (kind !== 'proxy') summableLabels.add(feed.label);
-  }
-
-  /** @type {Object<string, Object<string, number>>} */
-  const rowsByDate = {};
-  const allDates = new Set();
-  feedMaps.forEach((fm) => Object.keys(fm.map).forEach((d) => allDates.add(d)));
-
-  allDates.forEach((dateStr) => {
-    rowsByDate[dateStr] = {};
-    feedMaps.forEach((fm) => {
-      const cycles = fm.map[dateStr];
-      if (!cycles) return;
-      let best = null;
-      let bestPrio = -1;
-      Object.keys(cycles).forEach((cy) => {
-        const prio = cyclePriority(cy);
-        if (prio > bestPrio) {
-          bestPrio = prio;
-          best = cy;
-        }
-      });
-      if (best !== null) {
-        // Zeros are data — sum them in.
-        rowsByDate[dateStr][fm.label] = cycles[best];
-      }
-    });
-  });
-
-  const dailySeries = [];
-  Object.keys(rowsByDate).forEach((dateStr) => {
-    const feeds = rowsByDate[dateStr];
-    if (Object.keys(feeds).length === 0) return;
-    let total = 0;
-    Object.entries(feeds).forEach(([label, v]) => {
-      // Only summable feeds count toward the total; a 'proxy' feed present
-      // that day does not make the day summable-by-proxy.
-      if (summableLabels.has(label)) total += v;
-    });
-    dailySeries.push({ dateStr, date: new Date(dateStr), value: total });
-  });
-  dailySeries.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-  // Latest per-feed split (for the breakdown line): walk back to the most
-  // recent gas day where EVERY feed reported, so the split compares pipes
-  // on the same day rather than mixing a stale feed with a fresh one.
-  let latestSplit = null;
-  for (let i = dailySeries.length - 1; i >= 0 && latestSplit === null; i--) {
-    const dayFeeds = rowsByDate[dailySeries[i].dateStr];
-    const present = feedLabels.filter((label) => dayFeeds[label] !== undefined);
-    if (feedLabels.length > 0 && present.length === feedLabels.length) {
-      latestSplit = {};
-      feedLabels.forEach((label) => {
-        latestSplit[label] = dayFeeds[label];
-      });
-    }
-  }
-  // Fallback: partial split from the newest day.
-  if (latestSplit === null && dailySeries.length > 0) {
-    latestSplit = { ...rowsByDate[dailySeries[dailySeries.length - 1].dateStr] };
-  }
-
-  return { dailySeries, rowsByDate, feedLabels, latestSplit };
-}
+export { buildMultiFeedData };
 
 
 /**
@@ -194,7 +59,17 @@ export function buildMultiFeedData(bundle, t) {
  */
 export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERMINAL_ID, opts = {}) {
   panelEl.innerHTML = '';
-  const t = LNG_TERMINALS[terminalId] || LNG_TERMINALS[DEFAULT_TERMINAL_ID];
+
+  // Deep-link support: URL query ?terminal=<id> takes precedence on initial load
+  let initialId = terminalId;
+  if (typeof window !== 'undefined' && window.location) {
+    const fromUrl = new URLSearchParams(window.location.search).get('terminal');
+    if (fromUrl && LNG_TERMINALS[fromUrl]) {
+      initialId = fromUrl;
+    }
+  }
+
+  const t = LNG_TERMINALS[initialId] || LNG_TERMINALS[DEFAULT_TERMINAL_ID];
   const effectiveId = t.id;
 
   // 1. Terminal Chips (all nine, straight from the registry order)
@@ -219,6 +94,11 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
       button.disabled = true;
     } else {
       button.addEventListener('click', () => {
+        if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+          const params = new URLSearchParams(window.location.search);
+          params.set('terminal', id);
+          window.history.replaceState(null, '', `?${params.toString()}`);
+        }
         if (typeof opts.onSelect === 'function') opts.onSelect(id);
         else renderLngFeedgasPanel(panelEl, bundle, id, opts);
       });
@@ -321,8 +201,47 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     }
   });
 
-  // 5. Hero chart (stacked areas for multi-feed)
-  drawHeroChart(chartEl, dailySeries, dottedSeries, nameplate, totalDays, isMultiFeed ? multi : null);
+  // 5. Downtime Event Detection for Chart Overlay (Section 8 sync)
+  const dtConf = DOWNTIME_CONF[effectiveId];
+  let downtimeEvents = [];
+  if (dtConf) {
+    const dtDaily = buildDailyTotal(bundle, dtConf);
+    if (dtDaily.length >= 3) {
+      downtimeEvents = detectDowntime(dtDaily, dtConf);
+    }
+  }
+
+  // 5b. Hero chart (stacked areas for multi-feed + Section 8 event overlays)
+  drawHeroChart(chartEl, dailySeries, dottedSeries, nameplate, totalDays, isMultiFeed ? multi : null, downtimeEvents);
+
+  // 5c. Data Export (P7): Self-describing CSV with provenance metadata
+  const existingExport = headerSection.querySelector('.chip--export');
+  if (existingExport) existingExport.remove();
+
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'chip chip--export';
+  exportBtn.innerHTML = '📥 Export CSV';
+  exportBtn.title = `Export ${t.display} feedgas history as self-describing CSV with provenance metadata`;
+  exportBtn.onclick = () => {
+    const exportRows = dailySeries.map((d) => ({
+      date: d.dateStr,
+      flow_mmcf_d: Number(d.value.toFixed(2)),
+      flow_dth_d: Math.round(d.value * 1.025 * 1000),
+      cycle: d.cycle || '',
+    }));
+    const csvStr = formatCsvWithProvenance(`${t.display} Feedgas History`, exportRows, {
+      terminal: t.display,
+      coverageNote: t.coverageNote || `${t.expectedCoveragePct}% expected coverage`,
+    });
+    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `${t.id}_feedgas.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  headerSection.appendChild(exportBtn);
 
   // 6. KPI strip + per-feed breakdown line.
   // Multi-feed: anchor the headline KPIs to the latest COMMON gas day (every
@@ -396,12 +315,16 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     : '';
   const latestPeriodText = source && source.latest_period ? source.latest_period : latestData.dateStr;
   const kmtpLine = isMultiFeed
-    ? `<p><strong>⚠ Interstate-visible feedgas only.</strong> KMTP (intrastate) is not publicly posted — figures are conservative.</p>`
+    ? `<p><strong>⚠ Interstate-visible feedgas only (52.9% median coverage of nameplate).</strong> Gulf South + TETCO baseload intake medians 1,111.5 MMcf/d across the 100-day dual-feed overlap (2026-05-25 to 2026-09-01; peak 30d sustained is 1,538.0 MMcf/d = 73.2% of 2,100 MMcf/d nameplate). The remaining ~988 MMcf/d against nameplate reflects unmeasured feedgas: the KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates / ambient operating margins / additional intrastate supplies.</p>`
+    : '';
+  const covNoteLine = t.coverageNote
+    ? `<p><strong>⚠ Coverage note:</strong> ${t.coverageNote}</p>`
     : '';
   footerContainer.innerHTML = `
     <p><strong>Source:</strong> ${t.methodLine}</p>
     ${proxyLine}
     ${kmtpLine}
+    ${covNoteLine}
     <p><strong>Last updated:</strong> ${latestPeriodText} · ${totalDays.toLocaleString()} gas days of history</p>
   `;
   panelEl.appendChild(footerContainer);
@@ -438,7 +361,7 @@ function getGasYearInfo(date) {
  * current latest value deviates strongly from the trailing 90-day median
  * (guards against implying an outlier day is normal).
  */
-function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDays, multi = null) {
+function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDays, multi = null, events = []) {
   container.innerHTML = '';
 
   const rect = container.getBoundingClientRect();
@@ -491,6 +414,41 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .attr('x1', 0).attr('x2', width)
     .attr('y1', (dd) => y(dd)).attr('y2', (dd) => y(dd))
     .attr('stroke', 'rgba(255,255,255,0.04)');
+
+  // Section 8 Downtime Event Overlay (P5)
+  if (events && events.length > 0) {
+    const EVENT_COLORS = {
+      OFFLINE: '#f87171',
+      CARGO_IDLE: '#fbbf24',
+      DEPRESSED: '#fb971d',
+      RAMPING: '#38bdf8',
+      NOT_YET_OPERATIONAL: '#94a3b8',
+    };
+    events.forEach((ev) => {
+      const evDate = new Date(`${ev.date}T00:00:00Z`);
+      const evInfo = getGasYearInfo(evDate);
+      if (evInfo.gasYear === currentGasYear) {
+        const xPos = x(evInfo.dayIndex);
+        const bandW = Math.max(ev.duration * (width / 365), 5);
+        const band = g.append('rect')
+          .attr('x', xPos)
+          .attr('width', bandW)
+          .attr('y', 0)
+          .attr('height', height)
+          .attr('fill', EVENT_COLORS[ev.type] || '#fbbf24')
+          .attr('fill-opacity', 0.14)
+          .style('cursor', 'pointer');
+
+        band.append('title')
+          .text(`${ev.type} (${ev.duration}d, ${ev.date})\n${ev.detail}\nClick to view Section 8 Downtime indicator`);
+
+        band.on('click', () => {
+          const s8 = document.getElementById('panel-lng-downtime');
+          if (s8) s8.scrollIntoView({ behavior: 'smooth' });
+        });
+      }
+    });
+  }
 
   // Nameplate Reference Line
   g.append('line')

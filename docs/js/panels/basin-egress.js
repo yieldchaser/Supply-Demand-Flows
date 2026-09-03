@@ -36,8 +36,16 @@ import {
   EGRESS_METERS,
 } from '../util/basin-egress.js';
 
-/** Cycle priority: later cycles are fresher (id3 > id2 > id1). */
-const CYCLE_RANK = { id1: 1, id2: 2, id3: 3 };
+/** Cycle priority: genuine nominated cycles (id3 > id2 > id1 > latec > late > evening > timely). */
+const CYCLE_RANK = {
+  timely: 1,
+  evening: 2,
+  late: 3,
+  latec: 4,
+  id1: 5,
+  id2: 6,
+  id3: 7,
+};
 
 /** Band colors per corridor index — same family as the LNG feed stack. */
 const CORRIDOR_COLORS = [

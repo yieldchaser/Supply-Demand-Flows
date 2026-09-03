@@ -1,0 +1,83 @@
+{
+  "freeport": {
+    "id": "freeport",
+    "display": "Freeport",
+    "nameplate": 2100.0,
+    "expectedCoveragePct": 52.9,
+    "expectedMedianMmcf": 1111.5,
+    "coverageTolerancePct": 10.0,
+    "operational": true
+  },
+  "plaquemines": {
+    "id": "plaquemines",
+    "display": "Plaquemines",
+    "nameplate": 3400.0,
+    "expectedCoveragePct": 112.4,
+    "expectedMedianMmcf": 3820.9,
+    "coverageTolerancePct": 12.0,
+    "operational": true
+  },
+  "calcasieu": {
+    "id": "calcasieu",
+    "display": "Calcasieu Pass",
+    "nameplate": 1300.0,
+    "expectedCoveragePct": 123.5,
+    "expectedMedianMmcf": 1605.8,
+    "coverageTolerancePct": 8.0,
+    "operational": true
+  },
+  "golden_pass": {
+    "id": "golden_pass",
+    "display": "Golden Pass",
+    "nameplate": 2600.0,
+    "expectedCoveragePct": 12.7,
+    "expectedMedianMmcf": 330.4,
+    "coverageTolerancePct": 15.0,
+    "operational": true
+  },
+  "cameron": {
+    "id": "cameron",
+    "display": "Cameron",
+    "nameplate": 2000.0,
+    "expectedCoveragePct": 72.9,
+    "expectedMedianMmcf": 1458.6,
+    "coverageTolerancePct": 8.0,
+    "operational": true
+  },
+  "cove_point": {
+    "id": "cove_point",
+    "display": "Cove Point",
+    "nameplate": 750.0,
+    "expectedCoveragePct": 97.1,
+    "expectedMedianMmcf": 728.5,
+    "coverageTolerancePct": 7.0,
+    "operational": true
+  },
+  "sabine_pass": {
+    "id": "sabine_pass",
+    "display": "Sabine Pass",
+    "nameplate": 4500.0,
+    "expectedCoveragePct": 30.3,
+    "expectedMedianMmcf": 1365.2,
+    "coverageTolerancePct": 6.0,
+    "operational": true
+  },
+  "corpus_christi": {
+    "id": "corpus_christi",
+    "display": "Corpus Christi",
+    "nameplate": 2400.0,
+    "expectedCoveragePct": 99.4,
+    "expectedMedianMmcf": 2384.7,
+    "coverageTolerancePct": 7.0,
+    "operational": true
+  },
+  "port_arthur": {
+    "id": "port_arthur",
+    "display": "Port Arthur",
+    "nameplate": 1900.0,
+    "expectedCoveragePct": 0.0,
+    "expectedMedianMmcf": 0.0,
+    "coverageTolerancePct": 0.0,
+    "operational": false
+  }
+}

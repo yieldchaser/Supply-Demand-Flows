@@ -378,6 +378,15 @@ class TestDivergence:
         assert res["severity"] == "SKIPPED"
         assert "recency" in res["message"]
 
+    def test_cadence_scaled_health_recency(self) -> None:
+        """Weekly source with 5-day-old health stamp runs when health_recency_days is 9."""
+        # 5 days old relative to NOW (2026-08-24T12:00:00Z)
+        health = {"status": "ok", "timestamp_utc": "2026-08-19T09:00:00Z"}
+        weekly_cfg = make_cfg(health_recency_days=9)
+        res = check_divergence(make_frame([day(1)]), health, {}, weekly_cfg, DEFAULTS, NOW)
+        assert res["severity"] == "PASS"
+        assert "no divergence:" in res["message"]
+
     def test_accumulation_flat_arm_suppressed_when_fresh(self) -> None:
         """Flat accumulation count is benign when the latest period is fresh.
 
@@ -406,6 +415,30 @@ class TestDivergence:
         res = check_divergence(df, RECENT_OK_HEALTH, prior, cfg, DEFAULTS, NOW)
         assert res["severity"] == "FAIL"
         assert "flat 3 consecutive runs" in res["message"]
+
+    def test_accumulation_flat_arm_not_fired_on_normal_publication_lag(self) -> None:
+        """A source whose periods carry structural publication lag between warn_days
+        and fail_days must not FAIL divergence on a flat row count.
+
+        Regression test for eia_storage weekly false positive (Prompt T §01) — this
+        fixture is a synthetic reproduction of that shape, not the real incident's
+        dates:
+        - mode: accumulation
+        - warn_days: 9, fail_days: 18
+        - newest period: 13 days old relative to this module's NOW (2026-08-23),
+          i.e. day(13) == 2026-08-10 — squarely between warn_days and fail_days
+        - flat row count: consecutive_flat: 11, prior rows == 2 to match this
+          frame's 2 rows, so the flat arm actually engages
+        - fresh ok health stamp
+        Must NOT fail divergence (stagnation check handles warn_days; divergence only trips on fail_days).
+        """
+        cfg = make_cfg(mode="accumulation", staleness={"warn_days": 9, "fail_days": 18})
+        prior = {"rows": 2, "consecutive_flat": 11}
+        df = make_frame([day(13)], series=["s1", "s2"])
+        res = check_divergence(df, RECENT_OK_HEALTH, prior, cfg, DEFAULTS, NOW)
+        assert res["severity"] == "PASS"
+        assert res["message"].startswith("no divergence: scraper 'ok'")
+        assert not res["details"].get("reasons")
 
     def test_accumulation_second_flat_run_does_not_fire(self) -> None:
         cfg = make_cfg(mode="accumulation")
@@ -526,7 +559,7 @@ class TestShippedRules:
             source = rules["sources"][key]
             assert source["month_end_normalize"] is True
             assert source["staleness"]["fail_days"] == 135
-        assert rules["sources"]["eia_lng_exports"]["staleness"]["warn_days"] == 45
+        assert rules["sources"]["eia_lng_exports"]["staleness"]["warn_days"] == 105
         assert rules["sources"]["eia_supply"]["staleness"]["warn_days"] == 75
         assert rules["sources"]["eia_supply"]["period_format"] == "%Y-%m"
 

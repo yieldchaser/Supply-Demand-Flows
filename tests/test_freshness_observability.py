@@ -20,14 +20,12 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import pytest
 import yaml
 
 from scrapers.base.merge_health import merge_multi_health
 from scrapers.gasnom.merge_health import merge_gasnom_health
 from scrapers.quorum.merge_health import merge_quorum_health
 from validators.integrity import (
-    build_source_state,
     check_gaps,
     check_shrinkage,
     normalize_period,
@@ -164,6 +162,7 @@ def test_gasnom_workflow_matrix_health_merge() -> None:
     gasnom_path = WORKFLOWS_DIR / "gasnom.yml"
     raw_text = gasnom_path.read_text(encoding="utf-8")
 
+    assert "gasnom-health-" in raw_text, "gasnom.yml must upload pipeline health artifacts"
     assert "merge_health" in raw_text, "gasnom.yml must run scrapers.gasnom.merge_health"
     assert "data/health/gasnom.json" in raw_text, "gasnom.yml must stage canonical gasnom.json"
 

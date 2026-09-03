@@ -254,6 +254,130 @@ def send_integrity_alert_if_needed(report_path: Path | str) -> bool:
     return send_alert(dedup_key, body, include_health_prefix=False, dedup_ttl=timedelta(days=1))
 
 
+def format_feedgas_alert(
+    terminal: str,
+    event_type: str,
+    gas_day: str,
+    duration: int,
+    flow_mmcf: float,
+    baseline_mmcf: float,
+    detail: str = "",
+) -> str:
+    """
+    Format Telegram HTML alert for an LNG terminal downtime or feedgas drop event.
+    """
+    icon = "🔴" if event_type == "OFFLINE" else ("🟠" if event_type == "DEPRESSED" else "⚠️")
+    pct_drop = ((baseline_mmcf - flow_mmcf) / baseline_mmcf * 100.0) if baseline_mmcf > 0 else 0.0
+    lines = [
+        f"{icon} <b>LNG TERMINAL ALERT: {html.escape(terminal.upper())}</b>",
+        f"Event: <b>{html.escape(event_type)}</b>",
+        f"Gas Day: <code>{html.escape(gas_day)}</code>" + (f" (duration: {duration}d)" if duration > 1 else ""),
+        f"Flow: <b>{flow_mmcf:,.1f} MMcf/d</b> (baseline: {baseline_mmcf:,.1f} MMcf/d, drop: {pct_drop:.1f}%)",
+    ]
+    if detail:
+        lines.append(f"Detail: <i>{html.escape(detail)}</i>")
+    return "\n".join(lines)
+
+
+def send_feedgas_alerts_if_needed(dry_run: bool = False) -> list[dict[str, Any]]:
+    """
+    Check configured LNG terminals for active OFFLINE/DEPRESSED events or >40% baseline drops.
+
+    Why:
+        Analytical alert bridge for Section 8 LNG downtime. Baseload LNG facilities
+        routinely swing 10-25% from cargo loading and ambient cycles. A 40% drop
+        (flow < 60% of trailing 30-day baseline) signals an acute restriction or outage
+        requiring operational notification without false-alarm fatigue.
+
+    Returns:
+        List of alert dictionaries. If dry_run=True, prints message bodies without sending.
+    """
+    import pandas as pd
+    from scripts.task3_validate import TERMINALS, load_terminal_history, detect_events
+
+    alerts: list[dict[str, Any]] = []
+    for term_key, conf in TERMINALS.items():
+        try:
+            hist, _ = load_terminal_history(term_key)
+        except Exception as exc:
+            logger.warning(f"Could not load history for {term_key}: {exc}")
+            continue
+        if not hist:
+            continue
+
+        events = detect_events(hist, conf)
+        sorted_dates = sorted(hist.keys())
+        latest_date = sorted_dates[-1]
+        latest_hist = hist[latest_date]
+        latest_flow_mmcf = latest_hist["value"] / 1.025 / 1000.0
+
+        # Calculate 30-day baseline median in MMcf/d
+        trailing_30 = [
+            hist[d]["value"] / 1.025 / 1000.0
+            for d in sorted_dates[-31:-1]
+            if hist[d]["value"] > 0
+        ]
+        baseline_mmcf = float(pd.Series(trailing_30).median()) if trailing_30 else latest_flow_mmcf
+
+        # Check for active downtime event (within last 3 days)
+        for ev in events:
+            if ev["type"] in ("OFFLINE", "DEPRESSED"):
+                days_ago = (datetime.fromisoformat(latest_date) - datetime.fromisoformat(ev["date"])).days
+                if 0 <= days_ago <= 3:
+                    dedup_key = f"feedgas_{term_key}_{ev['type']}_{ev['date']}"
+                    body = format_feedgas_alert(
+                        terminal=conf["name"],
+                        event_type=ev["type"],
+                        gas_day=ev["date"],
+                        duration=ev["duration"],
+                        flow_mmcf=latest_flow_mmcf,
+                        baseline_mmcf=baseline_mmcf,
+                        detail=ev.get("detail", ""),
+                    )
+                    payload = {"dedup_key": dedup_key, "html_body": body, "terminal": term_key}
+                    alerts.append(payload)
+                    if dry_run:
+                        print(f"--- [DRY RUN ALERT: {dedup_key}] ---")
+                        print(body)
+                        print("-" * 40)
+                    else:
+                        has_creds = bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
+                        if not has_creds:
+                            logger.info("Telegram credentials not configured; cleanly skipping alert dispatch")
+                        else:
+                            send_alert(dedup_key, body, dedup_ttl=timedelta(days=7))
+
+        # Check for acute single-day drop >= 40% against baseline
+        if baseline_mmcf > 100 and latest_flow_mmcf > 0:
+            drop_pct = (baseline_mmcf - latest_flow_mmcf) / baseline_mmcf
+            if drop_pct >= 0.40:
+                dedup_key = f"feedgas_{term_key}_acute_drop"
+                body = format_feedgas_alert(
+                    terminal=conf["name"],
+                    event_type="ACUTE_DROP",
+                    gas_day=latest_date,
+                    duration=1,
+                    flow_mmcf=latest_flow_mmcf,
+                    baseline_mmcf=baseline_mmcf,
+                    detail=f"Single-day supply restriction: {drop_pct:.1%} drop against 30-day baseline",
+                )
+                payload = {"dedup_key": dedup_key, "html_body": body, "terminal": term_key}
+                alerts.append(payload)
+                if dry_run:
+                    print(f"--- [DRY RUN ALERT: {dedup_key}] ---")
+                    print(body)
+                    print("-" * 40)
+                else:
+                    has_creds = bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
+                    if not has_creds:
+                        logger.info("Telegram credentials not configured; cleanly skipping alert dispatch")
+                    else:
+                        send_alert(dedup_key, body, dedup_ttl=timedelta(days=7))
+
+    return alerts
+
+
+
 if __name__ == "__main__":
     import sys
 
