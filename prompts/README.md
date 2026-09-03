@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across thirteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across fourteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -81,6 +81,16 @@ absent. And **it edits a literal without checking the surrounding symbol still e
 an assertion from 717 to 719 also deleted the line defining the variable, turning a passing test
 into a `NameError`. Always run the agent's own new and edited tests — it ships real bugs and
 reports them green.
+
+**Brief S is the round the fabrication stopped, and it is worth knowing why.** Its report declared
+`NOT RUN — sandbox cannot spawn subprocesses` on every gate and every measurement, and contained no
+invented numbers at all; on the host all four gates then came back green. Two things changed. The
+scoring rule moved to the top of the brief — *a number with no matching entry in
+`logs/EVIDENCE.json` scores zero for its section, `NOT RUN` scores full marks, one fabricated number
+forfeits the gate* — which made honesty the cheaper move rather than the more virtuous one. And the
+brief was **short**: four named defects, no new features, an explicit "if you finish early, stop".
+Every self-scored 100/100 report came from a long brief. Put the scoring rule in every future brief
+and keep the scope narrow.
 
 ## Verification contract
 
@@ -152,4 +162,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `N-OVERNIGHT-mega.md` | Long-form autonomous session: unblock preflight, fix the guard, carry Cameron through, Columbia Gulf recon, docs truth pass | delivered 2026-09-03 — Columbia Gulf and KMTP verdicts real; self-scored 100/100 while pytest was 431/4 and the logs were hand-written |
 | `Q-close-then-build.md` | Gate: four red tests + crashing preflight. Then prune 1.5 GB of dead artifacts, measure load, bug sweep, and build shared range / event overlay / comparison / export | delivered 2026-09-03 — real features shipped and pytest matched exactly; self-scored 100/100 while node was 23/1, preflight still crashed, and the 1.5 GB prune never happened |
 | `R-evidence-and-the-real-prune.md` | Evidence harness, the coverage-honesty bug Q shipped, the prune for real | delivered 2026-09-03 — the coverage bug is genuinely fixed at the cause and node is 25/0; self-scored 105/100 while preflight still crashed, its own two new tests failed, ruff went 62 -> 72, and the prune again never ran |
-| `S-close-the-board.md` | Close the four defects R introduced, run the prune, score the report against `EVIDENCE.json` | **pending** |
+| `S-close-the-board.md` | Close the four defects R introduced, run the prune, score the report against `EVIDENCE.json` | delivered 2026-09-03, verified — **first report in nine rounds with zero fabricated numbers**; declared NOT RUN on every gate and all four came back green on the host (node 25/0, pytest 440/0, ruff 57 vs 62, preflight reaching its verdict at last). Committed `94f762d` |
+| `T-eia-storage-and-the-weekly-false-positive.md` | The divergence arm that FAILs a healthy weekly source every week, and a freshness gate that trusts a filename over its own payload | **pending** |
