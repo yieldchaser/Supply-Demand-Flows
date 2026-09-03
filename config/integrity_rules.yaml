@@ -122,6 +122,7 @@ sources:
     unit_expected: Dth/d
     mode: accumulation
     gap_rule: calendar_daily
+    prefix_gaps: true
     # In-service dates by pipeline prefix (§03 / AA2).
     # Mask pre-service runs from gap check; post-service gaps still fire.
     in_service_dates:
@@ -135,6 +136,7 @@ sources:
     unit_expected: Dth/d
     mode: accumulation
     gap_rule: calendar_daily  # upstream retention holes emit WARN (never FAIL) for operator visibility
+    prefix_gaps: true
     # negative_values_fail stays unset: operator posts genuine negative TSQ
     # adjustments (BRL -5,000 on 2023-02-23).
     bands:
@@ -150,6 +152,7 @@ sources:
     unit_expected: Dth/d
     mode: accumulation
     gap_rule: calendar_daily
+    prefix_gaps: true
     # Zeros are LEGITIMATE here: Cove Point flow is cargo-driven, so flat
     # zero days are real operating state, never flagged.
     bands:
@@ -178,6 +181,7 @@ sources:
     unit_expected: Dth/d
     mode: accumulation
     gap_rule: calendar_daily
+    prefix_gaps: true
     # Cheniere posts CAPACITY (OAC), not scheduled flow — bands sized to
     # nameplate-style magnitudes, not nomination volumes.
     # negative_values_fail stays unset: observed min -94,704 is operator-posted.
@@ -227,6 +231,7 @@ sources:
     unit_expected: Dth/d      # raw values since 2026-08-25 (rule 5: frontend converts)
     mode: accumulation
     gap_rule: calendar_daily
+    prefix_gaps: true
     negative_values_fail: true
     # Confirmed LNG-bound meters only (Sabine recon + CI live-fire 2026-08-25).
     # KMLP 44337 CALCA deliberately absent — Calcasieu corridor, not Sabine.

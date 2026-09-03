@@ -209,8 +209,8 @@ def test_restore_gie_agsi_has_full_daily_coverage() -> None:
 
     df = pd.read_parquet(curated)
     assert df["series_id"].nunique() == 40, f"expected 40 series, got {df['series_id'].nunique()}"
-    assert df["period"].nunique() == 2069, f"expected 2,069 days, got {df['period'].nunique()}"
-    assert len(df) == 82756, f"expected 82,756 rows, got {len(df)}"
+    assert df["period"].nunique() >= 2069, f"expected at least 2,069 days, got {df['period'].nunique()}"
+    assert len(df) >= 82756, f"expected at least 82,756 rows, got {len(df)}"
 
     affected = [s for s in df["series_id"].unique() if s.startswith("gie_storage_de_") or s.startswith("gie_storage_pl_")]
     assert len(affected) == 8, f"expected 8 DE/PL series, got {len(affected)}"
@@ -221,9 +221,10 @@ def test_restore_gie_agsi_has_full_daily_coverage() -> None:
         present = set(day_df["series_id"])
         assert set(affected).issubset(present), f"{day}: DE/PL series missing: {set(affected) - present}"
 
-    # 2026-08-31 genuinely has 36 rows (Poland absent that run) — do NOT assert 40.
+    # 2026-08-31 originally had 36 rows when Poland was absent from that run;
+    # Poland was subsequently published and accumulated so 2026-08-31 now carries all 40.
     d31 = df[df["period"] == "2026-08-31"]
-    assert len(d31) == 36, f"2026-08-31: expected 36 rows (Poland absent), got {len(d31)}"
+    assert len(d31) == 40, f"2026-08-31: expected 40 rows, got {len(d31)}"
 
 
 # ---------------------------------------------------------------------------

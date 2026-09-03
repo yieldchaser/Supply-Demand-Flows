@@ -20,6 +20,7 @@ from validators.integrity import (
     check_coverage,
     check_divergence,
     check_gaps,
+    check_prefix_gaps,
     check_schema,
     check_shrinkage,
     check_stagnation,
@@ -300,6 +301,117 @@ class TestGaps:
         assert res_post_gap["severity"] == "WARN"
         assert res_post_gap["details"]["missing_dates"] == ["2026-06-09"]
         assert "2026-06-09" in res_post_gap["message"]
+
+
+# ------------------------------------------------------------------ prefix gaps
+
+
+class TestPrefixGaps:
+    def test_opt_in_skipped_when_not_configured(self) -> None:
+        """A source with no opt-in key is unaffected and returns SKIPPED."""
+        df = make_frame(["2026-08-01", "2026-08-03"], series=["pipe_a_sq_1"])
+        res = check_prefix_gaps(df, make_cfg(gap_rule="calendar_daily"))
+        assert res["severity"] == "SKIPPED"
+        assert "no prefix_gaps configured" in res["message"]
+
+    def test_reconstruct_90d_blackout_reproduces_blindspot_and_fires_warn(self) -> None:
+        """§00 & §02 / AB1: Reconstruct 90-day blackout scenario.
+
+        check_gaps falsely PASSES because other prefixes cover every day,
+        while check_prefix_gaps catches the darkened prefix with WARN.
+        """
+        # 100 days of history across 2 pipelines: pipe_a and golden_pass
+        all_days = [
+            (datetime(2026, 5, 25, tzinfo=UTC) + timedelta(days=i)).strftime("%Y-%m-%d")
+            for i in range(100)
+        ]
+        # golden_pass goes dark for the trailing 90 days (only present for first 10 days)
+        rows = []
+        for d in all_days:
+            rows.append({"series_id": "cameron_interstate_sq_1_d_timely", "period": d, "value": 100.0})
+            if d in all_days[:10]:
+                rows.append({"series_id": "golden_pass_sq_2_d_timely", "period": d, "value": 50.0})
+
+        df = pd.DataFrame(rows)
+        cfg = make_cfg(gap_rule="calendar_daily", prefix_gaps=True)
+
+        # Pre-existing check_gaps BLIND SPOT: passes because cameron covers all 100 days
+        gaps_res = check_gaps(df, cfg)
+        assert gaps_res["severity"] == "PASS"
+
+        # New check_prefix_gaps CAUGHT IT: WARN, naming golden_pass and the 90 missing days
+        prefix_res = check_prefix_gaps(df, cfg)
+        assert prefix_res["severity"] == "WARN"
+        assert "golden_pass" in prefix_res["details"]["missing_by_prefix"]
+        missing_gp = prefix_res["details"]["missing_by_prefix"]["golden_pass"]
+        assert len(missing_gp) == 90
+        assert missing_gp[0] == all_days[10]
+        assert missing_gp[-1] == all_days[-1]
+        assert "golden_pass" in prefix_res["message"]
+
+    def test_in_service_date_per_prefix_masks_preservice_and_catches_postservice(self) -> None:
+        """§02.5 / AB1: in_service_date per prefix masks pre-service days accurately."""
+        days = ["2026-06-01", "2026-06-08", "2026-06-09", "2026-06-11"]
+        rows = []
+        for d in days:
+            rows.append({"series_id": "cameron_interstate_sq_1_d_timely", "period": d, "value": 100.0})
+        # Port Arthur in service on 2026-06-08, present on 2026-06-01 (pre-service) and 2026-06-08, 2026-06-11 (missing 2026-06-09 and 2026-06-10)
+        rows.append({"series_id": "port_arthur_pipeline_sq_2_d_timely", "period": "2026-06-01", "value": 10.0})
+        rows.append({"series_id": "port_arthur_pipeline_sq_2_d_timely", "period": "2026-06-08", "value": 10.0})
+        rows.append({"series_id": "port_arthur_pipeline_sq_2_d_timely", "period": "2026-06-11", "value": 10.0})
+
+        df = pd.DataFrame(rows)
+        cfg = make_cfg(
+            gap_rule="calendar_daily",
+            prefix_gaps=True,
+            in_service_dates={"port_arthur_pipeline": "2026-06-08"},
+        )
+        res = check_prefix_gaps(df, cfg)
+        assert res["severity"] == "WARN"
+        missing_pa = res["details"]["missing_by_prefix"]["port_arthur_pipeline"]
+        # Pre-service days (2026-06-02..2026-06-07) MUST NOT be in missing!
+        assert "2026-06-02" not in missing_pa
+        # Post-service days (2026-06-09, 2026-06-10) MUST be caught!
+        assert missing_pa == ["2026-06-09", "2026-06-10"]
+
+    def test_run_source_checks_folds_prefix_gaps_to_warn(self) -> None:
+        """When check_prefix_gaps fires WARN, run_source_checks folds to WARN."""
+        days = ["2026-08-20", "2026-08-21", "2026-08-22"]
+        rows = []
+        for d in days:
+            rows.append({
+                "source": "test",
+                "series_id": "cameron_interstate_sq_1_d_timely",
+                "series_name": "Cameron",
+                "period": d,
+                "value": 100.0,
+                "unit": "Dth/d",
+                "region": "US",
+                "flow_type": "receipt",
+                "ingested_at": "2026-08-23T00:00:00Z",
+            })
+        # Pipe B missing 2026-08-21
+        for d in ["2026-08-20", "2026-08-22"]:
+            rows.append({
+                "source": "test",
+                "series_id": "golden_pass_sq_2_d_timely",
+                "series_name": "GP",
+                "period": d,
+                "value": 50.0,
+                "unit": "Dth/d",
+                "region": "US",
+                "flow_type": "delivery",
+                "ingested_at": "2026-08-23T00:00:00Z",
+            })
+        df = pd.DataFrame(rows)
+        cfg = make_cfg(gap_rule="calendar_daily", prefix_gaps=True, unit_expected="Dth/d")
+        results, worst = run_source_checks(
+            "test_source", df, cfg, DEFAULTS, None, NOW, None
+        )
+        assert worst == "WARN"
+        check_names = {r["check"]: r["severity"] for r in results}
+        assert check_names["gaps"] == "PASS"  # Whole-dataset gap check passes
+        assert check_names["prefix_gaps"] == "WARN"  # Prefix check catches golden_pass missing 2026-08-21
 
 
 # ------------------------------------------------------------------ coverage

@@ -43,6 +43,7 @@ import contextlib
 import fnmatch
 import json
 import logging
+import re
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -515,6 +516,177 @@ def check_gaps(df: pd.DataFrame, src_cfg: Mapping[str, Any]) -> CheckResult:
     return _result("gaps", "SKIPPED", f"unhandled gap_rule {rule!r}")
 
 
+# ------------------------------------------------------------------ prefix gaps
+
+_SERIES_PREFIX_DELIM = re.compile(r"_(?:sq|oac|design|opcap)_")
+
+
+def extract_series_prefix(series_id: str) -> str:
+    """Extract asset prefix from series_id using canonical project delimiters.
+
+    Splits on NAESB / EBB flow delimiters (_sq_, _oac_, _design_, _opcap_).
+    Matches the grouping used across transformers, task3_validate, and
+    integrity audit tables.
+    """
+    parts = _SERIES_PREFIX_DELIM.split(str(series_id), maxsplit=1)
+    if len(parts) > 1 and parts[0]:
+        return parts[0]
+    return str(series_id).split("_")[0]
+
+
+def check_prefix_gaps(df: pd.DataFrame, src_cfg: Mapping[str, Any]) -> CheckResult:
+    """Per-prefix asset continuity — holes emit WARN, never FAIL (§02 / AB1).
+
+    Additive companion to check_gaps: groups the dataframe by prefix derived
+    from series_id and evaluates calendar completeness for each asset
+    individually. Catches pipelines that go dark inside an otherwise
+    active multi-pipeline source.
+
+    Opt-in: only runs if ``prefix_gaps`` or ``prefix_gap_rule`` is configured.
+    """
+    if not src_cfg.get("prefix_gaps") and not src_cfg.get("prefix_gap_rule"):
+        return _result("prefix_gaps", "SKIPPED", "no prefix_gaps configured")
+
+    rule = src_cfg.get("prefix_gap_rule") or src_cfg.get("gap_rule")
+    if not rule:
+        return _result("prefix_gaps", "SKIPPED", "no gap_rule configured")
+    valid_rules = {"calendar_daily", "weekly_friday", "weekly_thursday", "monthly"}
+    if rule not in valid_rules:
+        return _result("prefix_gaps", "SKIPPED", f"unknown gap_rule {rule!r}")
+    if df.empty or "period" not in df.columns or "series_id" not in df.columns:
+        return _result("prefix_gaps", "SKIPPED", "no periods or series_id to scan")
+
+    # Determine source-level latest date
+    source_periods: list[date] = []
+    for raw in df["period"].astype(str).unique():
+        with contextlib.suppress(ValueError):
+            source_periods.append(normalize_period(raw, src_cfg))
+    if not source_periods:
+        return _result("prefix_gaps", "SKIPPED", "unparseable periods")
+    source_latest = max(source_periods)
+
+    # Group by prefix
+    in_service_dates = src_cfg.get("in_service_dates") or {}
+    prefixes = df["series_id"].map(extract_series_prefix)
+    unique_prefixes = sorted(prefixes.unique())
+
+    prefix_missing: dict[str, list[str]] = {}
+    prefix_summaries: list[str] = []
+
+    for prefix in unique_prefixes:
+        sub_df = df[prefixes == prefix]
+        prefix_periods: list[date] = []
+        for raw in sub_df["period"].astype(str).unique():
+            with contextlib.suppress(ValueError):
+                prefix_periods.append(normalize_period(raw, src_cfg))
+        prefix_periods = sorted(set(prefix_periods))
+        if not prefix_periods:
+            continue
+
+        present = set(prefix_periods)
+
+        # In-service date resolution per prefix (§02.5 / AB1)
+        in_service_str = in_service_dates.get(prefix) or src_cfg.get("in_service_date")
+        in_service_cutoff: date | None = None
+        if in_service_str:
+            try:
+                in_service_cutoff = normalize_period(str(in_service_str), src_cfg)
+            except ValueError:
+                in_service_cutoff = None
+
+        if in_service_cutoff is not None:
+            if prefix_periods[-1] < in_service_cutoff:
+                # Fully pre-service asset; all rows are pre-commissioning testing
+                continue
+            start_day = max(prefix_periods[0], in_service_cutoff)
+        else:
+            start_day = prefix_periods[0]
+
+        # The asset is expected to post up to the source's latest period
+        # (or its own latest if newer)
+        end_day = max(source_latest, prefix_periods[-1])
+
+        missing: list[str] = []
+
+        if rule == "calendar_daily":
+            span_days = (end_day - start_day).days + 1
+            for offset in range(span_days):
+                day = start_day + timedelta(days=offset)
+                if day not in present:
+                    missing.append(day.isoformat())
+
+        elif rule == "weekly_friday":
+            days_to_fri = (4 - start_day.weekday()) % 7
+            cur_fri = start_day + timedelta(days=days_to_fri)
+            fridays: list[date] = []
+            while cur_fri <= end_day:
+                fridays.append(cur_fri)
+                cur_fri += timedelta(days=7)
+            for fri in fridays:
+                if (
+                    fri not in present
+                    and (fri - timedelta(days=1)) not in present
+                    and (fri - timedelta(days=2)) not in present
+                ):
+                    missing.append(fri.isoformat())
+
+        elif rule == "weekly_thursday":
+            days_to_thu = (3 - start_day.weekday()) % 7
+            cur_thu = start_day + timedelta(days=days_to_thu)
+            thursdays: list[date] = []
+            while cur_thu <= end_day:
+                thursdays.append(cur_thu)
+                cur_thu += timedelta(days=7)
+            for thu in thursdays:
+                if (
+                    thu not in present
+                    and (thu - timedelta(days=1)) not in present
+                    and (thu - timedelta(days=2)) not in present
+                ):
+                    missing.append(thu.isoformat())
+
+        elif rule == "monthly":
+            cur_year, cur_month = start_day.year, start_day.month
+            end_year, end_month = end_day.year, end_day.month
+            present_months = {(d.year, d.month) for d in prefix_periods}
+            while (cur_year, cur_month) <= (end_year, end_month):
+                if (cur_year, cur_month) not in present_months:
+                    missing.append(f"{cur_year:04d}-{cur_month:02d}")
+                cur_month += 1
+                if cur_month > 12:
+                    cur_month = 1
+                    cur_year += 1
+
+        if missing:
+            prefix_missing[prefix] = missing
+            prefix_summaries.append(
+                f"{prefix}: {len(missing)} missing ({missing[0]}..{missing[-1]})"
+            )
+
+    if prefix_missing:
+        preview = "; ".join(prefix_summaries[:5])
+        return _result(
+            "prefix_gaps",
+            "WARN",
+            f"prefix gaps in {len(prefix_missing)} asset(s): {preview}",
+            {
+                "missing_by_prefix": prefix_missing,
+                "prefixes_affected": list(prefix_missing.keys()),
+                "total_prefixes_checked": len(unique_prefixes),
+            },
+        )
+
+    return _result(
+        "prefix_gaps",
+        "PASS",
+        f"all {len(unique_prefixes)} prefix asset(s) complete with 0 gaps",
+        {
+            "prefixes_checked": unique_prefixes,
+            "total_prefixes_checked": len(unique_prefixes),
+        },
+    )
+
+
 def check_coverage(
     df: pd.DataFrame,
     prior: Mapping[str, Any],
@@ -751,6 +923,7 @@ def run_source_checks(
         _collision_check(df, src_cfg, defaults),
         check_stagnation(df, src_cfg, now),
         check_gaps(df, src_cfg),
+        check_prefix_gaps(df, src_cfg),
         check_coverage(df, prior_map, src_cfg, defaults),
         check_shrinkage(df, prior_map, src_cfg),
         check_divergence(df, health, prior_map, src_cfg, defaults, now),
