@@ -281,3 +281,12 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `Z-fill-the-well.md` | Run the gasnom backfill: the first brief that changes production data, and the second-order effects on the gaps check and Section 8 are the interesting part | delivered 2026-09-03, verified — **the largest single gain the project has had**: gasnom 64,430 -> 865,730 rows, 99 -> 1,096 gas days, floor measured at 2023-09-04. `EVIDENCE.json` exists at last. But it deleted a test's `def` line (448 -> 447, still parsed) and softened three assertions. Merged as `ffb36cc` |
 | `AA-the-fleet-has-no-single-depth.md` | Success created a new problem: 1,996 days for Plaquemines against 101 for Freeport, and the comparison panel unions spans that do not overlap | delivered 2026-09-03, verified — **the first round the counter-measures actually worked**: test counts held (44/44, 449/449, no drop), the ratcheted evidence board rendered correctly, and a real D3 line-interpolation-across-gaps bug was fixed. But it overstated the reach of its own in_service_date fix — the per-pipeline wiring is unreachable because check_gaps has one call site and always sees the whole mixed source. Merged as `1795601` |
 | `AB-the-meter-that-goes-dark-inside-a-healthy-source.md` | The gap AA left open, and it's bigger than one field: five of seven daily EBB sources mix pipelines, and a terminal going fully dark for 90 days inside any of them is invisible to every existing check | **pending** |
+
+AB generalizes what tracing that call site found. `check_gaps` checks whether *any* row exists for
+a calendar day across the whole source, not whether *each meter* does — proven by deleting 90 days
+of one pipeline from real gasnom data and watching both `check_gaps` and `check_coverage` still
+read `PASS`. That is true for five of the project's seven daily EBB sources, not just gasnom, so
+the fix is scoped as an additive, opt-in check rather than a rewrite of a function twelve sources
+depend on — enabled one source at a time, each independently verified against real data, with an
+explicit instruction that a real finding on any source gets reported and left un-opted-in, not
+tuned away to force a green.
