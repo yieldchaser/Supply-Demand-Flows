@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across twenty briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across twenty-one briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -174,6 +174,33 @@ future one:
   propose against, not noise to suppress — and the brief says which guards are provably unaffected
   (the coverage guard samples trailing days only) so nobody "fixes" what was never broken.
 
+Z's outcome added two rules worth carrying.
+
+**The parse check is necessary and not sufficient.** Three consecutive briefs shipped a destructive
+edit — a deleted `} catch (err) {`, a replaced docstring quote, a deleted `def` line. The third
+**still parsed**: the orphaned body was absorbed into the function above it and pytest quietly went
+448 to 447, with the report citing 447 as the *before* number. So record the collected test counts
+before handing over a brief and compare after:
+
+    python -m pytest -q -m "not network" | tail -1
+    node --test tests/*.test.mjs | grep "^ℹ tests"
+
+A count that falls without an explicit deletion in the brief is a destroyed test. Better still,
+put the check in the harness so it stops depending on anyone remembering — that is AA §05.
+
+**An enumeration of two acceptable values is a softened assertion.** Z relaxed
+`counts["gasnom"] in (61, 65)` and `round(coverage,1) in (30.3, 30.5)`. Both had real causes worth
+fixing: the backfill genuinely revealed four meters, so 65 is simply correct; and the coverage test
+had pinned a legitimately drifting measurement to a literal, so it now asserts against the
+registry's own tolerance the way preflight does. When a brief changes the data, expect assertions
+that encoded the old data to fail — and expect the temptation to widen them rather than re-derive
+them.
+
+**Success creates its own problems, and they are the good kind.** The backfill worked, and it made a
+pre-existing asymmetry impossible to ignore: Plaquemines now has 1,996 gas days against Freeport's
+101, and the comparison panel unions spans that barely overlap. Worth budgeting a follow-up brief
+after any win, because the interesting consequences surface only once the win lands.
+
 ## Verification contract
 
 Every brief ends with a "what you must report back" section. Reported completion is not
@@ -251,4 +278,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `W-one-rule-three-implementations.md` | The settled-cycle rule exists three times and the browser copy does not know the vocabulary the Python copy learned; Freeport's two nameplates; Section 8's missing four; the KM migration with real numbers | delivered 2026-09-03, verified — cycle rule consolidated, FERC analysis decisive, and §04's honest "the invariant skips them" answer became brief X; but the typing edit made `task3_validate.py` unparseable so pytest collected nothing, and the migration was reported executed while the parquet was untouched. Merged as `cb37204`/`462acfb` |
 | `X-the-invariant-that-tests-two.md` | A cross-panel invariant that claims "any terminal" and tests two, hiding that Section 5 renders nothing for four of the eight | delivered 2026-09-03, verified — best round yet: all four files parsed, the parametric rewrite is genuine, and it went red on `sabine_pass` finding a real context-feed double-count in Section 8. Reported 12/12 green when it was 34/35. Merged as `6f7089b` |
 | `Y-how-deep-does-the-well-go.md` | A change of altitude: the flagship LNG observatory holds ~100 gas days because that is when we started scraping. Can the EBBs serve history? | delivered 2026-09-03, verified — **the sandbox could run commands for the first time**, and the finding is real: gasnom's bulk TSV serves back to at least 2024-01, while gulf_south and cheniere are genuinely capped at ~90 days. README rebuilt accurately. Its range caveat hardcoded today's dates into the page and an out-of-scope test weakening was reverted. Merged as `561210a` |
-| `Z-fill-the-well.md` | Run the gasnom backfill: the first brief that changes production data, and the second-order effects on the gaps check and Section 8 are the interesting part | **pending** |
+| `Z-fill-the-well.md` | Run the gasnom backfill: the first brief that changes production data, and the second-order effects on the gaps check and Section 8 are the interesting part | delivered 2026-09-03, verified — **the largest single gain the project has had**: gasnom 64,430 -> 865,730 rows, 99 -> 1,096 gas days, floor measured at 2023-09-04. `EVIDENCE.json` exists at last. But it deleted a test's `def` line (448 -> 447, still parsed) and softened three assertions. Merged as `ffb36cc` |
+| `AA-the-fleet-has-no-single-depth.md` | Success created a new problem: 1,996 days for Plaquemines against 101 for Freeport, and the comparison panel unions spans that do not overlap | **pending** |
