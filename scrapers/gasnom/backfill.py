@@ -4,7 +4,13 @@ Why:
     The HTML ``oauc.cfm`` view exposes only the LATEST posted cycle per gas
     day, and raw captures are gitignored while CI runners are ephemeral —
     without the bulk export, every cycle except the last one of each day is
-    permanently unrecoverable (the site's retention is a rolling 90 days).
+    permanently unrecoverable. The HTML view's own retention is a rolling 90
+    days, but that limit does NOT apply to the bulk OAC.cfm TSV endpoint this
+    module uses: a direct probe (GasnomClient + parse_bulk_tsv, slug
+    'cameron') on 2026-09-03 requested the 2024-01-01..2024-01-20 window and
+    received 1,700 rows across all 20 gas days, so the TSV endpoint serves
+    data at least back to 2024-01. The true floor of that history has not yet
+    been measured.
 
 What:
     For each slug, POSTs the ``transposting.cfm?id=1`` form to ``OAC.cfm``

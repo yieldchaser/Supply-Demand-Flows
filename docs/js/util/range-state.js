@@ -81,10 +81,86 @@ export function computePresetInterval(preset, anchorDate) {
  * @param {string} sourceLabel
  * @returns {string|null} Caveat message if range exceeds history, else null
  */
-export function checkRangeExceedsHistory(reqStartStr, sourceEarliestStr, sourceLabel) {
+export function checkRangeExceedsHistory(reqStartStr, sourceEarliestStr, sourceLabel, daysCount = null) {
   if (!reqStartStr || !sourceEarliestStr) return null;
   if (reqStartStr < sourceEarliestStr) {
-    return `Selected window starts ${reqStartStr}, but ${sourceLabel} history begins ${sourceEarliestStr}. Display shows available data from ${sourceEarliestStr}.`;
+    const spanPrefix = daysCount != null ? `showing ${daysCount} days; this source begins ${sourceEarliestStr}. ` : '';
+    return `${spanPrefix}Selected window starts ${reqStartStr}, but ${sourceLabel} history begins ${sourceEarliestStr}. Display shows available data from ${sourceEarliestStr}.`;
+  }
+  return null;
+}
+
+/**
+ * Compute the earliest date, latest date, and distinct day count present in a
+ * source's rows. Used to derive range-caveat facts from the data actually
+ * rendered rather than from baked-in literals that go stale as the dataset grows.
+ *
+ * @param {Array<Object>} rows - source rows (e.g. bundle.sources[key].data)
+ * @param {string} [dateKey='period'] - key holding the YYYY-MM-DD gas-day string
+ * @returns {{earliestStr: string, latestStr: string, dayCount: number}|null} null if rows has no dated entries
+ */
+export function computeSeriesDateRange(rows, dateKey = 'period') {
+  if (!rows || !Array.isArray(rows) || rows.length === 0) return null;
+
+  const dates = new Set();
+  for (const r of rows) {
+    const d = r && r[dateKey];
+    if (d) dates.add(d);
+  }
+  if (dates.size === 0) return null;
+
+  const sorted = Array.from(dates).sort();
+  return {
+    earliestStr: sorted[0],
+    latestStr: sorted[sorted.length - 1],
+    dayCount: sorted.length,
+  };
+}
+
+/**
+ * Surface an honest range caveat when a selected range exceeds available history.
+ * Designed to be called inside safeRender for LNG observatory panels.
+ *
+ * All history facts (anchor date, source start, day count) are supplied by the
+ * caller via `seriesInfo`, derived from the actual rendered data — never
+ * hardcoded — so the caveat cannot go stale as the dataset grows. `seriesInfo`
+ * is passed explicitly rather than read off a global so this function stays a
+ * pure function of its inputs and is trivially testable.
+ *
+ * @param {HTMLElement} panelEl
+ * @param {string} name - panel name
+ * @param {string} searchStr - window.location.search
+ * @param {{earliestStr: string, latestStr: string, dayCount: number, sourceLabel?: string}|null} [seriesInfo] -
+ *   date-range facts derived from the panel's own series (see computeSeriesDateRange).
+ *   Pass null/omit when the panel has no data — no caveat will be injected.
+ * @returns {string|null} Caveat text if injected, otherwise null
+ */
+export function applyRangeCaveat(panelEl, name, searchStr = '', seriesInfo = null) {
+  const isLngPanel = name === 'lng-fleet' || name === 'lng-downtime' || name.startsWith('lng');
+  if (!isLngPanel || !panelEl) return null;
+  if (!seriesInfo || !seriesInfo.earliestStr || !seriesInfo.latestStr || !seriesInfo.dayCount) return null;
+
+  const { earliestStr, latestStr, dayCount, sourceLabel = 'LNG feedgas' } = seriesInfo;
+
+  const range = parseRangeFromQuery(searchStr);
+  if (range.preset === '1y' || range.isCustom) {
+    const { startDateStr } = computePresetInterval(range.preset, latestStr);
+    const effectiveStart = range.start || startDateStr;
+    const caveatText = checkRangeExceedsHistory(effectiveStart, earliestStr, sourceLabel, dayCount);
+    if (caveatText && !panelEl.querySelector('.panel-caveat--range')) {
+      const doc = typeof document !== 'undefined' ? document : globalThis.document;
+      if (!doc || typeof doc.createElement !== 'function') return null;
+      const caveatDiv = doc.createElement('div');
+      caveatDiv.className = 'fleet-footnote fleet-footnote--caveat panel-caveat--range';
+      caveatDiv.style.margin = '8px 16px';
+      caveatDiv.innerHTML = `<p><strong>⚠ Range caveat:</strong> ${caveatText}</p>`;
+      const bodyEl =
+        panelEl.querySelector('.panel-body') ||
+        panelEl.querySelector('.lng-panel-body-wrapper') ||
+        panelEl;
+      bodyEl.prepend(caveatDiv);
+      return caveatText;
+    }
   }
   return null;
 }

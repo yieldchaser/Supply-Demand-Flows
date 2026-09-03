@@ -829,10 +829,10 @@ def build_universe() -> dict[str, list[dict[str, Any]]]:
     """Extract + classify every meter on every source."""
     out: dict[str, list[dict[str, Any]]] = {}
     for source in SOURCES:
-        df = load_source(source)
+        df = load_source(source).sort_values("period")
         meters: list[dict[str, Any]] = []
         for loc_id, g in df.groupby("_loc", sort=True):
-            first_name = str(g.sort_values("period")["series_name"].iloc[-1])
+            first_name = str(g["series_name"].iloc[-1])
             display = strip_source_prefix(base_name(first_name))
             flow = parse_flow(first_name)
             stats = compute_stats(g)

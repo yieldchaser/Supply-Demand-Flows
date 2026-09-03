@@ -23,16 +23,44 @@ import { renderTerminalDowntimePanel } from './panels/lng-terminal-downtime.js';
 import { renderBasinEgressPanel } from './panels/basin-egress.js';
 import { renderLngComparisonPanel } from './panels/lng-comparison.js';
 
+import { applyRangeCaveat, computeSeriesDateRange } from './util/range-state.js';
+
+/**
+ * Derive the LNG range-caveat's history facts from the actual data in the bundle,
+ * rather than from hardcoded literals that go stale as the dataset grows.
+ *
+ * 'gulf_south' is the shortest-history source shared by the LNG sections
+ * (fleet, feedgas, substitution, downtime) and is therefore the binding
+ * constraint on how far back a range selection can honestly go.
+ *
+ * @param {any} bundle
+ * @returns {{earliestStr: string, latestStr: string, dayCount: number, sourceLabel: string}|null}
+ */
+function getLngCaveatSeriesInfo(bundle) {
+  const rows = bundle?.sources?.gulf_south?.data;
+  const range = computeSeriesDateRange(rows, 'period');
+  if (!range) return null;
+  return { ...range, sourceLabel: 'LNG feedgas' };
+}
+
 /**
  * Render a single panel inside its own try/catch so that a failure
  * in one panel cannot propagate to main().catch and replace the whole page.
  *
  * @param {string} name - human-readable panel name (used in error log + fallback UI)
  * @param {Function} renderFn - zero-argument async-capable function that does the render
+ * @param {any} [bundle] - dashboard data bundle, used to derive range-caveat facts for LNG panels
  */
-async function safeRender(name, renderFn) {
+export async function safeRender(name, renderFn, bundle = null) {
   try {
     await renderFn();
+
+    // Prompt Y §04 / Y3: Range exceeding history surfaces honest caveat rather than silent clipping
+    if (typeof window !== 'undefined' && window.location) {
+      const panelEl = document.getElementById(`panel-${name}`) || document.getElementById(name);
+      const seriesInfo = bundle ? getLngCaveatSeriesInfo(bundle) : null;
+      applyRangeCaveat(panelEl, name, window.location.search, seriesInfo);
+    }
   } catch (err) {
     console.error(`[${name}] panel render failed:`, err);
     // Write an inline error state so the user sees which panel failed,
@@ -66,7 +94,7 @@ async function lazySection(bundle, sourceKeys, sectionName, renderFn) {
   } catch (err) {
     console.error(`[${sectionName}] source load failed:`, err);
   }
-  await safeRender(sectionName, renderFn);
+  await safeRender(sectionName, renderFn, bundle);
 }
 
 /** Sources needed by each dashboard section (bundle.sources keys). */
@@ -106,10 +134,10 @@ async function main() {
   renderHealthStrip(bundle);
 
   // EIA & Baker Hughes core panels — render immediately using pre-fetched core sources
-  safeRender('storage', () => renderStoragePanel(document.getElementById('panel-storage'), bundle));
-  safeRender('balance', () => renderBalancePanel(document.getElementById('panel-balance'), bundle));
-  safeRender('rigs', () => renderRigsPanel(document.getElementById('panel-rigs'), bundle));
-  safeRender('basins', () => renderBasinsPanel(document.getElementById('panel-basins'), bundle));
+  safeRender('storage', () => renderStoragePanel(document.getElementById('panel-storage'), bundle), bundle);
+  safeRender('balance', () => renderBalancePanel(document.getElementById('panel-balance'), bundle), bundle);
+  safeRender('rigs', () => renderRigsPanel(document.getElementById('panel-rigs'), bundle), bundle);
+  safeRender('basins', () => renderBasinsPanel(document.getElementById('panel-basins'), bundle), bundle);
 
   /**
    * Defer below-the-fold sections until scrolled near viewport or browser is idle.
