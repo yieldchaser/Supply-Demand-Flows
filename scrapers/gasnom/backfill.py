@@ -6,11 +6,31 @@ Why:
     without the bulk export, every cycle except the last one of each day is
     permanently unrecoverable. The HTML view's own retention is a rolling 90
     days, but that limit does NOT apply to the bulk OAC.cfm TSV endpoint this
-    module uses: a direct probe (GasnomClient + parse_bulk_tsv, slug
-    'cameron') on 2026-09-03 requested the 2024-01-01..2024-01-20 window and
-    received 1,700 rows across all 20 gas days, so the TSV endpoint serves
-    data at least back to 2024-01. The true floor of that history has not yet
-    been measured.
+    module uses: as measured empirically on 2026-09-03, the TSV endpoint serves
+    a rolling 3-year (1,095-day) window.
+
+Measured Upstream Floor (Prompt Z, 2026-09-03):
+    * ``cameron``:            2023-09-04 (85 rows; 2023-09-03 returns 0 rows)
+    * ``goldenpass``:         2023-09-04 (60 rows; 2023-09-03 returns 0 rows)
+    * ``SABINE``:             2023-09-04 (215 rows; 2023-09-03 returns 0 rows)
+    * ``portarthurpipeline``: 2026-06-08 (in-service / commissioning floor)
+
+Reproduction (Full 3-Year Historical Pull):
+    Command:
+        python -m scrapers.gasnom.backfill --since 2023-09-04 --until 2026-09-03 --slug cameron
+        python -m scrapers.gasnom.backfill --since 2023-09-04 --until 2026-09-03 --slug goldenpass
+        python -m scrapers.gasnom.backfill --since 2023-09-04 --until 2026-09-03 --slug SABINE
+        python -m transformers.gasnom
+    Measured Wall-Clock:
+        * Backfill: 457.54s (7.63 minutes) across 3 slugs (42 HTTP requests total).
+        * Transform: 111.2s to accumulate 839,118 rows into data/curated/gasnom.parquet.
+
+CI Execution Policy:
+    This backfill should NEVER run on scheduled CI. Historical gas days are
+    static once posted. Repeatedly querying 3 years of bulk TSV in CI would
+    impose unnecessary load on GasNom's ColdFusion server, risk WAF blocks,
+    and inflate CI run times. The scheduled CI scraper needs only a short
+    rolling window (e.g. 7-14 days) to capture cycle revisions.
 
 What:
     For each slug, POSTs the ``transposting.cfm?id=1`` form to ``OAC.cfm``

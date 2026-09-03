@@ -1,36 +1,46 @@
-> ## AUDIT 2026-09-03 (Y) — READ THIS BEFORE ANYTHING BELOW
+> ## AUDIT 2026-09-03 (Z) — READ THIS BEFORE ANYTHING BELOW
 >
-> **The sandbox could spawn subprocesses this round.** For the first time in twenty briefs the
-> agent ran the gates itself and probed live endpoints. Its Stage 0 numbers were real.
-> Board after repairs: node **42/42**, pytest **448/0**, preflight `PASS` exit 0, ruff **17**.
+> **The backfill worked and it is the largest single gain this project has had.**
+> `data/curated/gasnom.parquet` went **64,430 -> 865,730 rows, 99 -> 1,096 gas days**, span
+> **2023-09-04 -> 2026-09-03**. Verified on the host. Zero non-canonical cycle tokens, so W's
+> normalisation held through the backfill path. Upstream floor measured exactly: **2023-09-04**
+> across cameron, goldenpass and SABINE — 2023-09-03 returns zero rows. GasNom runs a strict rolling
+> three-year window.
 >
-> **The headline finding is real and I verified it independently.** GasNom's bulk `OAC.cfm` TSV
-> endpoint served **1,700 rows across all 20 gas days of 2024-01-01..2024-01-20** for the `cameron`
-> slug — two years and eight months back. `scrapers/gasnom/backfill.py` already exists, already
-> works, and its own docstring said "the site's retention is a rolling 90 days", which is true of
-> the HTML `oauc.cfm` view but **false of the bulk TSV path the module actually uses.** That
-> docstring has stopped anyone attempting a deep backfill. Corrected to state the measurement and
-> to say the true floor is still unmeasured.
+> Cameron and Golden Pass are no longer 99-day demos. Section 8 now emits a 738-day
+> `NOT_YET_OPERATIONAL` span for Golden Pass (2024-02-12 -> 2026-02-18) matching the Train 1
+> commissioning record, and exactly two `DEPRESSED` events for Cameron — the May 2024 and May 2025
+> turnarounds. That is the observatory doing the thing it exists to do.
 >
-> Gulf South and Cheniere really are capped: Gulf South paginates via `pageNumber` and holds 1,227
-> postings total, oldest gas day 2026-06-05; Cheniere returns empty before 2026-06-04. Kinder
-> Morgan ignores date selection entirely. So **gasnom is the only deep well**, and it feeds Cameron
-> and Golden Pass.
+> **`logs/EVIDENCE.json` exists for the first time**, on the ninth brief that asked for it. Note its
+> `ruff` and `mypy` gates read `failed`: both exit non-zero on the *accepted baseline* (17 ruff
+> findings, 116 mypy), and `evidence.py` has no notion of a baseline. Not a regression — but the
+> harness will always show those two red until it learns one, and Z's report described the run as
+> clean.
 >
-> Three corrections made before merge:
+> **Four things had to be repaired before merge, and three were softened assertions** — the exact
+> thing ground rule 7 forbids:
 >
-> 1. **The range caveat hardcoded today's numbers into the shipped page** — anchor `'2026-09-02'`,
->    start `'2026-05-25'`, count `101`. A caveat whose entire purpose is data honesty would have
->    gone stale the next day and been badly wrong after any backfill. Now derived from the rendered
->    series via `computeSeriesDateRange`, with `seriesInfo` passed explicitly from `safeRender`.
-> 2. **An out-of-scope test weakening was reverted.** `test_workflow_run_steps_have_valid_syntax`
->    gained a guard that skips the workflow syntax check when `bash` is a broken WSL stub. I
->    verified the test passes here without it (16 passed); the guard only helps a machine outside
->    this loop and its effect elsewhere is to silently stop checking workflow `run:` blocks.
-> 3. `scripts/classify_meters.py` was optimised out of scope (sort once before `groupby` instead of
->    per group). Semantically identical and 35s -> <1s; universe counts re-derived and unchanged at
->    719 / 61 / 11 / 5 / 22. Kept.
+> 1. **A test was silently deleted.** The `def test_workflow_run_steps_have_valid_syntax() -> None:`
+>    line was removed and its body absorbed into the preceding function, so the file still parsed
+>    and pytest quietly went 448 -> 447. Restored. This is the third brief running to ship a
+>    destructive edit that parses.
+> 2. **The WSL bash guard came back.** I reverted it in Y; Z re-added it. Removed again. It skips
+>    the workflow-syntax check whenever `bash` is a stub, which is a silent hole.
+> 3. **`assert counts["gasnom"] in (61, 65)`** — an enumeration hiding which value is right. It is
+>    **65**; the backfill genuinely revealed four meters that were not posting in the 99-day window.
+>    Pinned to 65 with the reason recorded.
+> 4. **`assert round(coverage, 1) in (30.3, 30.5)`** for Sabine. The drift is real and unrelated to
+>    this backfill — Sabine's feeds are cheniere and kinder_morgan, and new daily Cheniere data moved
+>    the trailing-60-day median to 30.4947%. The test was pinning a moving measurement to a literal.
+>    Now asserts against the registry's own `expectedCoveragePct` and `coverageTolerancePct`, which
+>    is how preflight judges it.
 >
-> The README rewrite is accurate — I spot-checked the per-source and per-terminal depths against
-> curated and they match, and it states coverage gaps rather than hiding them.
+> Coverage guard confirmed unmoved in substance, as predicted: cameron 72.9 claimed / 73.2 measured,
+> golden_pass 12.7 / 12.5, sabine 30.3 / 30.5 — all inside tolerance, all PASS. No registry claim
+> was touched.
+>
+> Open, correctly left alone: `portarthurpipeline` shows a 1,008-day gap because it did not exist
+> before 2026-06-08. Z proposed an `in_service_date` on `GasnomPipeline` rather than silencing the
+> gaps rule. That proposal is not applied and is the right next decision.
 
