@@ -25,6 +25,10 @@ PREFIX_MAP = {
     "kinder_morgan": "kinder_morgan",
     "km": "kinder_morgan",
     "gator_express": "quorum",
+    "trans_cameron": "quorum",
+    "golden_pass": "gasnom",
+    "cameron_interstate": "gasnom",
+    "corpus_christi": "cheniere",
 }
 
 TERMINALS = {
@@ -60,21 +64,55 @@ TERMINALS = {
         "zero_days_threshold": 3,
         "depressed_pct": 0.60, "depressed_days": 5, "is_cargo_zero": False,
     },
+    # V2 additions: 4 previously skipped terminals with confirmed curated parquet feeds.
+    # Note: thresholds are unvalidated inherited defaults from precedent terminals.
+    "calcasieu": {
+        "name": "Calcasieu Pass LNG",
+        "nameplate": 1300.0,
+        "feeds": ["trans_cameron_sq_vgcpd_d"],
+        "zero_mode": "normal",
+        "zero_days_threshold": 3,
+        "depressed_pct": 0.60, "depressed_days": 5, "is_cargo_zero": False,
+    },
+    "golden_pass": {
+        "name": "Golden Pass LNG",
+        "nameplate": 2600.0,
+        "feeds": ["golden_pass_sq_1097217_d"],
+        "zero_mode": "normal",
+        "zero_days_threshold": 3,
+        "depressed_pct": 0.60, "depressed_days": 5, "is_cargo_zero": False,
+    },
+    "cameron": {
+        "name": "Cameron LNG",
+        "nameplate": 2000.0,
+        "feeds": ["cameron_interstate_sq_772300_d"],
+        "zero_mode": "normal",
+        "zero_days_threshold": 3,
+        "depressed_pct": 0.60, "depressed_days": 5, "is_cargo_zero": False,
+    },
+    "corpus_christi": {
+        "name": "Corpus Christi LNG",
+        "nameplate": 2400.0,
+        "feeds": ["corpus_christi_sq_CC200221_d"],
+        "zero_mode": "normal",
+        "zero_days_threshold": 3,
+        "depressed_pct": 0.60, "depressed_days": 5, "is_cargo_zero": False,
+    },
 }
 
 CYCLE_PRIORITY = {
-    "timely": 1,
-    "evening": 2,
-    "evng": 2,
-    "late": 3,
-    "latec": 4,
-    "id1": 5,
-    "itrd1": 5,
-    "id2": 6,
-    "itrd2": 6,
-    "id3": 7,
-    "itrd3": 7,
     "best": 1,
+    "timely": 2,
+    "evening": 3,
+    "evng": 3,
+    "late": 4,
+    "latec": 5,
+    "id1": 6,
+    "itrd1": 6,
+    "id2": 7,
+    "itrd2": 7,
+    "id3": 8,
+    "itrd3": 8,
 }
 
 

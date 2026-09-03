@@ -167,3 +167,57 @@ def test_sabine_pass_coverage_unchanged_with_km_feed() -> None:
     """
     res = compute_terminal_coverage_from_curated("sabine_pass", window_days=60, nameplate=4500.0)
     assert round(res["coverage_pct"], 1) == 30.3, f"Sabine Pass coverage changed: {res['coverage_pct']}%"
+
+
+def test_v2_terminal_feeds_resolve_to_parquet() -> None:
+    """All four previously skipped terminals must have feeds resolving to valid parquets
+    and entries in TERMINALS with inherited precedent defaults (Prompt V §03).
+    """
+    from scripts.task3_validate import TERMINALS, resolve_series
+
+    expected = {
+        "calcasieu": ("trans_cameron_sq_vgcpd_d", "quorum.parquet"),
+        "golden_pass": ("golden_pass_sq_1097217_d", "gasnom.parquet"),
+        "cameron": ("cameron_interstate_sq_772300_d", "gasnom.parquet"),
+        "corpus_christi": ("corpus_christi_sq_CC200221_d", "cheniere.parquet"),
+    }
+
+    for term_key, (feed_id, expected_parq) in expected.items():
+        assert term_key in TERMINALS, f"Terminal '{term_key}' missing from TERMINALS"
+        path, pattern = resolve_series(feed_id)
+        assert path is not None, f"Feed '{feed_id}' failed to resolve"
+        assert path.name == expected_parq, f"Feed '{feed_id}' resolved to {path.name}, expected {expected_parq}"
+        assert pattern == feed_id
+
+    # port_arthur is non-operational and must stay out
+    assert "port_arthur" not in TERMINALS, "port_arthur must stay out of TERMINALS"
+
+
+def test_v3_cycle_priority_best_ranked_sub_timely() -> None:
+    """'best' is not a genuine nomination cycle: it must be ranked below timely (>0)
+    so that sole-presence periods are preserved while genuine nomination cycles always win (Prompt V §04).
+    """
+    from scripts.task3_validate import cycle_priority
+
+    # best is sub-timely but strictly positive
+    p_best = cycle_priority("best")
+    p_timely = cycle_priority("timely")
+    assert p_best > 0, "best must score > 0 to preserve periods where it is the sole cycle"
+    assert p_best < p_timely, f"best priority ({p_best}) must be strictly below timely ({p_timely})"
+
+    # Genuine cycles strictly ordered
+    p_evening = cycle_priority("evening")
+    p_evng = cycle_priority("evng")
+    p_id1 = cycle_priority("id1")
+    p_itrd1 = cycle_priority("itrd1")
+    p_id2 = cycle_priority("id2")
+    p_itrd2 = cycle_priority("itrd2")
+    p_id3 = cycle_priority("id3")
+    p_itrd3 = cycle_priority("itrd3")
+
+    assert p_timely < p_evening == p_evng < p_id1 == p_itrd1 < p_id2 == p_itrd2 < p_id3 == p_itrd3
+
+    # Hourly automated snapshots remain strictly 0
+    assert cycle_priority("id0200") == 0
+    assert cycle_priority("id1200") == 0
+
