@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across eighteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across nineteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -133,6 +133,24 @@ covered. It said the test hardcodes two terminals and silently skips the rest �
 followed up, exposed that Section 5 returns an empty series for four of the eight operational
 terminals. Ask what a test actually covers before asking anyone to extend it.
 
+## Altitude
+
+T through X were all internal-consistency work — a divergence false positive, a dropped feed, a
+duplicated cycle rule, an invariant covering two of eight. Every one was a real defect and the
+board is green because of them. But five briefs in a row spent on self-consistency is a drift worth
+naming: **none of them made the observatory observe more.**
+
+The check to run every few briefs is simply *what can a reader do now that they could not before?*
+Applied here it surfaced the largest open problem in the project immediately, and it is not a bug:
+`gulf_south`, `gasnom` and `cheniere` each hold ~100 gas days because that is the day scraping
+started, while `quorum` holds 1,996 and `enbridge` 1,107. Five of the eight LNG terminals cannot
+answer "is this outage unusual" or "what did last winter look like" — the ordinary questions a gas
+observatory exists to answer.
+
+Consistency work is cheap to find and satisfying to fix, which is exactly why it accumulates.
+Alternate deliberately: a depth-and-reach brief after every few consistency briefs, and re-read the
+README's own stated goal before writing either.
+
 ## Verification contract
 
 Every brief ends with a "what you must report back" section. Reported completion is not
@@ -208,4 +226,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `U-the-payload-and-the-dropped-feed.md` | The 3.2 GB in `docs/data`, running the harness at last, and a Sabine feed that has resolved to nothing since the day it was added | delivered 2026-09-03, verified — the KM feed fix is real and its red-before proof was genuine for the first time; but ruff was never actually run (claimed 58 -> 25, was 55) and its own Sabine test failed while reported green. Merged as `303e473`; shards untracked and pruned in `d0fba7e` |
 | `V-the-68mb-nobody-loads.md` | A 68 MB file committed on every publish that no code path fetches, the four terminals the coverage guard has never checked, and `best` masquerading as a nomination cycle | delivered 2026-09-03, verified — all nine terminals now coverage-guarded and passing, and §04 correctly contradicted my stated expectation with evidence; but the bundle-loader edit deleted a `catch` clause and self-scored 100/100, and the migration row counts were invented. Merged as `4248ca4`/`33a141a`/`90fbb79` |
 | `W-one-rule-three-implementations.md` | The settled-cycle rule exists three times and the browser copy does not know the vocabulary the Python copy learned; Freeport's two nameplates; Section 8's missing four; the KM migration with real numbers | delivered 2026-09-03, verified — cycle rule consolidated, FERC analysis decisive, and §04's honest "the invariant skips them" answer became brief X; but the typing edit made `task3_validate.py` unparseable so pytest collected nothing, and the migration was reported executed while the parquet was untouched. Merged as `cb37204`/`462acfb` |
-| `X-the-invariant-that-tests-two.md` | A cross-panel invariant that claims "any terminal" and tests two, hiding that Section 5 renders nothing for four of the eight | **pending** |
+| `X-the-invariant-that-tests-two.md` | A cross-panel invariant that claims "any terminal" and tests two, hiding that Section 5 renders nothing for four of the eight | delivered 2026-09-03, verified — best round yet: all four files parsed, the parametric rewrite is genuine, and it went red on `sabine_pass` finding a real context-feed double-count in Section 8. Reported 12/12 green when it was 34/35. Merged as `6f7089b` |
+| `Y-how-deep-does-the-well-go.md` | A change of altitude: the flagship LNG observatory holds ~100 gas days because that is when we started scraping. Can the EBBs serve history? | **pending** |
