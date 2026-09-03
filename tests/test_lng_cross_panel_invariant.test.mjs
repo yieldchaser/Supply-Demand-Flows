@@ -4,6 +4,10 @@
  * Proves mathematically that Section 5 (Hero Feedgas), Section 7 (Fleet Overview),
  * and Section 8 (Terminal Downtime) produce IDENTICAL daily flow totals for any terminal.
  *
+ * Prompt X §03 requirement:
+ * Parametric over DOWNTIME_CONF so all operational terminals are covered automatically.
+ * Named Freeport-specific tests for hourly snapshots and routing rules survive intact.
+ *
  * Runs via built-in `node --test` with zero dependencies.
  */
 
@@ -52,6 +56,33 @@ function createTestBundle() {
     },
   };
 }
+
+// Generate synthetic bundle per terminal from its own feed identity
+function createTerminalBundle(termKey) {
+  const conf = DOWNTIME_CONF[termKey];
+  if (!conf || !Array.isArray(conf.feeds)) return { sources: {} };
+
+  const sources = {};
+  for (const feed of conf.feeds) {
+    const srcKey = feed.source;
+    if (!sources[srcKey]) sources[srcKey] = { data: [] };
+
+    const stem = feed.stem;
+    // 3 gas days with multiple cycles, including later cycles superseding earlier ones
+    sources[srcKey].data.push(
+      { series_id: `${stem}_timely`,  period: '2026-08-01', value: 500000 },
+      { series_id: `${stem}_id3`,     period: '2026-08-01', value: 800000 },
+      { series_id: `${stem}_timely`,  period: '2026-08-02', value: 600000 },
+      { series_id: `${stem}_evening`, period: '2026-08-02', value: 750000 },
+      { series_id: `${stem}_timely`,  period: '2026-08-03', value: 700000 }
+    );
+  }
+  return { sources };
+}
+
+// ---------------------------------------------------------------------------
+// 1. Preserved Named Freeport Tests (hourly snapshots, partial days, outages)
+// ---------------------------------------------------------------------------
 
 test('Cross-panel invariant: Section 5, 7, and 8 compute identical Freeport daily totals', () => {
   const bundle = createTestBundle();
@@ -177,30 +208,104 @@ test('Real outage: both feeds posting 0 is complete and sets postedZero', () => 
   assert.strictEqual(sec8Point.postedZero, true);
 });
 
-test('Cross-panel invariant: Section 5, 7, and 8 compute identical Cove Point daily totals', () => {
+test('Context feed regression: buildDailyTotal excludes context: true feeds from the summed total', () => {
+  // Synthetic two-feed terminal: a primary feed and a context feed. The context feed
+  // carries a NON-ZERO value on purpose (unlike production km_ngpl_sq_3592_d, which is
+  // currently always 0.0 and therefore masked this bug). If buildDailyTotal ever sums
+  // context feeds back in, this test fails loudly instead of silently.
+  const conf = {
+    feeds: [
+      { source: 'primary_src', stem: 'primary_stem', label: 'Primary' },
+      { source: 'context_src', stem: 'context_stem', label: 'Context Feed', context: true },
+    ],
+  };
   const bundle = {
     sources: {
-      bhe: {
+      primary_src: {
         data: [
-          { series_id: 'cpl_sq_10001_d_timely', period: '2026-08-01', value: 768750 }, // 750 MMcf/d
-          { series_id: 'cpl_sq_10001_d_evening', period: '2026-08-01', value: 789250 }, // 770 MMcf/d
-          { series_id: 'cpl_sq_10001_d_timely', period: '2026-08-02', value: 717500 }, // 700 MMcf/d
+          { series_id: 'primary_stem_timely', period: '2026-08-01', value: 800000 },
+        ],
+      },
+      context_src: {
+        data: [
+          // Non-zero on purpose: proves the context feed is excluded by design,
+          // not by coincidence of a zero value.
+          { series_id: 'context_stem_timely', period: '2026-08-01', value: 400000 },
         ],
       },
     },
   };
 
-  // Section 8 Daily Total
-  const sec8Daily = buildDailyTotal(bundle, DOWNTIME_CONF.cove_point);
-  assert.strictEqual(sec8Daily.length, 2);
-  // Evening supersedes timely on 2026-08-01: 789250 / 1.025 / 1000 = 770 MMcf/d
-  assert.ok(Math.abs(sec8Daily[0].value - 770.0) < 1e-4);
-  // 2026-08-02: 717500 / 1.025 / 1000 = 700 MMcf/d
-  assert.ok(Math.abs(sec8Daily[1].value - 700.0) < 1e-4);
+  const daily = buildDailyTotal(bundle, conf);
+  const point = daily.find((d) => d.dateStr === '2026-08-01');
+  assert.ok(point !== undefined, '2026-08-01 must be present');
 
-  // Section 7 Fleet Summary
-  const summary = terminalSummary(bundle, LNG_TERMINALS.cove_point);
-  assert.strictEqual(summary.ok, true);
-  assert.ok(Math.abs(summary.latest - 700.0) < 1e-4);
+  const expectedMmcf = 800000 / 1.025 / 1000;
+  assert.ok(
+    Math.abs(point.value - expectedMmcf) < 1e-6,
+    `Context feed leaked into total: expected ${expectedMmcf} (primary only), got ${point.value}`
+  );
+
+  // The context feed must not count toward feedsPosted or expectedFeeds parity either:
+  // only the primary feed contributes.
+  assert.strictEqual(point.feedsPosted, 1, 'Context feed must not increment feedsPosted');
 });
 
+// ---------------------------------------------------------------------------
+// 2. Parametric Cross-Panel Invariant Loop (covers every terminal in DOWNTIME_CONF)
+// ---------------------------------------------------------------------------
+
+const coveredTerminals = Object.keys(DOWNTIME_CONF);
+
+for (const termKey of coveredTerminals) {
+  test(`Cross-panel invariant (parametric): S5, S7, and S8 compute identical daily totals for ${termKey}`, () => {
+    const conf = DOWNTIME_CONF[termKey];
+    const tReg = LNG_TERMINALS[termKey];
+    assert.ok(tReg, `Terminal ${termKey} present in DOWNTIME_CONF must also exist in LNG_TERMINALS`);
+
+    const bundle = createTerminalBundle(termKey);
+
+    // Section 5 (Hero Feedgas)
+    const sec5 = buildMultiFeedData(bundle, tReg);
+    const sec5Map = new Map(sec5.dailySeries.map((d) => [d.dateStr, d.value]));
+
+    // Section 7 (Fleet Overview summary)
+    const sec7 = terminalSummary(bundle, tReg);
+    assert.ok(sec7.ok, `Section 7 terminalSummary must be ok for ${termKey}`);
+    const sec7Map = new Map(sec7.daily.map((d) => [d.dateStr, d.value]));
+
+    // Section 8 (Terminal Downtime)
+    const sec8 = buildDailyTotal(bundle, conf);
+    const sec8Map = new Map(sec8.map((d) => [d.dateStr, d.value]));
+
+    // 1. Identical date counts across all three panels
+    assert.strictEqual(
+      sec5Map.size,
+      sec8Map.size,
+      `${termKey}: Section 5 (${sec5Map.size} dates) vs Section 8 (${sec8Map.size} dates) mismatch`
+    );
+    assert.strictEqual(
+      sec7Map.size,
+      sec8Map.size,
+      `${termKey}: Section 7 (${sec7Map.size} dates) vs Section 8 (${sec8Map.size} dates) mismatch`
+    );
+
+    // 2. Per-date agreement within 1e-6
+    for (const [dateStr, sec8Val] of sec8Map.entries()) {
+      const sec5Val = sec5Map.get(dateStr);
+      const sec7Val = sec7Map.get(dateStr);
+
+      assert.ok(sec5Val !== undefined, `${termKey}: Date ${dateStr} missing in Section 5`);
+      assert.ok(sec7Val !== undefined, `${termKey}: Date ${dateStr} missing in Section 7`);
+
+      assert.ok(
+        Math.abs(sec5Val - sec8Val) < 1e-6,
+        `${termKey}: Mismatch on ${dateStr}: Sec 5 (${sec5Val}) !== Sec 8 (${sec8Val})`
+      );
+      assert.ok(
+        Math.abs(sec7Val - sec8Val) < 1e-6,
+        `${termKey}: Mismatch on ${dateStr}: Sec 7 (${sec7Val}) !== Sec 8 (${sec8Val})`
+      );
+    }
+  });
+}

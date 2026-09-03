@@ -109,6 +109,9 @@ export const LNG_TERMINALS = {
     seriesPrefix: 'gator_express',
     loc: 'vgpqd',
     flow: 'd',
+    feeds: [
+      { source: 'quorum', series: 'gator_express_sq_vgpqd_d', label: 'Gator Express', kind: 'measured' },
+    ],
     locName: 'Venture Global Plaquemines LNG Delivery (VGPQD)',
     nameplate: 3400,
     expectedCoveragePct: 112.4,
@@ -130,6 +133,9 @@ export const LNG_TERMINALS = {
     seriesPrefix: 'trans_cameron',
     loc: 'vgcpd',
     flow: 'd',
+    feeds: [
+      { source: 'quorum', series: 'trans_cameron_sq_vgcpd_d', label: 'TransCameron', kind: 'measured' },
+    ],
     locName: 'Venture Global Calcasieu Pass Delivery (VGCPD)',
     nameplate: 1300,
     expectedCoveragePct: 123.5,
@@ -151,6 +157,9 @@ export const LNG_TERMINALS = {
     seriesPrefix: 'golden_pass',
     loc: '1097217',
     flow: 'd',   // D leg = consolidated plant intake delivery meter
+    feeds: [
+      { source: 'gasnom', series: 'golden_pass_sq_1097217_d', label: 'Golden Pass Pipeline', kind: 'measured' },
+    ],
     locName: 'Golden Pass Terminal (delivery meter)',
     nameplate: 2600,
     expectedCoveragePct: 12.7,
@@ -174,6 +183,9 @@ export const LNG_TERMINALS = {
     seriesPrefix: 'cameron_interstate',
     loc: '772300',
     flow: 'd',
+    feeds: [
+      { source: 'gasnom', series: 'cameron_interstate_sq_772300_d', label: 'Cameron Interstate', kind: 'measured' },
+    ],
     locName: 'Cameron LNG (Del)',
     nameplate: 2000,
     expectedCoveragePct: 72.9,

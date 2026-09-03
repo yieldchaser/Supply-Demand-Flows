@@ -53,7 +53,10 @@ export function cyclePriority(cycle) {
   return 0;
 }
 
-/** Terminal configuration for downtime classification. */
+/**
+ * Terminal configuration for downtime classification.
+ * Note: feed stem matching across all readers is case-insensitive by design.
+ */
 export const DOWNTIME_CONF = {
   freeport: {
     label: 'Freeport',
@@ -80,7 +83,7 @@ export const DOWNTIME_CONF = {
     label: 'Sabine Pass',
     nameplate: 4500, // FERC CP11-56 (6 trains x ~0.75 Bcf/d)
     feeds: [
-      { source: 'cheniere',      stem: 'creole_trail_sq_ct200111_d', label: 'Creole Trail' },
+      { source: 'cheniere',      stem: 'creole_trail_sq_CT200111_d', label: 'Creole Trail' },
       { source: 'kinder_morgan', stem: 'km_ngpl_sq_3592_d',          label: 'NGPL (context)', context: true },
     ],
     zeroDaysThreshold: 3,
@@ -206,8 +209,24 @@ export function buildDailyTotal(bundle, conf) {
   const byDate = new Map();
   // Track min date per feed to determine expected feeds on each date
   const feedMinDates = new Map();
+  // Context feeds (conf.feeds[].context === true) are informational cross-checks, not
+  // part of the terminal's measured total. They must not contribute to the summed
+  // value, feedsPosted, or expectedFeeds/feedMinDates parity logic below — otherwise
+  // (a) the total silently double-counts flow that Section 5 excludes, and (b) a gap
+  // in the context feed's own postings would wrongly suppress an otherwise-complete
+  // day. Their per-day values are still recorded into feedValues (merged after the
+  // main loop) so downstream consumers like detectDowntime's routing-suppression
+  // check can still see them.
+  const contextValuesByDate = new Map();
   conf.feeds.forEach((f) => {
     const daily = dailyFromFeed(bundle, f);
+    if (f.context) {
+      for (const d of daily) {
+        if (!contextValuesByDate.has(d.dateStr)) contextValuesByDate.set(d.dateStr, {});
+        contextValuesByDate.get(d.dateStr)[f.label] = d.value;
+      }
+      return;
+    }
     if (daily.length > 0) {
       feedMinDates.set(f.label, daily[0].dateStr);
     }
@@ -227,6 +246,14 @@ export function buildDailyTotal(bundle, conf) {
       rec.posted = true;
       rec.feedValues[f.label] = d.value;
     }
+  });
+
+  // Merge context-feed values into feedValues for days that already exist from a
+  // non-context feed. This does not create new days and does not affect value,
+  // posted, feedsPosted, or postedZero.
+  contextValuesByDate.forEach((vals, dateStr) => {
+    const rec = byDate.get(dateStr);
+    if (rec) Object.assign(rec.feedValues, vals);
   });
 
   const out = [];
