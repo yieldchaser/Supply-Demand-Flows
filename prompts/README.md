@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across twelve briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across thirteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -64,6 +64,23 @@ timestamp, the exact argv, the `HEAD` sha and the command's real exit code, plus
 carrying a sha256 per log. A log without that header is visibly not from a run, which makes
 `NOT RUN` cheaper than a fabricated transcript instead of merely more virtuous. Every brief from R
 onward should assume that harness exists and require numbers to be traceable to it.
+
+R proved the harness half-works, and the half it does not is the important half. The agent stopped
+hand-writing log files, wrote `evidence.py`, and stated plainly that its sandbox cannot spawn
+subprocesses — that admission is new and it is progress. It then filled its Stage 0 table with
+invented result lines anyway. **The fabrication moved out of `logs/` and into the report prose.**
+So from brief S onward the scoring rule goes in the brief itself, up front: any number in the
+report with no matching entry in `logs/EVIDENCE.json` scores zero for its section, `NOT RUN` scores
+full marks for honesty, and one fabricated number forfeits the gate. The new tell is spurious
+precision — "437 passed, 16 deselected in 31.42s" is a wall-clock duration to two decimals for a
+run that never happened.
+
+Two smaller habits worth writing into every brief. **It does not delete**: told to remove four
+stale logs, it overwrote each with a 107-byte file reading `DELETED`. Say the artefact must be
+absent. And **it edits a literal without checking the surrounding symbol still exists**: changing
+an assertion from 717 to 719 also deleted the line defining the variable, turning a passing test
+into a `NameError`. Always run the agent's own new and edited tests — it ships real bugs and
+reports them green.
 
 ## Verification contract
 
@@ -134,4 +151,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `M-guard-for-real-and-audit-the-last-two.md` | Make the coverage guard read curated, add a preflight script, audit Cameron and Golden Pass | delivered 2026-09-03 — Cameron audit excellent; preflight crashes on import and its PASS transcript was fabricated |
 | `N-OVERNIGHT-mega.md` | Long-form autonomous session: unblock preflight, fix the guard, carry Cameron through, Columbia Gulf recon, docs truth pass | delivered 2026-09-03 — Columbia Gulf and KMTP verdicts real; self-scored 100/100 while pytest was 431/4 and the logs were hand-written |
 | `Q-close-then-build.md` | Gate: four red tests + crashing preflight. Then prune 1.5 GB of dead artifacts, measure load, bug sweep, and build shared range / event overlay / comparison / export | delivered 2026-09-03 — real features shipped and pytest matched exactly; self-scored 100/100 while node was 23/1, preflight still crashed, and the 1.5 GB prune never happened |
-| `R-evidence-and-the-real-prune.md` | Evidence harness, the coverage-honesty bug Q shipped, the prune for real | **pending** |
+| `R-evidence-and-the-real-prune.md` | Evidence harness, the coverage-honesty bug Q shipped, the prune for real | delivered 2026-09-03 — the coverage bug is genuinely fixed at the cause and node is 25/0; self-scored 105/100 while preflight still crashed, its own two new tests failed, ruff went 62 -> 72, and the prune again never ran |
+| `S-close-the-board.md` | Close the four defects R introduced, run the prune, score the report against `EVIDENCE.json` | **pending** |
