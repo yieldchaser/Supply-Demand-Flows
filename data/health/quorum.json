@@ -1,15 +1,16 @@
 {
   "source": "quorum",
   "status": "ok",
-  "timestamp_utc": "2026-09-03T16:40:43Z",
+  "timestamp_utc": "2026-09-03T21:20:19Z",
   "error": null,
   "metadata": {
     "gas_day": "2026-09-03",
-    "processed_count": 4,
+    "processed_count": 6,
     "skipped_count": 0,
-    "rows": 18,
+    "rows": 27,
     "cycles": [
       "evening",
+      "id1",
       "timely"
     ],
     "tenants": {
