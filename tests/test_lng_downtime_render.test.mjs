@@ -18,8 +18,8 @@ import { fileURLToPath } from 'node:url';
 import {
   buildDowntimeViewModel,
   renderEventListHtml,
-} from '../docs/js/panels/lng-terminal-downtime.js';
-import { DOWNTIME_CONF } from '../docs/js/util/lng-downtime.js';
+  DOWNTIME_CONF,
+} from '../docs/js/util/lng-downtime.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

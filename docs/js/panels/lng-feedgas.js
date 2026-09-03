@@ -31,7 +31,8 @@ import {
 } from './lng-fleet-overview.js';
 import { renderCycleRevisions } from './lng-cycle-revisions.js';
 
-import { cyclePriority } from '../util/lng-downtime.js';
+import { cyclePriority, DOWNTIME_CONF, detectDowntime, buildDailyTotal } from '../util/lng-downtime.js';
+import { formatCsvWithProvenance } from '../util/export-data.js';
 
 /** Stacked-area fill colors per feed index (base -> top). */
 const FEED_COLORS = [
@@ -58,7 +59,17 @@ export { buildMultiFeedData };
  */
 export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERMINAL_ID, opts = {}) {
   panelEl.innerHTML = '';
-  const t = LNG_TERMINALS[terminalId] || LNG_TERMINALS[DEFAULT_TERMINAL_ID];
+
+  // Deep-link support: URL query ?terminal=<id> takes precedence on initial load
+  let initialId = terminalId;
+  if (typeof window !== 'undefined' && window.location) {
+    const fromUrl = new URLSearchParams(window.location.search).get('terminal');
+    if (fromUrl && LNG_TERMINALS[fromUrl]) {
+      initialId = fromUrl;
+    }
+  }
+
+  const t = LNG_TERMINALS[initialId] || LNG_TERMINALS[DEFAULT_TERMINAL_ID];
   const effectiveId = t.id;
 
   // 1. Terminal Chips (all nine, straight from the registry order)
@@ -83,6 +94,11 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
       button.disabled = true;
     } else {
       button.addEventListener('click', () => {
+        if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+          const params = new URLSearchParams(window.location.search);
+          params.set('terminal', id);
+          window.history.replaceState(null, '', `?${params.toString()}`);
+        }
         if (typeof opts.onSelect === 'function') opts.onSelect(id);
         else renderLngFeedgasPanel(panelEl, bundle, id, opts);
       });
@@ -185,8 +201,47 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     }
   });
 
-  // 5. Hero chart (stacked areas for multi-feed)
-  drawHeroChart(chartEl, dailySeries, dottedSeries, nameplate, totalDays, isMultiFeed ? multi : null);
+  // 5. Downtime Event Detection for Chart Overlay (Section 8 sync)
+  const dtConf = DOWNTIME_CONF[effectiveId];
+  let downtimeEvents = [];
+  if (dtConf) {
+    const dtDaily = buildDailyTotal(bundle, dtConf);
+    if (dtDaily.length >= 3) {
+      downtimeEvents = detectDowntime(dtDaily, dtConf);
+    }
+  }
+
+  // 5b. Hero chart (stacked areas for multi-feed + Section 8 event overlays)
+  drawHeroChart(chartEl, dailySeries, dottedSeries, nameplate, totalDays, isMultiFeed ? multi : null, downtimeEvents);
+
+  // 5c. Data Export (P7): Self-describing CSV with provenance metadata
+  const existingExport = headerSection.querySelector('.chip--export');
+  if (existingExport) existingExport.remove();
+
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'chip chip--export';
+  exportBtn.innerHTML = '📥 Export CSV';
+  exportBtn.title = `Export ${t.display} feedgas history as self-describing CSV with provenance metadata`;
+  exportBtn.onclick = () => {
+    const exportRows = dailySeries.map((d) => ({
+      date: d.dateStr,
+      flow_mmcf_d: Number(d.value.toFixed(2)),
+      flow_dth_d: Math.round(d.value * 1.025 * 1000),
+      cycle: d.cycle || '',
+    }));
+    const csvStr = formatCsvWithProvenance(`${t.display} Feedgas History`, exportRows, {
+      terminal: t.display,
+      coverageNote: t.coverageNote || `${t.expectedCoveragePct}% expected coverage`,
+    });
+    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `${t.id}_feedgas.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  headerSection.appendChild(exportBtn);
 
   // 6. KPI strip + per-feed breakdown line.
   // Multi-feed: anchor the headline KPIs to the latest COMMON gas day (every
@@ -306,7 +361,7 @@ function getGasYearInfo(date) {
  * current latest value deviates strongly from the trailing 90-day median
  * (guards against implying an outlier day is normal).
  */
-function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDays, multi = null) {
+function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDays, multi = null, events = []) {
   container.innerHTML = '';
 
   const rect = container.getBoundingClientRect();
@@ -359,6 +414,41 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .attr('x1', 0).attr('x2', width)
     .attr('y1', (dd) => y(dd)).attr('y2', (dd) => y(dd))
     .attr('stroke', 'rgba(255,255,255,0.04)');
+
+  // Section 8 Downtime Event Overlay (P5)
+  if (events && events.length > 0) {
+    const EVENT_COLORS = {
+      OFFLINE: '#f87171',
+      CARGO_IDLE: '#fbbf24',
+      DEPRESSED: '#fb971d',
+      RAMPING: '#38bdf8',
+      NOT_YET_OPERATIONAL: '#94a3b8',
+    };
+    events.forEach((ev) => {
+      const evDate = new Date(`${ev.date}T00:00:00Z`);
+      const evInfo = getGasYearInfo(evDate);
+      if (evInfo.gasYear === currentGasYear) {
+        const xPos = x(evInfo.dayIndex);
+        const bandW = Math.max(ev.duration * (width / 365), 5);
+        const band = g.append('rect')
+          .attr('x', xPos)
+          .attr('width', bandW)
+          .attr('y', 0)
+          .attr('height', height)
+          .attr('fill', EVENT_COLORS[ev.type] || '#fbbf24')
+          .attr('fill-opacity', 0.14)
+          .style('cursor', 'pointer');
+
+        band.append('title')
+          .text(`${ev.type} (${ev.duration}d, ${ev.date})\n${ev.detail}\nClick to view Section 8 Downtime indicator`);
+
+        band.on('click', () => {
+          const s8 = document.getElementById('panel-lng-downtime');
+          if (s8) s8.scrollIntoView({ behavior: 'smooth' });
+        });
+      }
+    });
+  }
 
   // Nameplate Reference Line
   g.append('line')

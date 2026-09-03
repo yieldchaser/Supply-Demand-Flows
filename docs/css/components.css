@@ -993,3 +993,57 @@
   .divergence-card__body { grid-template-columns: 1fr; gap: var(--space-4); }
   .divergence-gauge { order: 3; }
 }
+
+/* Loading skeleton for deferred panels (P8) */
+.panel:empty {
+  min-height: 260px;
+  position: relative;
+}
+
+.panel:empty::after {
+  content: '';
+  position: absolute;
+  inset: var(--space-8);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02) 25%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.02) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.8s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Keyboard navigation & focus-visible styles (P8) */
+button:focus-visible,
+.chip:focus-visible,
+.downtime-tab:focus-visible {
+  outline: 2px solid var(--blue-flame);
+  outline-offset: 2px;
+}
+
+/* 390px mobile viewport reflow guard (P8) */
+@media (max-width: 420px) {
+  .panel {
+    padding: var(--space-4);
+  }
+  .comp-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .comp-mode-group, .comp-term-group {
+    width: 100%;
+  }
+  .downtime-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+

@@ -13,6 +13,7 @@
  */
 
 import { dth_to_mmcf } from './lng-metrics.js';
+import { kpiCardHtml } from '../components/kpi-card.js';
 
 /** Cycle publication priority for genuine NAESB scheduled nomination cycles. */
 export const CYCLE_PRIORITY = {
@@ -374,3 +375,98 @@ export function detectDowntime(daily, conf) {
 
   return events;
 }
+
+/**
+ * Determine current operational status from event list and latest gas day.
+ */
+export function currentStatus(events, latestDateStr) {
+  if (!events || events.length === 0) return { type: 'NORMAL', duration: 0, kind: 'neutral' };
+  const last = events[events.length - 1];
+  if (latestDateStr && (new Date(latestDateStr) - new Date(last.date)) / 86400000 > 3) {
+    return { type: 'NORMAL', duration: 0, kind: 'neutral' };
+  }
+  return {
+    type: last.type,
+    duration: last.duration,
+    kind: last.type === 'OFFLINE' ? 'bearish' : 'neutral',
+  };
+}
+
+/**
+ * Pure analytical view-model builder for Section 8 LNG Terminal Downtime.
+ * Free of DOM and D3 dependencies; directly callable from Node tests.
+ */
+export function buildDowntimeViewModel(bundle, key) {
+  const conf = DOWNTIME_CONF[key];
+  if (!conf) return null;
+  const daily = buildDailyTotal(bundle, conf);
+  if (daily.length < 3) {
+    return {
+      conf,
+      daily,
+      events: [],
+      status: { type: 'INSUFFICIENT_DATA', duration: 0, kind: 'neutral' },
+      kpis: [],
+    };
+  }
+  const events = detectDowntime(daily, conf);
+  const status = currentStatus(events, daily[daily.length - 1].dateStr);
+  const kpis = [
+    kpiCardHtml({
+      label: 'Current status',
+      value: status.type,
+      delta: { value: status.duration + 'd', kind: status.kind === 'OFFLINE' ? 'bearish' : 'neutral' },
+      helpText: 'Latest classified state',
+    }),
+    kpiCardHtml({
+      label: 'Total events',
+      value: String(events.length),
+      delta: { value: 'full history', kind: 'neutral' },
+      helpText: 'All detected downtime/turnaround events',
+    }),
+    kpiCardHtml({
+      label: 'Data span',
+      value: `${daily.length}d`,
+      delta: { value: daily[0].dateStr + ' to ' + daily[daily.length - 1].dateStr, kind: 'neutral' },
+      helpText: 'Posted gas days with at least one feed filing',
+    }),
+  ];
+  return { conf, daily, events, status, kpis };
+}
+
+/**
+ * Render the event list table + honesty footnote markup.
+ * Pure string generator; free of DOM.
+ */
+export function renderEventListHtml(events, conf) {
+  let tableHtml = '';
+  if (!events || !events.length) {
+    const emptyMsg = conf.label === 'Sabine Pass'
+      ? 'No downtime events — terminal runs flat at ~31% nameplate (measured-partial). Correct behavior.'
+      : 'No downtime events in the measured window.';
+    tableHtml = `<p class="downtime-events__empty">${emptyMsg}</p>`;
+  } else {
+    tableHtml = `
+      <table class="downtime-table">
+        <thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>Detail</th></tr></thead>
+        <tbody>
+          ${events.map((e) => `
+            <tr>
+              <td class="num">${e.date}</td>
+              <td><span class="badge badge--${e.type.toLowerCase()}">${e.type}</span></td>
+              <td class="num">${e.duration}d</td>
+              <td>${e.detail}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  return `
+    <div class="downtime-events">
+      <h3>${conf.label} · ${events ? events.length : 0} events (full history)</h3>
+      ${tableHtml}
+    </div>
+    <p class="downtime-honesty">⚠ ${conf.honesty}</p>
+  `;
+}
+

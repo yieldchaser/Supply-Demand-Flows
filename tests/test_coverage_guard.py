@@ -8,16 +8,19 @@ beyond stated per-terminal tolerances.
 
 from __future__ import annotations
 
-import pandas as pd
-import pytest
+import json
 
-from scripts.load_registry import load_terminal_registry
+import pandas as pd
+
+from scripts.load_registry import REGISTRY_JSON_PATH, load_terminal_registry
 from scripts.task3_validate import TERMINALS, load_terminal_history
 
 
-def compute_terminal_coverage_from_curated(term_key: str, window_days: int = 60) -> dict[str, float]:
+def compute_terminal_coverage_from_curated(
+    term_key: str, window_days: int = 60, nameplate: float | None = None
+) -> dict[str, float]:
     """Recompute empirical 60-day median coverage from curated parquet data.
-    
+
     Applies:
       - Settled cycle rule: SQ only, hourly id{HH}00 excluded, cycle precedence.
       - Feed parity rule: only complete days where all active feeds reported.
@@ -35,8 +38,9 @@ def compute_terminal_coverage_from_curated(term_key: str, window_days: int = 60)
         return {"days": 0, "median_mmcf": 0.0, "coverage_pct": 0.0}
 
     median_mmcf = float(pd.Series(sample_mmcf).median())
-    nameplate = conf["nameplate"]
-    coverage_pct = (median_mmcf / nameplate) * 100.0 if nameplate > 0 else 0.0
+    if nameplate is None:
+        nameplate = conf.get("nameplate") or load_terminal_registry().get(term_key, {}).get("nameplate", 0.0)
+    coverage_pct = (median_mmcf / nameplate) * 100.0 if nameplate and nameplate > 0 else 0.0
 
     return {
         "days": len(sample_mmcf),
@@ -63,7 +67,7 @@ def test_terminal_coverage_guard_against_curated_parquets() -> None:
         # Recompute from curated parquet data
         # Note: Freeport uses its 100-day dual-feed overlap baseline
         window = 100 if term_key == "freeport" else 60
-        res = compute_terminal_coverage_from_curated(term_key, window_days=window)
+        res = compute_terminal_coverage_from_curated(term_key, window_days=window, nameplate=reg["nameplate"])
 
         measured_pct = res["coverage_pct"]
         claimed_pct = reg["expectedCoveragePct"]
@@ -73,7 +77,7 @@ def test_terminal_coverage_guard_against_curated_parquets() -> None:
         if drift > tolerance:
             failures.append(
                 f"Terminal '{term_key}': claimed {claimed_pct:.1f}%, measured {measured_pct:.1f}%, "
-                f"drift {drift:.1f}% exceeds tolerance ±{tolerance:.1f}% "
+                f"drift {drift:.1f}% exceeds tolerance +/-{tolerance:.1f}% "
                 f"(median {res['median_mmcf']:.1f} MMcf/d vs nameplate {reg['nameplate']:.0f})"
             )
 
@@ -85,7 +89,7 @@ def test_terminal_coverage_guard_against_curated_parquets() -> None:
 def test_coverage_guard_rejects_perturbed_flattering_claim() -> None:
     """Proof of guard: rejects a deliberately falsified coverage claim (e.g. Freeport at 80%)."""
     # Recompute Freeport from curated
-    res = compute_terminal_coverage_from_curated("freeport", window_days=100)
+    res = compute_terminal_coverage_from_curated("freeport", window_days=100, nameplate=2100.0)
     measured_pct = res["coverage_pct"]  # ~52.9%
 
     # Simulate the flattering falsehood that Prompt L and M caught
@@ -101,10 +105,6 @@ def test_coverage_guard_rejects_perturbed_flattering_claim() -> None:
 
 def test_registry_json_sidecar_matches_js_source() -> None:
     """Assert generated config/terminals_registry.json matches docs/js/util/lng-terminals.js."""
-    import json
-    from pathlib import Path
-    from scripts.load_registry import REGISTRY_JSON_PATH
-
     assert REGISTRY_JSON_PATH.exists(), f"Sidecar {REGISTRY_JSON_PATH} missing"
     sidecar = json.loads(REGISTRY_JSON_PATH.read_text(encoding="utf-8"))
     js_registry = load_terminal_registry()
@@ -120,4 +120,20 @@ def test_registry_json_sidecar_matches_js_source() -> None:
         assert sc_entry["expectedMedianMmcf"] == js_entry["expectedMedianMmcf"], f"{tid} expectedMedianMmcf mismatch"
         assert sc_entry["coverageTolerancePct"] == js_entry["coverageTolerancePct"], f"{tid} coverageTolerancePct mismatch"
         assert sc_entry["operational"] == js_entry["operational"], f"{tid} operational mismatch"
+
+
+def test_registry_sidecar_has_all_required_fields_for_all_terminals() -> None:
+    """Assert config/terminals_registry.json contains all required fields for all 9 terminals."""
+    registry = load_terminal_registry()
+    assert len(registry) == 9, f"Expected 9 terminals, found {len(registry)}"
+    required_fields = [
+        "id", "display", "nameplate", "expectedCoveragePct",
+        "expectedMedianMmcf", "coverageTolerancePct", "operational"
+    ]
+    for term_key, item in registry.items():
+        for field in required_fields:
+            assert field in item, f"Terminal '{term_key}' missing required field '{field}' in registry sidecar"
+        assert isinstance(item["nameplate"], int | float) and item["nameplate"] > 0, (
+            f"Terminal '{term_key}' has invalid nameplate: {item['nameplate']}"
+        )
 

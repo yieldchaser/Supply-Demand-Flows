@@ -385,7 +385,7 @@ class TestDivergence:
         weekly_cfg = make_cfg(health_recency_days=9)
         res = check_divergence(make_frame([day(1)]), health, {}, weekly_cfg, DEFAULTS, NOW)
         assert res["severity"] == "PASS"
-        assert "no divergence signal" in res["message"]
+        assert "no divergence:" in res["message"]
 
     def test_accumulation_flat_arm_suppressed_when_fresh(self) -> None:
         """Flat accumulation count is benign when the latest period is fresh.

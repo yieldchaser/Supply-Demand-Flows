@@ -176,3 +176,31 @@ test('Real outage: both feeds posting 0 is complete and sets postedZero', () => 
   assert.strictEqual(sec8Point.feedsPosted, 2);
   assert.strictEqual(sec8Point.postedZero, true);
 });
+
+test('Cross-panel invariant: Section 5, 7, and 8 compute identical Cove Point daily totals', () => {
+  const bundle = {
+    sources: {
+      bhe: {
+        data: [
+          { series_id: 'cpl_sq_10001_d_timely', period: '2026-08-01', value: 768750 }, // 750 MMcf/d
+          { series_id: 'cpl_sq_10001_d_evening', period: '2026-08-01', value: 789250 }, // 770 MMcf/d
+          { series_id: 'cpl_sq_10001_d_timely', period: '2026-08-02', value: 717500 }, // 700 MMcf/d
+        ],
+      },
+    },
+  };
+
+  // Section 8 Daily Total
+  const sec8Daily = buildDailyTotal(bundle, DOWNTIME_CONF.cove_point);
+  assert.strictEqual(sec8Daily.length, 2);
+  // Evening supersedes timely on 2026-08-01: 789250 / 1.025 / 1000 = 770 MMcf/d
+  assert.ok(Math.abs(sec8Daily[0].value - 770.0) < 1e-4);
+  // 2026-08-02: 717500 / 1.025 / 1000 = 700 MMcf/d
+  assert.ok(Math.abs(sec8Daily[1].value - 700.0) < 1e-4);
+
+  // Section 7 Fleet Summary
+  const summary = terminalSummary(bundle, LNG_TERMINALS.cove_point);
+  assert.strictEqual(summary.ok, true);
+  assert.ok(Math.abs(summary.latest - 700.0) < 1e-4);
+});
+

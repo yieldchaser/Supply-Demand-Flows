@@ -91,6 +91,8 @@ export const LNG_TERMINALS = {
     expectedCoveragePct: 52.9,
     expectedMedianMmcf: 1111.5,
     coverageTolerancePct: 10.0,
+    coverageNote:
+      'MEASURED-PARTIAL: interstate-visible feeds only (Gulf South + TETCO, 52.9% median coverage of 2,100 MMcf/d nameplate). KMTP intrastate lateral (~400–450 MMcf/d capacity) is unmetered on public EBBs.',
     signal: 'sq',
     cycles: ['id1', 'id2', 'id3'],
     platformLabel: 'Boardwalk OAC + Enbridge rtba',

@@ -28,6 +28,7 @@ PREFIX_MAP = {
 TERMINALS = {
     "freeport": {
         "name": "Freeport LNG",
+        "nameplate": 2100.0,
         "feeds": ["gulf_south_sq_24329_d", "tetco_sq_79999_d"],
         "zero_mode": "both_zero",
         "zero_days_threshold": 2,
@@ -35,6 +36,7 @@ TERMINALS = {
     },
     "cove_point": {
         "name": "Cove Point LNG",
+        "nameplate": 750.0,
         "feeds": ["cpl_sq_10001_d"],
         "zero_mode": "normal",
         "zero_days_threshold": 3,
@@ -42,6 +44,7 @@ TERMINALS = {
     },
     "sabine_pass": {
         "name": "Sabine Pass LNG",
+        "nameplate": 4500.0,
         "feeds": ["creole_trail_sq_CT200111_d", "km_ngpl_sq_3592_d"],
         "zero_mode": "ctpl_only",
         "zero_days_threshold": 3,
@@ -49,6 +52,7 @@ TERMINALS = {
     },
     "plaquemines": {
         "name": "Plaquemines LNG",
+        "nameplate": 3400.0,
         "feeds": ["gator_express_sq_vgpqd_d"],
         "zero_mode": "normal",
         "zero_days_threshold": 3,

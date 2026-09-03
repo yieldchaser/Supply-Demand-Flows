@@ -22,8 +22,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+# Ensure stdout handles encoding safely on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import pandas as pd
-import yaml
 
 from scripts.load_registry import load_terminal_registry
 from scripts.task3_validate import TERMINALS, detect_events, load_terminal_history
@@ -97,24 +103,16 @@ def run_integrity_board() -> tuple[bool, str, dict[str, str]]:
 
         health_payload = _load_health(cfg.get("health_file"))
         prior = state.get(source_key, {})
-        source_rule = dict(defaults)
-        source_rule.update(cfg.get("rules", {}))
 
-        results = run_source_checks(
-            source=source_key,
+        results, max_sev = run_source_checks(
+            source_key=source_key,
             df=df,
-            now=now,
-            rule=source_rule,
-            health=health_payload,
+            src_cfg=cfg,
+            defaults=defaults,
             prior=prior,
+            now=now,
+            health=health_payload,
         )
-
-        # Max severity
-        sev_rank = {"SKIPPED": 0, "PASS": 1, "WARN": 2, "FAIL": 3}
-        max_sev = "PASS"
-        for r in results:
-            if sev_rank.get(r["severity"], 0) > sev_rank.get(max_sev, 0):
-                max_sev = r["severity"]
 
         source_verdicts[source_key] = max_sev
         if max_sev == "FAIL":
@@ -260,8 +258,20 @@ def run_coverage_guard_check() -> tuple[bool, list[dict[str, Any]]]:
             })
             continue
 
+        if term_key not in TERMINALS:
+            results.append({
+                "terminal": term_key,
+                "nameplate": reg["nameplate"],
+                "claimed_pct": reg["expectedCoveragePct"],
+                "measured_pct": None,
+                "drift_pct": None,
+                "tolerance_pct": reg["coverageTolerancePct"],
+                "status": "SKIP (no coverage-history config)",
+            })
+            continue
+
         window = 100 if term_key == "freeport" else 60
-        cov_res = compute_terminal_coverage_from_curated(term_key, window_days=window)
+        cov_res = compute_terminal_coverage_from_curated(term_key, window_days=window, nameplate=reg["nameplate"])
         measured_pct = cov_res["coverage_pct"]
         claimed_pct = reg["expectedCoveragePct"]
         tolerance = reg["coverageTolerancePct"]
@@ -285,81 +295,100 @@ def run_coverage_guard_check() -> tuple[bool, list[dict[str, Any]]]:
 
 
 def main() -> int:
-    print("=" * 75)
-    print("BLUE TIDE OBSERVATORY — PREFLIGHT VERIFICATION & HEALTH AUDIT")
-    print("=" * 75)
-    print(f"Timestamp: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')} UTC\n")
-
-    overall_pass = True
-
-    # 1. Curated Data Inventory
-    print("[1/5] CURATED PARQUET INVENTORY")
-    print("-" * 75)
-    inv_ok, inventory = run_inventory_check()
-    if not inv_ok:
-        overall_pass = False
-    print(f"{'Source':<20} | {'Rows':<8} | {'Periods':<8} | {'Span':<25} | Status")
-    print("-" * 75)
-    for inv in inventory:
-        span_str = f"{inv['min_date']} → {inv['max_date']}"
-        stat_str = "OK" if inv['ok'] else "EMPTY/MISSING"
-        print(f"{inv['source']:<20} | {inv['rows']:<8d} | {inv['periods']:<8d} | {span_str:<25} | {stat_str}")
-    print()
-
-    # 2. Integrity Board
-    print("[2/5] INTEGRITY BOARD (validators.run_integrity)")
-    print("-" * 75)
-    board_ok, overall_sev, verdicts = run_integrity_board()
-    if not board_ok:
-        overall_pass = False
-    for src, sev in verdicts.items():
-        print(f"  {src:<22}: {sev}")
-    print(f"  -> Overall Integrity Board: {overall_sev}")
-    print()
-
-    # 3. Section 8 Downtime Validator Cases
-    print("[3/5] SECTION 8 DOWNTIME VALIDATION CASES (task3_validate.py)")
-    print("-" * 75)
-    t3_ok, cases = run_task3_cases()
-    if not t3_ok:
-        overall_pass = False
-    for name, ok, desc in cases:
-        status_str = "OK CORRECT" if ok else "FAIL"
-        print(f"  {name:<55} [{status_str}] ({desc})")
-    print()
-
-    # 4. Trailing 90-Day Feedgas Alert Replay
-    print("[4/5] FEEDGAS ALERT REPLAY (Trailing 90 Days)")
-    print("-" * 75)
-    _, alert_counts = run_alert_replay_90d()
-    for term, count in alert_counts.items():
-        print(f"  {term:<20}: {count} alerts in last 90 days")
-    print()
-
-    # 5. Coverage Anti-Rot Guard
-    print("[5/5] COVERAGE ANTI-ROT GUARD (Curated Parquet vs Registry Claims)")
-    print("-" * 75)
-    guard_ok, guard_results = run_coverage_guard_check()
-    if not guard_ok:
-        overall_pass = False
-    print(f"{'Terminal':<16} | {'NP':<5} | {'Claimed':<8} | {'Measured':<8} | {'Drift':<6} | {'Tol':<6} | Status")
-    print("-" * 75)
-    for g in guard_results:
-        print(
-            f"{g['terminal']:<16} | {g['nameplate']:<5.0f} | "
-            f"{g['claimed_pct']:>6.1f}% | {g['measured_pct']:>7.1f}% | "
-            f"{g['drift_pct']:>5.1f}% | ±{g['tolerance_pct']:<4.1f}% | {g['status']}"
-        )
-    print()
-
-    # Final Verdict
-    print("=" * 75)
-    if overall_pass:
-        print("PREFLIGHT VERDICT: PASS — ALL SYSTEMS VERIFIED AND READY TO MERGE")
+    try:
         print("=" * 75)
-        return 0
-    else:
-        print("PREFLIGHT VERDICT: FAIL — ONE OR MORE OBSERVATORY CHECKS FAILED")
+        print("BLUE TIDE OBSERVATORY -- PREFLIGHT VERIFICATION & HEALTH AUDIT")
+        print("=" * 75)
+        print(f"Timestamp: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')} UTC\n")
+
+        overall_pass = True
+
+        # 1. Curated Data Inventory
+        print("[1/5] CURATED PARQUET INVENTORY")
+        print("-" * 75)
+        inv_ok, inv_results = run_inventory_check()
+        if not inv_ok:
+            overall_pass = False
+        for r in inv_results:
+            status_str = "OK" if r["ok"] else "FAIL"
+            print(f"  {r['source']:<22} | {r['rows']:>7} rows | {r['periods']:>4} periods | {r['min_date']} -> {r['max_date']} [{status_str}]")
+        print()
+
+        # 2. Pipeline Integrity Checks
+        print("[2/5] PIPELINE INTEGRITY BOARD (validators/run_integrity.py)")
+        print("-" * 75)
+        integ_ok, overall_sev, source_verdicts = run_integrity_board()
+        if not integ_ok:
+            overall_pass = False
+        for src, sev in sorted(source_verdicts.items()):
+            print(f"  {src:<22}: {sev}")
+        print(f"  -> Overall Integrity Board: {overall_sev}")
+        print()
+
+        # 3. Section 8 Downtime Validator Cases
+        print("[3/5] SECTION 8 DOWNTIME VALIDATION CASES (task3_validate.py)")
+        print("-" * 75)
+        t3_ok, cases = run_task3_cases()
+        if not t3_ok:
+            overall_pass = False
+        for name, ok, desc in cases:
+            status_str = "OK CORRECT" if ok else "FAIL"
+            print(f"  {name:<55} [{status_str}] ({desc})")
+        print()
+
+        # 4. Trailing 90-Day Feedgas Alert Replay
+        print("[4/5] FEEDGAS ALERT REPLAY (Trailing 90 Days)")
+        print("-" * 75)
+        _, alert_counts = run_alert_replay_90d()
+        for term, count in alert_counts.items():
+            print(f"  {term:<20}: {count} alerts in last 90 days")
+        print()
+
+        # 5. Coverage Anti-Rot Guard
+        print("[5/5] COVERAGE ANTI-ROT GUARD (Curated Parquet vs Registry Claims)")
+        print("-" * 75)
+        guard_ok, guard_results = run_coverage_guard_check()
+        if not guard_ok:
+            overall_pass = False
+        print(f"{'Terminal':<16} | {'NP':<5} | {'Claimed':<8} | {'Measured':<8} | {'Drift':<6} | {'Tol':<6} | Status")
+        print("-" * 75)
+        skipped_count = 0
+        pass_count = 0
+        fail_count = 0
+        for g in guard_results:
+            meas_str = f"{g['measured_pct']:>7.1f}%" if g["measured_pct"] is not None else "   SKIP  "
+            drift_str = f"{g['drift_pct']:>5.1f}%" if g["drift_pct"] is not None else "  N/A "
+            if g["status"].startswith("SKIP"):
+                skipped_count += 1
+                print(f"  SKIP: {g['terminal']} (no coverage-history config in task3_validate.py)")
+            elif g["status"].startswith("PASS"):
+                pass_count += 1
+            else:
+                fail_count += 1
+            print(
+                f"{g['terminal']:<16} | {g['nameplate']:<5.0f} | "
+                f"{g['claimed_pct']:>6.1f}% | {meas_str} | "
+                f"{drift_str} | +/-{g['tolerance_pct']:<3.1f}% | {g['status']}"
+            )
+        if skipped_count > 0:
+            print(f"\n  -> Coverage Guard: {pass_count} passed, {skipped_count} skipped (WARN), {fail_count} failed")
+        print()
+
+        # Final Verdict
+        print("=" * 75)
+        if overall_pass:
+            print("PREFLIGHT VERDICT: PASS -- ALL SYSTEMS VERIFIED AND READY TO MERGE")
+            print("=" * 75)
+            return 0
+        print("PREFLIGHT VERDICT: FAIL -- ONE OR MORE OBSERVATORY CHECKS FAILED")
+        print("=" * 75)
+        return 1
+    except Exception as exc:
+        print(f"\nFATAL: Preflight crashed with unhandled exception: {exc}")
+        import traceback
+        traceback.print_exc()
+        print("=" * 75)
+        print("PREFLIGHT VERDICT: FAIL -- PREFLIGHT SCRIPT CRASHED")
         print("=" * 75)
         return 1
 

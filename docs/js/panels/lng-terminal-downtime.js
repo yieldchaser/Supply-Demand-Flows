@@ -53,6 +53,8 @@ import {
   DOWNTIME_CONF as CONF,
   detectDowntime,
   buildDailyTotal,
+  buildDowntimeViewModel,
+  renderEventListHtml,
 } from '../util/lng-downtime.js';
 
 /* --------------------------------------------------------------------------- */
@@ -84,6 +86,8 @@ export function renderTerminalDowntimePanel(panelEl, bundle) {
 
   const tabs = document.createElement('div');
   tabs.className = 'downtime-tabs';
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'LNG Terminals');
   const termKeys = Object.keys(CONF);
   const footEl = document.createElement('div');
   footEl.className = 'downtime-footnote';
@@ -91,56 +95,39 @@ export function renderTerminalDowntimePanel(panelEl, bundle) {
   termKeys.forEach((key, idx) => {
     const btn = document.createElement('button');
     btn.className = 'downtime-tab' + (idx === 0 ? ' downtime-tab--active' : '');
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
+    btn.tabIndex = 0;
     btn.textContent = CONF[key].label;
-    btn.onclick = () => {
-      tabs.querySelectorAll('.downtime-tab').forEach((b) => b.classList.remove('downtime-tab--active'));
+
+    const selectTab = () => {
+      tabs.querySelectorAll('.downtime-tab').forEach((b) => {
+        b.classList.remove('downtime-tab--active');
+        b.setAttribute('aria-selected', 'false');
+      });
       btn.classList.add('downtime-tab--active');
+      btn.setAttribute('aria-selected', 'true');
+      btn.focus();
       renderTerminal(chartEl, sidebarEl, footEl, bundle, key);
     };
+
+    btn.onclick = selectTab;
+    btn.onkeydown = (e) => {
+      if (e.key === 'ArrowRight') {
+        const next = tabs.querySelectorAll('.downtime-tab')[(idx + 1) % termKeys.length];
+        if (next) next.click();
+      } else if (e.key === 'ArrowLeft') {
+        const prev = tabs.querySelectorAll('.downtime-tab')[(idx - 1 + termKeys.length) % termKeys.length];
+        if (prev) prev.click();
+      }
+    };
+
     tabs.appendChild(btn);
   });
 
   chartEl.parentNode.insertBefore(tabs, chartEl);
   chartEl.parentNode.appendChild(footEl);
   renderTerminal(chartEl, sidebarEl, footEl, bundle, termKeys[0]);
-}
-
-export function buildDowntimeViewModel(bundle, key) {
-  const conf = CONF[key];
-  if (!conf) return null;
-  const daily = buildDailyTotal(bundle, conf);
-  if (daily.length < 3) {
-    return {
-      conf,
-      daily,
-      events: [],
-      status: { type: 'INSUFFICIENT_DATA', duration: 0, kind: 'neutral' },
-      kpis: [],
-    };
-  }
-  const events = detectDowntime(daily, conf);
-  const status = currentStatus(events, daily[daily.length - 1].dateStr);
-  const kpis = [
-    kpiCardHtml({
-      label: 'Current status',
-      value: status.type,
-      delta: { value: status.duration + 'd', kind: status.kind === 'OFFLINE' ? 'bearish' : 'neutral' },
-      helpText: 'Latest classified state',
-    }),
-    kpiCardHtml({
-      label: 'Total events',
-      value: String(events.length),
-      delta: { value: 'full history', kind: 'neutral' },
-      helpText: 'All detected downtime/turnaround events',
-    }),
-    kpiCardHtml({
-      label: 'Data span',
-      value: `${daily.length}d`,
-      delta: { value: daily[0].dateStr + ' to ' + daily[daily.length - 1].dateStr, kind: 'neutral' },
-      helpText: 'Posted gas days with at least one feed filing',
-    }),
-  ];
-  return { conf, daily, events, status, kpis };
 }
 
 function renderTerminal(chartEl, sidebarEl, footEl, bundle, key) {
@@ -159,32 +146,25 @@ function renderTerminal(chartEl, sidebarEl, footEl, bundle, key) {
   footEl.innerHTML = renderEventListHtml(model.events, model.conf);
 }
 
-function currentStatus(events, latestDateStr) {
-  if (events.length === 0) return { type: 'NORMAL', duration: 0, kind: 'neutral' };
-  const last = events[events.length - 1];
-  if (latestDateStr && (new Date(latestDateStr) - new Date(last.date)) / 86400000 > 3) {
-    return { type: 'NORMAL', duration: 0, kind: 'neutral' };
-  }
-  return { type: last.type, duration: last.duration,
-           kind: last.type === 'OFFLINE' ? 'bearish' : 'neutral' };
-}
-
 /**
  * Draw a timeline chart: daily total MMcf/d with event bands and zero-day shading.
  */
 function drawTimeline(container, daily, conf, events) {
-  const margin = { top: 28, right: 120, bottom: 48, left: 48 };
-  const totalH = 320;
-  const width = Math.max((container.getBoundingClientRect().width || 560) - margin.left - margin.right, 260);
+  const margin = { top: 20, right: 30, bottom: 40, left: 56 };
+  const totalH = 260;
+  const rect = container.getBoundingClientRect();
+  const width = Math.max((rect.width || 600), 300) - margin.left - margin.right;
   const height = totalH - margin.top - margin.bottom;
 
   const svg = d3.select(container).append('svg')
     .attr('viewBox', `0 0 ${width + margin.left + margin.right} ${totalH}`)
     .attr('preserveAspectRatio', 'xMidYMid meet')
+    .attr('role', 'img')
+    .attr('aria-label', `${conf.label} feedgas downtime and outage timeline`)
     .style('display', 'block');
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-  const parse = (d) => new Date(d);
+  const parse = (d) => new Date(`${d}T00:00:00Z`);
   const dates = daily.map((d) => parse(d.dateStr));
   const values = daily.map((d) => d.value);
   const x = d3.scaleTime().domain(d3.extent(dates)).range([0, width]);
@@ -238,43 +218,8 @@ function drawTimeline(container, daily, conf, events) {
     g.append('text').attr('x', x(dates[i])).attr('y', height + 20).attr('text-anchor', 'middle')
       .attr('font-size', 10).attr('font-family', 'var(--font-sans)')
       .style('fill', 'var(--chart-label)')
-      .text(dates[i].toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      .text(dates[i].toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }));
   }
-}
-
-/**
- * Render the event list table + honesty footnote markup.
- */
-export function renderEventListHtml(events, conf) {
-  let tableHtml = '';
-  if (!events || !events.length) {
-    const emptyMsg = conf.label === 'Sabine Pass'
-      ? 'No downtime events — terminal runs flat at ~31% nameplate (measured-partial). Correct behavior.'
-      : 'No downtime events in the measured window.';
-    tableHtml = `<p class="downtime-events__empty">${emptyMsg}</p>`;
-  } else {
-    tableHtml = `
-      <table class="downtime-table">
-        <thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>Detail</th></tr></thead>
-        <tbody>
-          ${events.map((e) => `
-            <tr>
-              <td class="num">${e.date}</td>
-              <td><span class="badge badge--${e.type.toLowerCase()}">${e.type}</span></td>
-              <td class="num">${e.duration}d</td>
-              <td>${e.detail}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>`;
-  }
-
-  return `
-    <div class="downtime-events">
-      <h3>${conf.label} · ${events ? events.length : 0} events (full history)</h3>
-      ${tableHtml}
-    </div>
-    <p class="downtime-honesty">⚠ ${conf.honesty}</p>
-  `;
 }
 
 /* Export for non-module fallback */

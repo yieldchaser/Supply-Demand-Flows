@@ -230,7 +230,9 @@ def test_build_universe_covers_expected_totals() -> None:
     universe = build_universe()
     assert set(universe) == {"gulf_south", "gasnom", "quorum", "bhe", "cheniere"}
     counts = {s: len(ms) for s, ms in universe.items()}
-    assert counts["gulf_south"] == 717
+    # 2026-09-03 audit (Prompt R §07): 719 unique physical meters in curated gulf_south.parquet
+    # (grown from 717 in 2026-08-23 classification.json baseline following Boardwalk EBB postings).
+    assert counts["gulf_south"] == 719
     assert counts["gasnom"] == 61
     assert counts["quorum"] == 11
     assert counts["bhe"] == 5  # egts 40704 (twin of cpl_47001_r) + CPL 45001 + CPL 37001 (2026-08-26 promotion) + CPL 10001 plant-intake feedgas + cpl_47001 (EGTS twin counterpart)
