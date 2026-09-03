@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-03T17:00:02.329906+00:00",
+  "generated_at": "2026-09-03T18:19:40.694512+00:00",
   "overall": "WARN",
   "sources": {
     "gulf_south": {
@@ -53,6 +53,12 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "SKIPPED",
+          "message": "no prefix_gaps configured",
+          "details": {}
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 4433→4433 distinct series_id (limit 20%)",
@@ -75,7 +81,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 10h ago and dataset consistent (stale 1d, resolved 2026-09-02, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 11h ago and dataset consistent (stale 1d, resolved 2026-09-02, warn 2d / fail 4d)",
           "details": {
             "stale_days": 1
           }
@@ -138,6 +144,12 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "SKIPPED",
+          "message": "no prefix_gaps configured",
+          "details": {}
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 40→40 distinct series_id (limit 20%)",
@@ -149,18 +161,18 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 82756→82800 / days 2069→2070",
+          "message": "history intact: rows 82800→82800 / days 2070→2070",
           "details": {
-            "rows_before": 82756,
+            "rows_before": 82800,
             "rows_after": 82800,
-            "days_before": 2069,
+            "days_before": 2070,
             "days_after": 2070
           }
         },
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 4h ago and dataset consistent (stale 2d, resolved 2026-09-01, warn 3d / fail 6d)",
+          "message": "no divergence: scraper 'ok' 5h ago and dataset consistent (stale 2d, resolved 2026-09-01, warn 3d / fail 6d)",
           "details": {
             "stale_days": 2
           }
@@ -225,6 +237,12 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "SKIPPED",
+          "message": "no prefix_gaps configured",
+          "details": {}
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 633→633 distinct series_id (limit 20%)",
@@ -247,7 +265,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 115h ago and dataset consistent (stale 6d, resolved 2026-08-28, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 117h ago and dataset consistent (stale 6d, resolved 2026-08-28, warn 9d / fail 18d)",
           "details": {
             "stale_days": 6
           }
@@ -260,23 +278,23 @@
       }
     },
     "eia_storage": {
-      "overall": "WARN",
+      "overall": "PASS",
       "results": [
         {
           "check": "schema",
           "severity": "PASS",
-          "message": "schema ok: 3608 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Bcf'",
+          "message": "schema ok: 3616 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Bcf'",
           "details": {
-            "rows": 3608
+            "rows": 3616
           }
         },
         {
           "check": "value_sanity",
           "severity": "PASS",
-          "message": "value sanity ok: 3608 row(s) scanned, 451 within 1 band(s), 0 breaches",
+          "message": "value sanity ok: 3616 row(s) scanned, 452 within 1 band(s), 0 breaches",
           "details": {
-            "rows": 3608,
-            "banded_scanned": 451
+            "rows": 3616,
+            "banded_scanned": 452
           }
         },
         {
@@ -288,26 +306,32 @@
         {
           "check": "collision",
           "severity": "PASS",
-          "message": "no collisions: 3,608 distinct (series_id, period) keys, each from 1 row",
+          "message": "no collisions: 3,616 distinct (series_id, period) keys, each from 1 row",
           "details": {
-            "keys": 3608
+            "keys": 3616
           }
         },
         {
           "check": "stagnation",
-          "severity": "WARN",
-          "message": "dataset ageing: newest period 2026-08-21 is 13d old (warn 9d / fail 18d)",
+          "severity": "PASS",
+          "message": "dataset fresh: newest period 2026-08-28 is 6d old (warn 9d / fail 18d)",
           "details": {
-            "stale_days": 13
+            "stale_days": 6
           }
         },
         {
           "check": "gaps",
           "severity": "PASS",
-          "message": "calendar complete: 451 consecutive week(s) 2018-01-05..2026-08-21",
+          "message": "calendar complete: 452 consecutive week(s) 2018-01-05..2026-08-28",
           "details": {
-            "weeks": 451
+            "weeks": 452
           }
+        },
+        {
+          "check": "prefix_gaps",
+          "severity": "SKIPPED",
+          "message": "no prefix_gaps configured",
+          "details": {}
         },
         {
           "check": "coverage",
@@ -321,27 +345,27 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 3608→3608 / days 451→451",
+          "message": "history intact: rows 3608→3616 / days 451→452",
           "details": {
             "rows_before": 3608,
-            "rows_after": 3608,
+            "rows_after": 3616,
             "days_before": 451,
-            "days_after": 451
+            "days_after": 452
           }
         },
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 119h ago and dataset consistent (stale 13d, resolved 2026-08-21, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 6d, resolved 2026-08-28, warn 9d / fail 18d)",
           "details": {
-            "stale_days": 13
+            "stale_days": 6
           }
         }
       ],
       "stats": {
-        "rows": 3608,
-        "days": 451,
-        "latest": "2026-08-21"
+        "rows": 3616,
+        "days": 452,
+        "latest": "2026-08-28"
       }
     },
     "eia_lng_exports": {
@@ -395,6 +419,12 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "SKIPPED",
+          "message": "no prefix_gaps configured",
+          "details": {}
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 45→45 distinct series_id (limit 20%)",
@@ -417,7 +447,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 695h ago and dataset consistent (stale 95d, resolved 2026-05-31, warn 105d / fail 135d)",
+          "message": "no divergence: scraper 'ok' 696h ago and dataset consistent (stale 95d, resolved 2026-05-31, warn 105d / fail 135d)",
           "details": {
             "stale_days": 95
           }
@@ -480,6 +510,12 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "SKIPPED",
+          "message": "no prefix_gaps configured",
+          "details": {}
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 6→6 distinct series_id (limit 20%)",
@@ -502,7 +538,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 47h ago and dataset consistent (stale 65d, resolved 2026-06-30, warn 75d / fail 135d)",
+          "message": "no divergence: scraper 'ok' 48h ago and dataset consistent (stale 65d, resolved 2026-06-30, warn 75d / fail 135d)",
           "details": {
             "stale_days": 65
           }
@@ -515,7 +551,7 @@
       }
     },
     "gasnom": {
-      "overall": "PASS",
+      "overall": "WARN",
       "results": [
         {
           "check": "schema",
@@ -565,6 +601,24 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "WARN",
+          "message": "prefix gaps in 1 asset(s): port_arthur_pipeline: 3 missing (2026-08-23..2026-08-25)",
+          "details": {
+            "missing_by_prefix": {
+              "port_arthur_pipeline": [
+                "2026-08-23",
+                "2026-08-24",
+                "2026-08-25"
+              ]
+            },
+            "prefixes_affected": [
+              "port_arthur_pipeline"
+            ],
+            "total_prefixes_checked": 4
+          }
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 1238→1238 distinct series_id (limit 20%)",
@@ -587,7 +641,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 1h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
@@ -654,6 +708,30 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "WARN",
+          "message": "prefix gaps in 2 asset(s): gator_express: 3 missing (2025-03-25..2025-03-27); trans_cameron: 3 missing (2025-03-25..2025-03-27)",
+          "details": {
+            "missing_by_prefix": {
+              "gator_express": [
+                "2025-03-25",
+                "2025-03-26",
+                "2025-03-27"
+              ],
+              "trans_cameron": [
+                "2025-03-25",
+                "2025-03-26",
+                "2025-03-27"
+              ]
+            },
+            "prefixes_affected": [
+              "gator_express",
+              "trans_cameron"
+            ],
+            "total_prefixes_checked": 2
+          }
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 120→120 distinct series_id (limit 20%)",
@@ -676,7 +754,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 2h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
@@ -739,6 +817,18 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "PASS",
+          "message": "all 2 prefix asset(s) complete with 0 gaps",
+          "details": {
+            "prefixes_checked": [
+              "cpl",
+              "egts"
+            ],
+            "total_prefixes_checked": 2
+          }
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 120→120 distinct series_id (limit 20%)",
@@ -761,7 +851,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 9h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 10h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
@@ -826,6 +916,26 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "WARN",
+          "message": "prefix gaps in 2 asset(s): corpus_christi: 1 missing (2026-08-25..2026-08-25); creole_trail: 1 missing (2026-08-25..2026-08-25)",
+          "details": {
+            "missing_by_prefix": {
+              "corpus_christi": [
+                "2026-08-25"
+              ],
+              "creole_trail": [
+                "2026-08-25"
+              ]
+            },
+            "prefixes_affected": [
+              "corpus_christi",
+              "creole_trail"
+            ],
+            "total_prefixes_checked": 2
+          }
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 264→264 distinct series_id (limit 20%)",
@@ -848,7 +958,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 8h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 9h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
@@ -911,6 +1021,12 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "SKIPPED",
+          "message": "no prefix_gaps configured",
+          "details": {}
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 216→216 distinct series_id (limit 20%)",
@@ -922,9 +1038,9 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 238432→238488 / days 1107→1107",
+          "message": "history intact: rows 238488→238488 / days 1107→1107",
           "details": {
-            "rows_before": 238432,
+            "rows_before": 238488,
             "rows_after": 238488,
             "days_before": 1107,
             "days_after": 1107
@@ -933,7 +1049,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 2h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 3h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
@@ -996,6 +1112,18 @@
           }
         },
         {
+          "check": "prefix_gaps",
+          "severity": "PASS",
+          "message": "all 2 prefix asset(s) complete with 0 gaps",
+          "details": {
+            "prefixes_checked": [
+              "km_ngpl",
+              "km_tgp"
+            ],
+            "total_prefixes_checked": 2
+          }
+        },
+        {
           "check": "coverage",
           "severity": "PASS",
           "message": "series coverage holds: 24→24 distinct series_id (limit 20%)",
@@ -1018,7 +1146,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 15h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 17h ago and dataset consistent (stale 0d, resolved 2026-09-03, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
