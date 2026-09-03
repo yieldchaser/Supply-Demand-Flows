@@ -1,0 +1,23 @@
+{
+  "source": "gasnom",
+  "status": "ok",
+  "timestamp_utc": "2026-09-03T07:49:45Z",
+  "error": null,
+  "metadata": {
+    "gas_day": "2026-09-03",
+    "processed_count": 0,
+    "skipped_count": 0,
+    "rows": 0,
+    "cycles": [],
+    "pipelines": {
+      "SABINE": "ok",
+      "SABINE.prev": "ok",
+      "cameron": "ok",
+      "cameron.prev": "ok",
+      "goldenpass": "ok",
+      "goldenpass.prev": "ok",
+      "portarthurpipeline": "ok",
+      "portarthurpipeline.prev": "ok"
+    }
+  }
+}

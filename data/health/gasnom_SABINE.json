@@ -1,14 +1,14 @@
 {
   "source": "gasnom_SABINE",
   "status": "ok",
-  "timestamp_utc": "2026-09-02T13:26:02Z",
+  "timestamp_utc": "2026-09-03T07:49:43Z",
   "error": null,
   "metadata": {
     "slug": "SABINE",
-    "gas_day": "2026-09-02",
+    "gas_day": "2026-09-03",
     "cycle": "evening",
     "cycle_desc": "Evening",
-    "posted_at": "September 1, 2026 08:02 PM CT",
+    "posted_at": "September 2, 2026 07:17 PM CT",
     "row_count": 42
   }
 }
