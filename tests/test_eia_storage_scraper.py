@@ -173,3 +173,66 @@ async def test_eia_storage_large_row_count(clean_storage_dir: None) -> None:
 
     assert result["status"] == "ok"
     assert result["rows"] > 1000, f"Expected >1000 rows, got {result['rows']}"
+
+
+@pytest.mark.asyncio
+async def test_eia_storage_staleness_gate_uses_payload_content_not_filename(
+    clean_storage_dir: None,
+) -> None:
+    """Staleness gate must inspect payload content, not filename.
+
+    Regression test for Prompt T §02:
+    If a file is named eia_storage_2026-08-21.json but its payload only contains
+    periods through 2026-08-14, the scraper must NOT skip when the API reports
+    latest date 2026-08-21.
+    """
+    from scrapers.eia_api.storage import RAW_DIR
+
+    target_dir = RAW_DIR / "2026" / "08"
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    # File named for 2026-08-21, but payload only contains periods through 2026-08-14
+    fake_data = {
+        "response": {
+            "data": [{"period": "2026-08-14", "value": i} for i in range(600)]
+        }
+    }
+    (target_dir / "eia_storage_2026-08-21.json").write_text(
+        __import__("json").dumps(fake_data), encoding="utf-8"
+    )
+
+    fetch_called = False
+
+    class MockEIAClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get_latest_date(self, *args, **kwargs) -> str:
+            return "2026-08-21"
+
+        async def get_series(self, **kwargs) -> dict:
+            nonlocal fetch_called
+            fetch_called = True
+            return {
+                "response": {
+                    "data": [{"period": "2026-08-21", "value": 100}]
+                }
+            }
+
+    with (
+        patch("scrapers.eia_api.storage.EIAClient", MockEIAClient),
+        patch("scrapers.eia_api.storage.load_api_key_from_env", return_value="TEST"),
+    ):
+        result = await run_storage()
+
+    # Must NOT have skipped; must have fetched the missing data
+    assert result["status"] == "ok"
+    assert fetch_called is True
+    assert result["latest_date"] == "2026-08-21"
+

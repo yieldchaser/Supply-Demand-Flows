@@ -52,7 +52,7 @@ jobs:
             echo "latest_date=$LATEST" >> $GITHUB_OUTPUT
           fi
 
-      - name: Transform raw → curated (accumulate ALL retained raw files)
+      - name: Transform raw → curated (merge latest run into committed curated)
         if: steps.scrape.outputs.status == 'ok'
         run: |
           python -c "
@@ -61,10 +61,11 @@ jobs:
           from transformers.eia_storage import transform
           out = Path('data/curated/eia_storage.parquet')
           out.parent.mkdir(parents=True, exist_ok=True)
-          # Accumulate EVERY retained raw file, oldest first. merge_into_curated
-          # dedups on (series_id, period) keeping the freshest ingest, and its
-          # shrink-guard makes a thin-raw rebuild fail loudly instead of
-          # silently truncating history (2026-08-25 incident).
+          # In CI, data/raw/ is gitignored, so exactly one raw file is present
+          # per run (the one written by the scraper above). Accumulation and
+          # history protection occur because merge_into_curated merges this
+          # batch into the committed curated parquet, deduping on (series_id, period)
+          # and shrink-guarding against regression (2026-08-25 incident).
           files = sorted(Path('data/raw/eia_storage').rglob('*.json'))
           for f in files:
               result = transform(f, out)

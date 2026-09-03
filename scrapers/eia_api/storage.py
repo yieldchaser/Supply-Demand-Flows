@@ -25,14 +25,26 @@ START_DATE = "2018-01-01"
 
 
 def _get_latest_local_date() -> str | None:
-    """Find the most recent downloaded data date based on file names."""
-    if not RAW_DIR.exists():
+    """Find the most recent period actually present in the newest downloaded payload.
+
+    Why:
+        Filenames can claim a newer date than their contents (e.g. the 2026-08-25
+        fetch named eia_storage_2026-08-21.json whose payload only ran through
+        2026-08-14). Deriving freshness from payload content prevents silent
+        indefinite skip-locks (Prompt T §02).
+    """
+    path = _get_latest_local_path()
+    if not path or not path.exists():
         return None
-    files = list(RAW_DIR.rglob("eia_storage_*.json"))
-    if not files:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        rows = data.get("response", {}).get("data", [])
+        if not rows:
+            return None
+        periods = [r["period"] for r in rows if isinstance(r, dict) and "period" in r]
+        return max(periods) if periods else None
+    except Exception:
         return None
-    # Returns the largest timestamp date string
-    return max(p.stem.replace("eia_storage_", "") for p in files)
 
 
 def _get_latest_local_path() -> Path | None:

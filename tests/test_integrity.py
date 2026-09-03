@@ -416,6 +416,30 @@ class TestDivergence:
         assert res["severity"] == "FAIL"
         assert "flat 3 consecutive runs" in res["message"]
 
+    def test_accumulation_flat_arm_not_fired_on_normal_publication_lag(self) -> None:
+        """A source whose periods carry structural publication lag between warn_days
+        and fail_days must not FAIL divergence on a flat row count.
+
+        Regression test for eia_storage weekly false positive (Prompt T §01) — this
+        fixture is a synthetic reproduction of that shape, not the real incident's
+        dates:
+        - mode: accumulation
+        - warn_days: 9, fail_days: 18
+        - newest period: 13 days old relative to this module's NOW (2026-08-23),
+          i.e. day(13) == 2026-08-10 — squarely between warn_days and fail_days
+        - flat row count: consecutive_flat: 11, prior rows == 2 to match this
+          frame's 2 rows, so the flat arm actually engages
+        - fresh ok health stamp
+        Must NOT fail divergence (stagnation check handles warn_days; divergence only trips on fail_days).
+        """
+        cfg = make_cfg(mode="accumulation", staleness={"warn_days": 9, "fail_days": 18})
+        prior = {"rows": 2, "consecutive_flat": 11}
+        df = make_frame([day(13)], series=["s1", "s2"])
+        res = check_divergence(df, RECENT_OK_HEALTH, prior, cfg, DEFAULTS, NOW)
+        assert res["severity"] == "PASS"
+        assert res["message"].startswith("no divergence: scraper 'ok'")
+        assert not res["details"].get("reasons")
+
     def test_accumulation_second_flat_run_does_not_fire(self) -> None:
         cfg = make_cfg(mode="accumulation")
         prior = {"rows": 4, "consecutive_flat": 1}

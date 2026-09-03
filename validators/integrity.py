@@ -632,19 +632,18 @@ def check_divergence(
         if rows_prior and int(len(df)) == rows_prior:
             streak = int(prior.get("consecutive_flat", 0)) + 1
             # A flat accumulation count is ONLY suspicious when the newest
-            # period is ALSO aging — that means "stopped growing while it
-            # should be growing". A flat count with a still-fresh latest
-            # period is NORMAL for a daily EBB source between postings
-            # (weekends, gaps, or a run that landed before the source
-            # published the new gas day). Never FAIL purely on flatness when
-            # the data is within warn_days; staleness owns that signal.
+            # period is ALSO aging past fail_days — that means "stopped growing
+            # while it should be growing". A flat count with a still-fresh latest
+            # period or normal publication lag is NORMAL for an accumulation
+            # source between releases. Never FAIL purely on flatness when
+            # the data is within fail_days; stagnation owns that WARN signal.
             flat_is_suspicious = (
-                stale_info is not None and stale_days > warn_days
+                stale_info is not None and stale_days > fail_days
             )
             if streak >= 3 and flat_is_suspicious:
                 reasons.append(
                     f"accumulation row count flat {streak} consecutive runs at "
-                    f"{rows_prior} rows while {stale_days}d stale (warn {warn_days}d)"
+                    f"{rows_prior} rows while {stale_days}d stale (fail {fail_days}d)"
                 )
 
     age_hours = age_days * 24.0
