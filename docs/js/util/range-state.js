@@ -7,7 +7,7 @@
  * Vanilla JS — zero TypeScript in executable code.
  */
 
-export const RANGE_PRESETS = ['30d', '90d', '1y', 'all'];
+export const RANGE_PRESETS = ['30d', '90d', '1y', '3y', '5y', 'all'];
 
 /**
  * Parse range from URL search params or fallback to default 'all'.
@@ -50,7 +50,7 @@ export function formatRangeQueryParam(preset, start = null, end = null) {
 /**
  * Compute the effective date filter interval from a preset relative to anchor date.
  *
- * @param {string} preset - '30d', '90d', '1y', 'all'
+ * @param {string} preset - '30d', '90d', '1y', '3y', '5y', 'all'
  * @param {string|Date} anchorDate - latest available period (string YYYY-MM-DD or Date)
  * @returns {{startDateStr: string|null, endDateStr: string|null}}
  */
@@ -64,6 +64,8 @@ export function computePresetInterval(preset, anchorDate) {
   if (preset === '30d') days = 30;
   else if (preset === '90d') days = 90;
   else if (preset === '1y') days = 365;
+  else if (preset === '3y') days = 1095;
+  else if (preset === '5y') days = 1825;
   else return { startDateStr: null, endDateStr: null };
 
   const start = new Date(end.getTime() - days * 86400000);

@@ -354,11 +354,39 @@ def check_gaps(df: pd.DataFrame, src_cfg: Mapping[str, Any]) -> CheckResult:
 
     present = set(unique)
 
+    # Resolve optional in_service_date (§03 / AA2)
+    # A missing in_service_date must change nothing.
+    in_service_cutoff: date | None = None
+    if "in_service_date" in src_cfg and src_cfg["in_service_date"]:
+        try:
+            in_service_cutoff = normalize_period(str(src_cfg["in_service_date"]), src_cfg)
+        except ValueError:
+            in_service_cutoff = None
+    elif "in_service_dates" in src_cfg and "series_id" in df.columns:
+        for prefix, d_raw in src_cfg["in_service_dates"].items():
+            if df["series_id"].astype(str).str.startswith(prefix).all():
+                try:
+                    in_service_cutoff = normalize_period(str(d_raw), src_cfg)
+                    break
+                except ValueError:
+                    pass
+
     if rule == "calendar_daily":
-        span_days = (unique[-1] - unique[0]).days + 1
+        start_day = unique[0]
+        if in_service_cutoff is not None:
+            if unique[-1] < in_service_cutoff:
+                return _result(
+                    "gaps",
+                    "PASS",
+                    f"pre-service asset: {len(unique)} period(s) prior to in-service date {in_service_cutoff}",
+                    {"days": len(unique), "in_service_date": in_service_cutoff.isoformat()},
+                )
+            start_day = max(unique[0], in_service_cutoff)
+
+        span_days = (unique[-1] - start_day).days + 1
         missing: list[str] = []
         for offset in range(span_days):
-            day = unique[0] + timedelta(days=offset)
+            day = start_day + timedelta(days=offset)
             if day not in present:
                 missing.append(day.isoformat())
 
@@ -367,14 +395,14 @@ def check_gaps(df: pd.DataFrame, src_cfg: Mapping[str, Any]) -> CheckResult:
             return _result(
                 "gaps",
                 "WARN",
-                f"{len(missing)} missing calendar day(s) between {unique[0]} and {unique[-1]}: "
+                f"{len(missing)} missing calendar day(s) between {start_day} and {unique[-1]}: "
                 f"{preview}",
                 {"missing_dates": missing},
             )
         return _result(
             "gaps",
             "PASS",
-            f"calendar complete: {span_days} consecutive day(s) {unique[0]}..{unique[-1]}",
+            f"calendar complete: {span_days} consecutive day(s) {start_day}..{unique[-1]}",
             {"days": span_days},
         )
 

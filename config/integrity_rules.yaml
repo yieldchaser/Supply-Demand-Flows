@@ -122,6 +122,11 @@ sources:
     unit_expected: Dth/d
     mode: accumulation
     gap_rule: calendar_daily
+    # In-service dates by pipeline prefix (§03 / AA2).
+    # Mask pre-service runs from gap check; post-service gaps still fire.
+    in_service_dates:
+      # Port Arthur LNG pipeline: first commercial feedgas posting is 2026-06-08 per curated GasNom history (pre-commissioning testing)
+      port_arthur_pipeline: "2026-06-08"
 
   quorum:
     parquet: data/curated/quorum.parquet

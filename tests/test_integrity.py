@@ -280,6 +280,27 @@ class TestGaps:
         assert res_hole["severity"] == "WARN"
         assert "2026-02" in res_hole["details"]["missing_dates"]
 
+    def test_in_service_date_masks_preservice_gaps_and_catches_postservice_gaps(self) -> None:
+        """§03 / AA2: pre-service runs are masked by in_service_date, post-service gaps still fire."""
+        periods_clean = ["2026-04-01", "2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11"]
+        cfg_with_in_service = make_cfg(gap_rule="calendar_daily", in_service_date="2026-06-08")
+
+        # 1. With in_service_date, pre-service gap (2026-04-02..2026-06-07) is masked -> PASS
+        res = check_gaps(make_frame(periods_clean), cfg_with_in_service)
+        assert res["severity"] == "PASS"
+
+        # 2. Without in_service_date, the pre-service run is flagged as a 67-day gap -> WARN
+        res_no_mask = check_gaps(make_frame(periods_clean), make_cfg(gap_rule="calendar_daily"))
+        assert res_no_mask["severity"] == "WARN"
+        assert "2026-04-02" in res_no_mask["details"]["missing_dates"]
+
+        # 3. Post-service gap (missing 2026-06-09) must STILL fire even with in_service_date -> WARN
+        periods_with_post_gap = ["2026-04-01", "2026-06-08", "2026-06-10", "2026-06-11"]
+        res_post_gap = check_gaps(make_frame(periods_with_post_gap), cfg_with_in_service)
+        assert res_post_gap["severity"] == "WARN"
+        assert res_post_gap["details"]["missing_dates"] == ["2026-06-09"]
+        assert "2026-06-09" in res_post_gap["message"]
+
 
 # ------------------------------------------------------------------ coverage
 

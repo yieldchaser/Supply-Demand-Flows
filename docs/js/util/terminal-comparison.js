@@ -125,6 +125,11 @@ export function buildTerminalComparison(bundle, terminalKeys) {
       ? 'above-nameplate'
       : 'measured';
 
+    const termDates = Object.keys(series).sort();
+    const firstDate = termDates.length > 0 ? termDates[0] : null;
+    const lastDate = termDates.length > 0 ? termDates[termDates.length - 1] : null;
+    const dayCount = termDates.length;
+
     terminalData.push({
       id: key,
       label: t.display,
@@ -133,14 +138,36 @@ export function buildTerminalComparison(bundle, terminalKeys) {
       coverageKind,
       coverageNote: t.coverageNote || '',
       isPartial,
+      firstDate,
+      lastDate,
+      dayCount,
+      span: { firstDate, lastDate, dayCount },
       series,
     });
   });
 
+  // Emit caveat when selected terminals' spans differ by more than 2x (§02.3)
+  const validTerminals = terminalData.filter((t) => t.dayCount > 0);
+  if (validTerminals.length >= 2) {
+    const sorted = [...validTerminals].sort((a, b) => a.dayCount - b.dayCount);
+    const minT = sorted[0];
+    const maxT = sorted[sorted.length - 1];
+    if (maxT.dayCount > 2 * minT.dayCount) {
+      caveats.push(
+        `${minT.label} is known from ${minT.firstDate} (${minT.dayCount.toLocaleString('en-US')} days); ${maxT.label} from ${maxT.firstDate} (${maxT.dayCount.toLocaleString('en-US')} days). Comparisons before ${minT.firstDate} include ${maxT.label} only.`
+      );
+    }
+  }
+
   const dates = [...dateSet].sort();
+  const spans = Object.fromEntries(
+    terminalData.map((t) => [t.id, { firstDate: t.firstDate, lastDate: t.lastDate, dayCount: t.dayCount }])
+  );
+
   return {
     dates,
     terminals: terminalData,
+    spans,
     caveats,
   };
 }
