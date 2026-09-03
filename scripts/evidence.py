@@ -12,6 +12,7 @@ Usage:
 """
 from __future__ import annotations
 
+import contextlib
 import glob
 import hashlib
 import json
@@ -21,6 +22,10 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+if sys.platform == "win32":
+    with contextlib.suppress(Exception):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOGS_DIR = REPO_ROOT / "logs"
