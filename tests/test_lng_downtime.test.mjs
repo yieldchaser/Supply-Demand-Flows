@@ -22,6 +22,7 @@ import {
   cyclePriority,
   DOWNTIME_CONF,
 } from '../docs/js/util/lng-downtime.js';
+import { LNG_TERMINALS } from '../docs/js/util/lng-terminals.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -182,13 +183,18 @@ test('Pre-operational commissioning zeros produce single NOT_YET_OPERATIONAL spa
 });
 
 test('Cycle priority order: later cycle supersedes earlier cycle', () => {
-  assert.strictEqual(cyclePriority('timely'), 1);
-  assert.strictEqual(cyclePriority('evening'), 2);
-  assert.strictEqual(cyclePriority('late'), 3);
-  assert.strictEqual(cyclePriority('latec'), 4);
-  assert.strictEqual(cyclePriority('id1'), 5);
-  assert.strictEqual(cyclePriority('id2'), 6);
-  assert.strictEqual(cyclePriority('id3'), 7);
+  assert.strictEqual(cyclePriority('best'), 1);
+  assert.strictEqual(cyclePriority('timely'), 2);
+  assert.strictEqual(cyclePriority('evening'), 3);
+  assert.strictEqual(cyclePriority('evng'), 3);
+  assert.strictEqual(cyclePriority('late'), 4);
+  assert.strictEqual(cyclePriority('latec'), 5);
+  assert.strictEqual(cyclePriority('id1'), 6);
+  assert.strictEqual(cyclePriority('itrd1'), 6);
+  assert.strictEqual(cyclePriority('id2'), 7);
+  assert.strictEqual(cyclePriority('itrd2'), 7);
+  assert.strictEqual(cyclePriority('id3'), 8);
+  assert.strictEqual(cyclePriority('itrd3'), 8);
 
   // Hourly operational snapshots (id{HH}00) are placeholders and return 0
   assert.strictEqual(cyclePriority('id0900'), 0);
@@ -196,8 +202,21 @@ test('Cycle priority order: later cycle supersedes earlier cycle', () => {
 
   // id3 > timely
   assert.ok(cyclePriority('id3') > cyclePriority('timely'));
+  assert.ok(cyclePriority('best') < cyclePriority('timely'));
   // Genuinely nominated cycles always beat placeholder snapshots
   assert.ok(cyclePriority('timely') > cyclePriority('id2300'));
   assert.ok(cyclePriority('id3') > cyclePriority('id2300'));
+});
+
+test('Nameplate parity: DOWNTIME_CONF matches LNG_TERMINALS registry (Freeport red pending user decision)', () => {
+  for (const [key, conf] of Object.entries(DOWNTIME_CONF)) {
+    const reg = LNG_TERMINALS[key];
+    if (!reg) continue;
+    assert.strictEqual(
+      conf.nameplate,
+      reg.nameplate,
+      `Nameplate mismatch for ${key}: DOWNTIME_CONF has ${conf.nameplate}, registry has ${reg.nameplate}`
+    );
+  }
 });
 

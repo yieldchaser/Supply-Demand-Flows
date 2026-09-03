@@ -299,7 +299,7 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
       .map((cy) => ({
         cycle: cy.toUpperCase(),
         value: todayCyclesMap[cy],
-        priority: CYCLE_PRIORITY[cy] || 0,
+        priority: cyclePriority(cy),
       }))
       .sort((a, b) => a.priority - b.priority);
 

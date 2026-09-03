@@ -230,7 +230,7 @@ def test_transform_emits_flow_and_cycle_tokens(tmp_path: Path) -> None:
     assert len(rows) == 1
     r = rows[0]
     # {prefix}_{sq}_{loc}_{flow}_{cycle}
-    assert r["series_id"] == "km_tgp_sq_49861_d_itrd1"
+    assert r["series_id"] == "km_tgp_sq_49861_d_id1"
     assert r["series_id"].count("_") >= 5
     assert r["unit"] == "Dth/d"
 

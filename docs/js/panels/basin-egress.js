@@ -35,17 +35,7 @@ import {
   CORRIDORS,
   EGRESS_METERS,
 } from '../util/basin-egress.js';
-
-/** Cycle priority: genuine nominated cycles (id3 > id2 > id1 > latec > late > evening > timely). */
-const CYCLE_RANK = {
-  timely: 1,
-  evening: 2,
-  late: 3,
-  latec: 4,
-  id1: 5,
-  id2: 6,
-  id3: 7,
-};
+import { cyclePriority } from '../util/lng-downtime.js';
 
 /** Band colors per corridor index — same family as the LNG feed stack. */
 const CORRIDOR_COLORS = [
@@ -81,8 +71,8 @@ export function buildDailyByMeter(rows, loc, declaredFlow) {
     const parts = sid.slice(prefix.length).split('_');
     if (parts.length !== 2) return;
     const [, cycle] = parts;
-    const rank = CYCLE_RANK[cycle];
-    if (rank === undefined) return;
+    const rank = cyclePriority(cycle);
+    if (rank <= 0) return;
     const val = Number(r.value);
     const cur = best[r.period];
     if (!cur || rank > cur.rank || (rank === cur.rank && shouldReplaceLeg(cur, val, declaredFlow, r))) {
@@ -118,8 +108,8 @@ export function buildDailyByKind(rows, loc, kind) {
     if (!sid.startsWith(prefix)) return;
     const parts = sid.slice(prefix.length).split('_');
     if (parts.length !== 2 || parts[0] !== 'd') return;
-    const rank = CYCLE_RANK[parts[1]];
-    if (rank === undefined) return;
+    const rank = cyclePriority(parts[1]);
+    if (rank <= 0) return;
     const cur = best[r.period];
     if (!cur || rank > cur.rank) best[r.period] = { rank, value: Number(r.value) };
   });

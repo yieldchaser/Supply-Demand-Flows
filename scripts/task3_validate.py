@@ -7,9 +7,13 @@ Corrected findings from v2:
   Pre-gas case validated via logic: gap-only dates (no postings) must NOT
   trigger OFFLINE; "posted zero" requires an actual filing with value 0.
 """
+
+from __future__ import annotations
+
 import re
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -104,14 +108,18 @@ CYCLE_PRIORITY = {
     "best": 1,
     "timely": 2,
     "evening": 3,
+    # Retained for backward compatibility with legacy KM EBB tokens; can be dropped after 2026-09-17 (14 days post-migration)
     "evng": 3,
     "late": 4,
     "latec": 5,
     "id1": 6,
+    # Retained for backward compatibility with legacy KM EBB tokens; can be dropped after 2026-09-17 (14 days post-migration)
     "itrd1": 6,
     "id2": 7,
+    # Retained for backward compatibility with legacy KM EBB tokens; can be dropped after 2026-09-17 (14 days post-migration)
     "itrd2": 7,
     "id3": 8,
+    # Retained for backward compatibility with legacy KM EBB tokens; can be dropped after 2026-09-17 (14 days post-migration)
     "itrd3": 8,
 }
 
@@ -128,7 +136,7 @@ def cycle_priority(cycle: str) -> int:
     return CYCLE_PRIORITY.get(c, 0)
 
 
-def resolve_series(feed_id):
+def resolve_series(feed_id: str) -> tuple[Path | None, str | None]:
     """Resolve a feed_id to (parquet_path, series_id_pattern)."""
     parq_name = None
     for prefix, mapped in PREFIX_MAP.items():
@@ -143,7 +151,7 @@ def resolve_series(feed_id):
     return path, feed_id
 
 
-def load_feed_daily(feed_id):
+def load_feed_daily(feed_id: str) -> dict[str, float] | None:
     path, pattern = resolve_series(feed_id)
     if not path:
         print(f"  WARN: no parquet for {feed_id}")
@@ -163,7 +171,7 @@ def load_feed_daily(feed_id):
     return dict(zip(sub['period'], sub['value'], strict=False))
 
 
-def load_terminal_history(term_key):
+def load_terminal_history(term_key: str) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
     conf = TERMINALS[term_key]
     feed_daily = {feed: load_feed_daily(feed) for feed in conf["feeds"]}
     all_dates = set()
@@ -171,13 +179,13 @@ def load_terminal_history(term_key):
         if fd:
             all_dates.update(fd.keys())
     feed_min_dates = {feed: min(fd.keys()) for feed, fd in feed_daily.items() if fd}
-    history = {}
+    history: dict[str, dict[str, Any]] = {}
     for d in sorted(all_dates):
-        total, feeds_posted = 0, 0
+        total, feeds_posted = 0.0, 0
         for fd in feed_daily.values():
             if fd and d in fd:
                 feeds_posted += 1
-                total += max(fd[d], 0)
+                total += max(fd[d], 0.0)
         if feeds_posted == 0:
             continue
 
@@ -193,7 +201,7 @@ def load_terminal_history(term_key):
     return history, conf
 
 
-def detect_events(history, conf):
+def detect_events(history: dict[str, dict[str, Any]], conf: dict[str, Any]) -> list[dict[str, Any]]:
     """Event detector mirroring docs/js/panels/lng-terminal-downtime.js."""
     baseline_window = 30
     events = []

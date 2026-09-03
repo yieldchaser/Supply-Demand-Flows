@@ -80,12 +80,22 @@ def transform_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
         tsq_dth = _num(row.get("total_scheduled_quantity"))
         if tsq_dth is None:
             continue
-        series_id = f"km_{conf['pipeline']}_sq_{loc}_d_{cycle}"
+        # KM EBB uses non-standard cycle abbreviations ('evng', 'itrd1-3').
+        # Normalize to canonical NAESB tokens ('evening', 'id1-3') per Prompt W §06.
+        # 'timely' and 'best'/'best_available' are preserved as-is.
+        KM_CYCLE_MAP = {
+            "evng": "evening",
+            "itrd1": "id1",
+            "itrd2": "id2",
+            "itrd3": "id3",
+        }
+        canonical_cycle = KM_CYCLE_MAP.get(cycle, cycle)
+        series_id = f"km_{conf['pipeline']}_sq_{loc}_d_{canonical_cycle}"
         out.append(
             {
                 "source": SOURCE_NAME,
                 "series_id": series_id,
-                "series_name": f"KM {conf['pipeline'].upper()} TSQ {conf['label']} [d] ({cycle})",
+                "series_name": f"KM {conf['pipeline'].upper()} TSQ {conf['label']} [d] ({canonical_cycle})",
                 "period": gas_day,
                 "value": tsq_dth,
                 "unit": "Dth/d",

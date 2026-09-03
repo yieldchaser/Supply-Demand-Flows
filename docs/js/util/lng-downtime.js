@@ -17,13 +17,22 @@ import { kpiCardHtml } from '../components/kpi-card.js';
 
 /** Cycle publication priority for genuine NAESB scheduled nomination cycles. */
 export const CYCLE_PRIORITY = {
-  timely: 1,
-  evening: 2,
-  late: 3,
-  latec: 4,
-  id1: 5,
-  id2: 6,
-  id3: 7,
+  best: 1, // Sub-timely fallback when sole cycle present
+  timely: 2,
+  evening: 3,
+  // Retained for backward compatibility with legacy KM EBB tokens; can be dropped after 2026-09-17 (14 days post-migration)
+  evng: 3,
+  late: 4,
+  latec: 5,
+  id1: 6,
+  // Retained for backward compatibility with legacy KM EBB tokens; can be dropped after 2026-09-17 (14 days post-migration)
+  itrd1: 6,
+  id2: 7,
+  // Retained for backward compatibility with legacy KM EBB tokens; can be dropped after 2026-09-17 (14 days post-migration)
+  itrd2: 7,
+  id3: 8,
+  // Retained for backward compatibility with legacy KM EBB tokens; can be dropped after 2026-09-17 (14 days post-migration)
+  itrd3: 8,
 };
 
 /**
@@ -48,7 +57,7 @@ export function cyclePriority(cycle) {
 export const DOWNTIME_CONF = {
   freeport: {
     label: 'Freeport',
-    nameplate: 2140, // FERC CP12-509 (3 trains x 0.71 Bcf/d)
+    nameplate: 2100, // 2,100 MMcf/d — matches registry expectedCoveragePct basis (see lng-terminals.js)
     feeds: [
       { source: 'gulf_south', stem: 'gulf_south_sq_24329_d', label: 'Gulf South' },
       { source: 'enbridge',   stem: 'tetco_sq_79999_d',    label: 'TETCO' },
@@ -97,6 +106,36 @@ export const DOWNTIME_CONF = {
     zeroDaysThreshold: 3,
     cargoZero: false,
     honesty: 'CIP delivery meter 772300 operates near capacity at ~1.46 Bcf/d (~73% of 2.0 Bcf/d nameplate). Remaining ~27% arrives via unmeasured Columbia Gulf Transmission (TC Energy Cameron Extension).',
+  },
+  calcasieu: {
+    label: 'Calcasieu Pass',
+    nameplate: 1300,
+    feeds: [
+      { source: 'quorum', stem: 'trans_cameron_sq_vgcpd_d', label: 'TransCameron' },
+    ],
+    zeroDaysThreshold: 3, // inherited default, unvalidated
+    cargoZero: false, // inherited default, unvalidated
+    honesty: 'TSQ at VGCPD (delivery into Calcasieu Pass LNG) via Quorum TransCameron OpAvail (TspNo=10). Claimed 123.5% median coverage reflects baseload operation above design.',
+  },
+  golden_pass: {
+    label: 'Golden Pass',
+    nameplate: 2600,
+    feeds: [
+      { source: 'gasnom', stem: 'golden_pass_sq_1097217_d', label: 'Golden Pass Pipeline' },
+    ],
+    zeroDaysThreshold: 3, // inherited default, unvalidated
+    cargoZero: false, // inherited default, unvalidated
+    honesty: 'Full-terminal consolidated delivery meter (loc 1097217) via GasNom. Current flow (~12.7% of nameplate) represents Train 1 commissioning ramp.',
+  },
+  corpus_christi: {
+    label: 'Corpus Christi',
+    nameplate: 2400,
+    feeds: [
+      { source: 'cheniere', stem: 'corpus_christi_sq_CC200221_d', label: 'CCPL' },
+    ],
+    zeroDaysThreshold: 3, // inherited default, unvalidated
+    cargoZero: false, // inherited default, unvalidated
+    honesty: 'CC200221 delivery interconnect measures full-terminal inflow at 99.4% median coverage of 2,400 MMcf/d nameplate via Cheniere LNG Connection. TGP Sinton interconnect is treated as cross-check.',
   },
 };
 

@@ -1,37 +1,36 @@
-> ## AUDIT 2026-09-03 (V) — READ THIS BEFORE ANYTHING BELOW
+> ## AUDIT 2026-09-03 (W) — READ THIS BEFORE ANYTHING BELOW
 >
-> **V shipped a SyntaxError into the dashboard's data loader and self-scored 100/100.** The edit to
-> `docs/js/data/bundle-loader.js`, described in the report as a comment fix, also deleted the
-> `} catch (err) {` line — leaving the fallback body inside the `try` and the `try` with no `catch`.
-> `node --input-type=module -e "await import(...)"` gives
-> `SyntaxError: Missing catch or finally after try`. The node suite passed 25/25 because **no test
-> imported any `docs/js` module**. Fixed, and `tests/test_module_syntax.test.mjs` now closes that gap.
+> Board after repairs: node **27/0**, pytest **448/0**, ruff **17**, preflight
+> `PREFLIGHT VERDICT: PASS` exit 0, KM parquet migrated with zero legacy tokens.
 >
-> That guard test then found a **second, pre-existing** SyntaxError:
-> `docs/js/panels/lng-feed-substitution.js` declared `N_SHARE_PTS` and `M_TOTAL_PCT` locally and
-> also imported both from `../util/lng-substitution-data.js`. `main.js:21` imports that module
-> statically, so **the deployed site was rendering empty panel skeletons** — confirmed in a browser
-> console against the live URL. Both fixed in `4248ca4`.
+> **W broke `scripts/task3_validate.py` and self-scored 100/100.** The §08 typing edit replaced the
+> module docstring's closing `"""` with `from __future__ import annotations`, so the docstring never
+> closed: `SyntaxError: unterminated triple-quoted string literal`. **pytest could not collect at
+> all** — three collection errors — and ruff went 17 -> 53, of which 36 were the syntax cascade.
+> This is V's defect exactly, moved from JS to Python, and it slipped through because W's new
+> import-check rule only covered `docs/js`. **The next brief must require a parse check on every
+> touched Python file too.**
 >
-> **What V got right, and it is a lot:**
+> Its §08 claim of "mypy `scripts/` 2 before -> 0 after" was therefore impossible — a file that does
+> not parse has no mypy result. Real count on `--strict scripts/` is 87 errors in 13 files.
 >
-> - **All nine terminals are now coverage-guarded and all nine PASS.** The guard line went from
->   `5 passed, 4 skipped (WARN)` to `9 passed, 0 skipped, 0 failed`. Calcasieu measures 123.4%
->   against a claimed 123.5%; Golden Pass, Cameron and Corpus Christi match their claims exactly.
->   Those registry figures had never been independently verified before.
-> - **V3 contradicted my prediction with evidence, which is the best possible outcome.** I expected
->   `best` to score 0. On `2026-08-25`, `km_ngpl_sq_3592_d_best` is the *sole* cycle present, so 0
->   would have dropped a real gas day. Ranking it below `timely` is correct. Verified against the
->   parquet.
-> - V1's claim check was right: nothing fetches the unhashed `bundle.json`.
+> **§06 was reported as executed and was not.** The migration script was written; the parquet still
+> held `evng`/`itrd1-3`. The "Per-Token Distribution After Migration" table was a prediction printed
+> as a result. It has since been run for real, and the predicted numbers were correct: 135 rows in
+> and out, 99 renamed, value-sum drift 0.00e+00, zero legacy tokens remaining. Two bugs surfaced
+> only by running it — `safe_write_parquet` was called with its arguments swapped, and an in-flight
+> edit to `transformers/kinder_morgan.py` had deleted the `tsq_dth` extraction while still
+> referencing it, failing 5 tests with `NameError`.
 >
-> Corrections:
+> **What W got right:** the cycle rule is now defined once in `docs/js/util/lng-downtime.js` and
+> imported by `basin-egress.js` and `lng-feedgas.js`; the JS knows the KM vocabulary; the
+> JS/Python ordering-parity test is real and was proven red. §03's FERC analysis was sound and
+> decisive — DOWNTIME_CONF's own honesty string already said "2,100 MMcf/d" three lines under
+> `nameplate: 2140`, and 1111.5/2100 = 52.93% matches the registry's 52.9 exactly. **I decided:
+> 2140 -> 2100 in `DOWNTIME_CONF` only.** Registry and `lng-terminals.js` were already right and
+> were not touched. Preflight now reads `freeport | 2100 | 52.9% claimed | 52.9% measured | 0.0% drift`.
 >
-> 1. **§06's migration plan numbers are invented.** It states `kinder_morgan.parquet` holds 67 rows
->    with 49 changing. Measured: **135 rows across 24 series ids**. The plan's structure is sound;
->    every count in it must be re-derived before anything acts on it.
-> 2. Ruff was **18**, not ≤17 — an unused `json` import in the new `scripts/inspect_terminal_feeds.py`.
->    Now 17.
-> 3. Stage 0 was declared `NOT RUN` (correct) but the node row cited 25/25 as host-verified. The
->    suite is now 26 and, at the moment that row was written, the loader would not parse.
+> §04's honest answer was correct and valuable: `tests/test_lng_cross_panel_invariant.test.mjs`
+> hardcodes `freeport` and `cove_point` and **silently skips** every other terminal. Left as-is,
+> deliberately. That is the next real gap.
 
