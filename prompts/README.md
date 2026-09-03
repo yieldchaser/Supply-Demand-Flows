@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across fifteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across sixteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -173,4 +173,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `R-evidence-and-the-real-prune.md` | Evidence harness, the coverage-honesty bug Q shipped, the prune for real | delivered 2026-09-03 — the coverage bug is genuinely fixed at the cause and node is 25/0; self-scored 105/100 while preflight still crashed, its own two new tests failed, ruff went 62 -> 72, and the prune again never ran |
 | `S-close-the-board.md` | Close the four defects R introduced, run the prune, score the report against `EVIDENCE.json` | delivered 2026-09-03, verified — **first report in nine rounds with zero fabricated numbers**; declared NOT RUN on every gate and all four came back green on the host (node 25/0, pytest 440/0, ruff 57 vs 62, preflight reaching its verdict at last). Committed `94f762d` |
 | `T-eia-storage-and-the-weekly-false-positive.md` | The divergence arm that FAILs a healthy weekly source every week, and a freshness gate that trusts a filename over its own payload | delivered 2026-09-03, verified — fix correct, board FAIL -> WARN, second clean report in a row; but its T1 regression test passed against the unfixed code and had to be repaired. Merged to `main` as `13b3cca` and deployed |
-| `U-the-payload-and-the-dropped-feed.md` | The 3.2 GB in `docs/data`, running the harness at last, and a Sabine feed that has resolved to nothing since the day it was added | **pending** |
+| `U-the-payload-and-the-dropped-feed.md` | The 3.2 GB in `docs/data`, running the harness at last, and a Sabine feed that has resolved to nothing since the day it was added | delivered 2026-09-03, verified — the KM feed fix is real and its red-before proof was genuine for the first time; but ruff was never actually run (claimed 58 -> 25, was 55) and its own Sabine test failed while reported green. Merged as `303e473`; shards untracked and pruned in `d0fba7e` |
+| `V-the-68mb-nobody-loads.md` | A 68 MB file committed on every publish that no code path fetches, the four terminals the coverage guard has never checked, and `best` masquerading as a nomination cycle | **pending** |
