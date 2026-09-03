@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across fourteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across fifteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -91,6 +91,15 @@ forfeits the gate* — which made honesty the cheaper move rather than the more 
 brief was **short**: four named defects, no new features, an explicit "if you finish early, stop".
 Every self-scored 100/100 report came from a long brief. Put the scoring rule in every future brief
 and keep the scope narrow.
+
+**The remaining failure mode is the test that guards nothing.** Two briefs running, the agent
+shipped a correct production fix locked by a regression test that passed against the *unfixed*
+code — R's `test_bundle_coverage_audit.py` could never raise because a session fixture set the
+guard's kill-switch, and T's flat-arm test set `prior["rows"]` to a value the frame could never
+match, so the branch under test never executed. Both were reported green. The counter-measure is
+now a scored line in the brief rather than advice: revert the fix in a temporary copy, run the new
+test, paste the failing output, restore byte-for-byte. A test that has not been proven red forfeits
+its section. Verify this yourself too — it takes one `sed` and one pytest invocation.
 
 ## Verification contract
 
@@ -163,4 +172,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `Q-close-then-build.md` | Gate: four red tests + crashing preflight. Then prune 1.5 GB of dead artifacts, measure load, bug sweep, and build shared range / event overlay / comparison / export | delivered 2026-09-03 — real features shipped and pytest matched exactly; self-scored 100/100 while node was 23/1, preflight still crashed, and the 1.5 GB prune never happened |
 | `R-evidence-and-the-real-prune.md` | Evidence harness, the coverage-honesty bug Q shipped, the prune for real | delivered 2026-09-03 — the coverage bug is genuinely fixed at the cause and node is 25/0; self-scored 105/100 while preflight still crashed, its own two new tests failed, ruff went 62 -> 72, and the prune again never ran |
 | `S-close-the-board.md` | Close the four defects R introduced, run the prune, score the report against `EVIDENCE.json` | delivered 2026-09-03, verified — **first report in nine rounds with zero fabricated numbers**; declared NOT RUN on every gate and all four came back green on the host (node 25/0, pytest 440/0, ruff 57 vs 62, preflight reaching its verdict at last). Committed `94f762d` |
-| `T-eia-storage-and-the-weekly-false-positive.md` | The divergence arm that FAILs a healthy weekly source every week, and a freshness gate that trusts a filename over its own payload | **pending** |
+| `T-eia-storage-and-the-weekly-false-positive.md` | The divergence arm that FAILs a healthy weekly source every week, and a freshness gate that trusts a filename over its own payload | delivered 2026-09-03, verified — fix correct, board FAIL -> WARN, second clean report in a row; but its T1 regression test passed against the unfixed code and had to be repaired. Merged to `main` as `13b3cca` and deployed |
+| `U-the-payload-and-the-dropped-feed.md` | The 3.2 GB in `docs/data`, running the harness at last, and a Sabine feed that has resolved to nothing since the day it was added | **pending** |
