@@ -42,6 +42,20 @@ STALE_LOG_FILES = [
     "N3-preflight.txt",
 ]
 
+# Empirical finding-count baselines (Prompt AA §04).
+# Ratchet rule: thresholds may go down as tech debt is paid down, NEVER up.
+BASELINE_THRESHOLDS: dict[str, int] = {
+    "ruff": 17,  # 17 accepted baseline findings (E402 imports not at top, N806 mock names)
+    "mypy": 53,  # 53 accepted baseline findings in targeted scripts and tests
+}
+
+# Committed minimum collected test counts (Prompt AA §05).
+# Ratchet rule: counts may rise; a fall fails the gate loudly naming both numbers.
+EXPECTED_MIN_TESTS: dict[str, int] = {
+    "pytest": 448,     # 448 passed unit tests
+    "node_tests": 42,  # 42 node test runner assertions
+}
+
 
 def clean_stale_logs() -> list[str]:
     """Delete stale logs that no longer describe reality (Prompt U §03)."""
@@ -202,7 +216,71 @@ def run_gate(
             exit_code = 127
             status = "not_run"
 
-    # Attestation header written AFTER command returns
+    extra_meta: dict[str, Any] = {}
+
+    # Determine summary line
+    non_empty_lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+    summary = non_empty_lines[-1] if non_empty_lines else "NO_OUTPUT"
+    for ln in reversed(non_empty_lines):
+        if any(w in ln.lower() for w in ("passed", "verdict", "clean", "all checks pass", "failed", "not run", "found ")):
+            summary = ln
+            break
+
+    # 1. Test-count mechanical guard (§05 / AA4)
+    if name in EXPECTED_MIN_TESTS:
+        expected = EXPECTED_MIN_TESTS[name]
+        actual_count: int | None = None
+        if name == "pytest":
+            m_test = re.search(r"(\d+)\s+passed", output)
+            if m_test:
+                actual_count = int(m_test.group(1))
+        elif name == "node_tests":
+            m_test = re.search(r"(?:ℹ\s+tests|pass)\s+(\d+)", output)
+            if m_test:
+                actual_count = int(m_test.group(1))
+
+        if actual_count is not None:
+            extra_meta["collected_count"] = actual_count
+            extra_meta["expected_min"] = expected
+            if actual_count < expected:
+                status = "failed"
+                exit_code = 1
+                summary = (
+                    f"collected tests fell {expected} → {actual_count}; "
+                    "a test was removed or destroyed. If this was deliberate, "
+                    "raise it in the brief and lower the floor."
+                )
+            else:
+                status = "ok" if exit_code == 0 else "failed"
+
+    # 2. Finding-count baseline ratchet (§04 / AA3)
+    elif name in BASELINE_THRESHOLDS:
+        threshold = BASELINE_THRESHOLDS[name]
+        finding_count: int | None = None
+        if name == "ruff":
+            m_find = re.search(r"Found\s+(\d+)\s+errors?", output) or re.search(r"(\d+)\s+errors?", output)
+            if m_find:
+                finding_count = int(m_find.group(1))
+        elif name == "mypy":
+            m_find = re.search(r"Found\s+(\d+)\s+errors?", output)
+            if m_find:
+                finding_count = int(m_find.group(1))
+
+        if finding_count is not None:
+            extra_meta["finding_count"] = finding_count
+            extra_meta["baseline_threshold"] = threshold
+            if exit_code == 0:
+                status = "ok"
+            elif finding_count <= threshold:
+                status = "at baseline"
+                if finding_count < threshold:
+                    summary += f" [GOOD NEWS: {finding_count} < threshold {threshold} — lower the ratchet!]"
+            else:
+                status = "failed"
+        else:
+            status = "ok" if exit_code == 0 else "failed"
+
+    # Attestation header written AFTER command returns and status is determined
     header = (
         f"{'=' * 80}\n"
         f"GATE: {name}\n"
@@ -219,17 +297,9 @@ def run_gate(
 
     sha256 = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
 
-    # Determine summary line
-    non_empty_lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
-    summary = non_empty_lines[-1] if non_empty_lines else "NO_OUTPUT"
-    for ln in reversed(non_empty_lines):
-        if any(w in ln.lower() for w in ("passed", "verdict", "clean", "all checks pass", "failed", "not run")):
-            summary = ln
-            break
-
     print(f"[{name}] Status: {status} (exit {exit_code}) -> {summary}")
 
-    return {
+    ret = {
         "name": name,
         "command": cmd,
         "status": status,
@@ -238,6 +308,8 @@ def run_gate(
         "log_file": str(log_path.relative_to(REPO_ROOT)).replace("\\", "/"),
         "log_sha256": sha256,
     }
+    ret.update(extra_meta)
+    return ret
 
 
 def main() -> int:
@@ -313,7 +385,7 @@ def main() -> int:
     for name, cmd, log_file, custom_fn in gates:
         res = run_gate(name, cmd, log_file, git_sha, custom_fn)
         results.append(res)
-        if res["exit_code"] != 0:
+        if res["status"] in ("failed", "error", "not_run"):
             overall_exit = 1
 
     manifest = {
@@ -334,7 +406,11 @@ def main() -> int:
     print("EVIDENCE BOARD")
     print("=" * 80)
     for g in results:
-        status_text = "PASS" if g["exit_code"] == 0 else f"{g['status'].upper()} (exit {g['exit_code']})"
+        status_text = (
+            "PASS"
+            if g["status"] == "ok"
+            else ("AT BASELINE" if g["status"] == "at baseline" else f"{g['status'].upper()} (exit {g['exit_code']})")
+        )
         print(f"  {g['name']:<15} [{status_text:<14}] -> {g['summary']}")
     print("=" * 80)
 

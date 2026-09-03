@@ -156,3 +156,72 @@ test('§01 coverage anti-rot: all 9 terminals carry honest partial-ness and deri
   });
 });
 
+test('AA1: buildTerminalComparison handles mixed-depth terminals with per-terminal spans, caveats, and no zero-filling', () => {
+  // Mock bundle with Cameron having 1,096 days (2023-09-04 .. 2026-09-03)
+  // and Freeport having 101 days (2026-05-25 .. 2026-09-02)
+  const cameronRows = [];
+  const startCam = new Date('2023-09-04T00:00:00Z');
+  for (let i = 0; i < 1096; i++) {
+    const d = new Date(startCam.getTime() + i * 86400000);
+    cameronRows.push({
+      series_id: 'cameron_interstate_sq_772300_d_timely',
+      period: d.toISOString().slice(0, 10),
+      value: 1500000,
+    });
+  }
+
+  const freeportRows = [];
+  const startFp = new Date('2026-05-25T00:00:00Z');
+  for (let i = 0; i < 101; i++) {
+    const d = new Date(startFp.getTime() + i * 86400000);
+    freeportRows.push({
+      series_id: 'gulf_south_sq_24329_d_timely',
+      period: d.toISOString().slice(0, 10),
+      value: 600000,
+    });
+    freeportRows.push({
+      series_id: 'tetco_sq_79999_d_timely',
+      period: d.toISOString().slice(0, 10),
+      value: 500000,
+    });
+  }
+
+  const mockBundle = {
+    sources: {
+      gasnom: { data: cameronRows },
+      gulf_south: { data: freeportRows.filter((r) => r.series_id.startsWith('gulf_south')) },
+      enbridge: { data: freeportRows.filter((r) => r.series_id.startsWith('tetco')) },
+    },
+  };
+
+  const comp = buildTerminalComparison(mockBundle, ['freeport', 'cameron']);
+  assert.strictEqual(comp.terminals.length, 2);
+
+  const fp = comp.terminals.find((t) => t.id === 'freeport');
+  const cam = comp.terminals.find((t) => t.id === 'cameron');
+
+  // 1. Per-terminal span derived from each terminal's own series
+  assert.ok(fp.firstDate, 'Freeport must have firstDate');
+  assert.strictEqual(fp.firstDate, '2026-05-25');
+  assert.strictEqual(fp.lastDate, '2026-09-02');
+  assert.strictEqual(fp.dayCount, 101);
+
+  assert.ok(cam.firstDate, 'Cameron must have firstDate');
+  assert.strictEqual(cam.firstDate, '2023-09-04');
+  assert.strictEqual(cam.lastDate, '2026-09-03');
+  assert.strictEqual(cam.dayCount, 1096);
+
+  // 2. Absence must never render as zero
+  assert.strictEqual(fp.series['2023-09-04'], undefined, 'Missing date must be undefined, not zero');
+  assert.strictEqual(fp.series['2024-01-01'], undefined, 'Missing date must be undefined, not zero');
+
+  // 3. Caveat emitted when spans differ by > 2x
+  const spanCaveat = comp.caveats.find((c) => c.includes('is known from') && c.includes('Comparisons before'));
+  assert.ok(spanCaveat, 'Must emit span disparity caveat when spans differ by > 2x');
+  assert.strictEqual(
+    spanCaveat,
+    'Freeport is known from 2026-05-25 (101 days); Cameron from 2023-09-04 (1,096 days). Comparisons before 2026-05-25 include Cameron only.'
+  );
+});
+
+

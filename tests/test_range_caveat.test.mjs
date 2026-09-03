@@ -195,3 +195,31 @@ test('Y3: applyRangeCaveat does not inject a caveat and does not throw when the 
   });
   assert.strictEqual(panelEl.children.length, 0);
 });
+
+test('AA5: 3y and 5y presets compute intervals and trigger honest caveats on short sources', () => {
+  // Query parsing
+  assert.strictEqual(parseRangeFromQuery('?range=3y').preset, '3y');
+  assert.strictEqual(parseRangeFromQuery('?range=5y').preset, '5y');
+
+  // Interval computation relative to LATEST (2026-09-02)
+  const int3y = computePresetInterval('3y', LATEST);
+  assert.strictEqual(int3y.endDateStr, LATEST);
+  assert.strictEqual(int3y.startDateStr, '2023-09-03');
+
+  const int5y = computePresetInterval('5y', LATEST);
+  assert.strictEqual(int5y.endDateStr, LATEST);
+  assert.strictEqual(int5y.startDateStr, '2021-09-03');
+
+  // Caveat behavior: 3y preset on Freeport (101 days starting 2026-05-25)
+  const caveat3y = checkRangeExceedsHistory(int3y.startDateStr, EARLIEST, 'Freeport', DAY_COUNT);
+  assert.ok(caveat3y !== null, '3y preset on Freeport must trigger caveat');
+  assert.ok(
+    caveat3y.includes(`showing ${DAY_COUNT} days; this source begins ${EARLIEST}`),
+    `Caveat must state exact span and start date. Got: "${caveat3y}"`
+  );
+  assert.ok(
+    caveat3y.includes(`Selected window starts ${int3y.startDateStr}, but Freeport history begins ${EARLIEST}`),
+    `Caveat must name requested start and source start. Got: "${caveat3y}"`
+  );
+});
+

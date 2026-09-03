@@ -243,18 +243,18 @@ function drawComparisonChart(container, comp, mode) {
   // Draw lines per terminal
   comp.terminals.forEach((t) => {
     const color = TERMINAL_COLORS[t.id] || '#38bdf8';
-    const points = [];
-    comp.dates.forEach((dateStr, idx) => {
+    const points = comp.dates.map((dateStr, idx) => {
       const pt = t.series[dateStr];
-      if (pt !== undefined) {
-        points.push({
-          date: dates[idx],
-          val: mode === 'pct' ? pt.pctNameplate : pt.mmcf,
-        });
-      }
+      const hasVal = pt !== undefined && pt !== null;
+      return {
+        date: dates[idx],
+        val: hasVal ? (mode === 'pct' ? pt.pctNameplate : pt.mmcf) : null,
+        defined: hasVal,
+      };
     });
 
     const line = d3.line()
+      .defined((d) => d.defined)
       .x((d) => x(d.date))
       .y((d) => y(d.val))
       .curve(d3.curveMonotoneX);
@@ -290,17 +290,23 @@ function drawComparisonChart(container, comp, mode) {
 function renderComparisonSidebar(container, comp, mode) {
   container.innerHTML = '';
 
-  // Legend
+  // Legend (Option b: visible per-terminal covered span)
   const legendHtml = comp.terminals.map((t) => {
     const color = TERMINAL_COLORS[t.id] || '#38bdf8';
     const covBadge = t.isPartial
       ? `<span class="badge badge--warning" style="margin-left: 6px; font-size: 9px;">${t.coveragePct}% partial</span>`
       : `<span class="badge badge--normal" style="margin-left: 6px; font-size: 9px;">${t.coveragePct}%</span>`;
+    const spanText = t.firstDate && t.lastDate
+      ? `<div style="font-size: 10px; color: var(--text-muted); margin-left: 22px; margin-top: 2px;">Known: ${t.firstDate} → ${t.lastDate} (${t.dayCount.toLocaleString('en-US')} days)</div>`
+      : '';
     return `
-      <div style="display: flex; align-items: center; margin-bottom: 8px; font-size: 12px;">
-        <span style="display: inline-block; width: 14px; height: 3px; background: ${color}; ${t.isPartial ? 'border-top: 1px dashed ' + color : ''}; margin-right: 8px;"></span>
-        <strong>${t.label}</strong>
-        ${covBadge}
+      <div style="margin-bottom: 10px; font-size: 12px;">
+        <div style="display: flex; align-items: center;">
+          <span style="display: inline-block; width: 14px; height: 3px; background: ${color}; ${t.isPartial ? 'border-top: 1px dashed ' + color : ''}; margin-right: 8px;"></span>
+          <strong>${t.label}</strong>
+          ${covBadge}
+        </div>
+        ${spanText}
       </div>
     `;
   }).join('');
