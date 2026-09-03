@@ -17,7 +17,9 @@ def clean_storage_dir(tmp_path: Path) -> None:
     import scrapers.eia_api.storage as storage_module
 
     old_dir = storage_module.RAW_DIR
+    old_curated = storage_module.CURATED_PATH
     storage_module.RAW_DIR = tmp_path / "data" / "raw" / "eia_storage"
+    storage_module.CURATED_PATH = tmp_path / "data" / "curated" / "eia_storage.parquet"
 
     # Also redirect health
     import scrapers.base.health_writer as hw
@@ -32,6 +34,7 @@ def clean_storage_dir(tmp_path: Path) -> None:
 
     yield
     storage_module.RAW_DIR = old_dir
+    storage_module.CURATED_PATH = old_curated
     hw.HealthWriter = old_health  # type: ignore
 
 
@@ -236,3 +239,49 @@ async def test_eia_storage_staleness_gate_uses_payload_content_not_filename(
     assert fetch_called is True
     assert result["latest_date"] == "2026-08-21"
 
+
+@pytest.mark.asyncio
+async def test_eia_storage_no_op_when_dataset_does_not_advance(
+    clean_storage_dir: None,
+) -> None:
+    """When fetch completes but newest period <= curated parquet, record no-op (Prompt U §05)."""
+    import pandas as pd
+
+    import scrapers.eia_api.storage as storage_module
+
+    # Pre-populate curated parquet with period 2026-08-21
+    curated_file = storage_module.CURATED_PATH
+    curated_file.parent.mkdir(parents=True, exist_ok=True)
+    df = pd.DataFrame([{"period": "2026-08-21", "value": 100.0, "region": "US"}])
+    df.to_parquet(curated_file)
+
+    class MockEIAClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get_latest_date(self, *args, **kwargs) -> str:
+            return "2026-08-21"
+
+        async def get_series(self, **kwargs) -> dict:
+            return {
+                "response": {
+                    "data": [{"period": "2026-08-21", "value": 100}]
+                }
+            }
+
+    with (
+        patch("scrapers.eia_api.storage.EIAClient", MockEIAClient),
+        patch("scrapers.eia_api.storage.load_api_key_from_env", return_value="TEST"),
+    ):
+        result = await run_storage()
+
+    # Must record no_op because newest period does not advance beyond curated
+    assert result["status"] == "no_op"
+    assert result["latest_date"] == "2026-08-21"
+    assert result["curated_latest"] == "2026-08-21"

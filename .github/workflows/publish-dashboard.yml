@@ -32,6 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
     steps:
       # workflow_run staleness workaround:
       # GitHub Actions runs workflow_run-triggered workflows against the SHA at the
@@ -81,15 +83,20 @@ jobs:
         run: |
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
-          # Force-add cache-busted shards so Pages serves them (they are
-          # gitignored to keep the repo lean, but the live site needs them
-          # for lazy loading — see .gitignore note). The stable entrypoints
-          # (bundle.json, manifest.json) are tracked normally.
+          # The stable entrypoints (bundle.json, manifest.json) are tracked normally.
           git add docs/data/bundle.json docs/data/manifest.json
-          git add -f docs/data/bundle.*.json docs/data/src.*.json docs/data/index.*.json 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "docs(bundle): rebuild dashboard bundle"
             for i in {1..5}; do
               git pull --rebase --autostash origin main && git push origin main && break || sleep 5
             done
           fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

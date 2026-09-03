@@ -11,6 +11,7 @@ Runs all core physical observatory checks in one deterministic pass:
 
 from __future__ import annotations
 
+import contextlib
 import glob
 import sys
 from datetime import UTC, datetime, timedelta
@@ -24,10 +25,8 @@ if str(REPO_ROOT) not in sys.path:
 
 # Ensure stdout handles encoding safely on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
-    try:
+    with contextlib.suppress(Exception):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 import pandas as pd
 
@@ -35,7 +34,13 @@ from scripts.load_registry import load_terminal_registry
 from scripts.task3_validate import TERMINALS, detect_events, load_terminal_history
 from tests.test_coverage_guard import compute_terminal_coverage_from_curated
 from validators.integrity import load_state, run_source_checks
-from validators.run_integrity import DEFAULT_CONFIG_PATH, DEFAULT_STATE_PATH, load_config, _load_health, _availability_skipped
+from validators.run_integrity import (
+    DEFAULT_CONFIG_PATH,
+    DEFAULT_STATE_PATH,
+    _availability_skipped,
+    _load_health,
+    load_config,
+)
 
 
 def run_inventory_check() -> tuple[bool, list[dict[str, Any]]]:
@@ -83,7 +88,7 @@ def run_integrity_board() -> tuple[bool, str, dict[str, str]]:
     defaults, sources = load_config(DEFAULT_CONFIG_PATH)
     now = datetime.now(UTC)
     state = load_state(DEFAULT_STATE_PATH)
-    
+
     source_verdicts: dict[str, str] = {}
     any_fail = False
 

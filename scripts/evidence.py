@@ -39,11 +39,19 @@ STALE_LOG_FILES = [
 
 
 def clean_stale_logs() -> list[str]:
-    """Delete stale logs that no longer describe reality (Prompt S §02)."""
+    """Delete stale logs that no longer describe reality (Prompt U §03)."""
     removed = []
+    # Purge all legacy logs from earlier rounds (N*, P*, Q*, final-*)
+    for p in LOGS_DIR.glob("*.txt"):
+        if p.name.startswith(("N", "P", "Q", "final-")):
+            try:
+                p.unlink()
+                removed.append(p.name)
+            except OSError as exc:
+                print(f"WARN: could not remove stale log {p.name}: {exc}")
     for name in STALE_LOG_FILES:
         target = LOGS_DIR / name
-        if target.exists():
+        if target.exists() and name not in removed:
             try:
                 target.unlink()
                 removed.append(name)
@@ -101,9 +109,18 @@ def get_git_head_sha() -> str:
         return "UNKNOWN_NO_HEAD"
     head_content = head_file.read_text(encoding="utf-8").strip()
     if head_content.startswith("ref: "):
-        ref_path = git_dir / head_content[5:]
+        ref_name = head_content[5:].strip()
+        ref_path = git_dir / ref_name
         if ref_path.exists():
             return ref_path.read_text(encoding="utf-8").strip()
+        packed_refs = git_dir / "packed-refs"
+        if packed_refs.exists():
+            for line in packed_refs.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.startswith("#") or line.startswith("^"):
+                    continue
+                parts = line.split()
+                if len(parts) == 2 and parts[1] == ref_name:
+                    return parts[0]
     return head_content
 
 
@@ -251,18 +268,11 @@ def main() -> int:
                 "-m",
                 "ruff",
                 "check",
-                "scripts/preflight.py",
-                "scripts/evidence.py",
-                "scripts/prune_bundles.py",
-                "publishers/export_dashboard_json.py",
-                "validators/integrity.py",
-                "scrapers/eia_api/storage.py",
-                "tests/test_coverage_guard.py",
-                "tests/test_integrity.py",
-                "tests/test_bundle_retention.py",
-                "tests/test_bundle_coverage_audit.py",
-                "tests/test_classify_meters.py",
-                "tests/test_eia_storage_scraper.py",
+                "scripts/",
+                "tests/",
+                "publishers/",
+                "validators/",
+                "scrapers/",
             ],
             "R-ruff.txt",
             None,

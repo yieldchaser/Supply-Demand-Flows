@@ -18,10 +18,27 @@ log = logging.getLogger(__name__)
 ROUTE = "natural-gas/stor/wkly"
 SOURCE_NAME = "eia_storage"
 RAW_DIR = Path("data/raw/eia_storage")
+CURATED_PATH = Path("data/curated/eia_storage.parquet")
 
 # 8 years of history gives the dashboard 5+ years for the seasonal envelope.
 # EIA returns up to 5000 rows per call; 8y × 52w × 5 regions ≈ 2,080 rows.
 START_DATE = "2018-01-01"
+
+
+def _get_latest_curated_date(curated_path: Path | None = None) -> str | None:
+    """Return the newest period in curated parquet, or None if missing."""
+    p = curated_path or CURATED_PATH
+    if not p.exists():
+        return None
+    try:
+        import pandas as pd
+
+        df = pd.read_parquet(p, columns=["period"])
+        if df.empty:
+            return None
+        return str(df["period"].max())
+    except Exception:
+        return None
 
 
 def _get_latest_local_date() -> str | None:
@@ -90,6 +107,13 @@ async def run() -> dict[str, Any]:
             health.record_failure(error=err)
             return {"status": "failed", "error": err}
 
+        # CI CAVEAT (Prompt U §05):
+        # data/raw/ is gitignored (.gitignore:24) and zero raw files are tracked in git.
+        # Every CI run starts with an empty data/raw/ directory on the ephemeral runner.
+        # As a result, _get_latest_local_date() always returns None in CI, so this
+        # staleness skip gate cannot fire in CI and record_skipped() is unreachable there.
+        # Every scheduled CI run proceeds to fetch. This gate only protects local
+        # developer environments with retained raw files.
         latest_local = _get_latest_local_date()
         latest_existing_path = _get_latest_local_path()
         existing_rows = _count_existing_rows(latest_existing_path)
@@ -141,10 +165,43 @@ async def run() -> dict[str, Any]:
             resp_obj = data_to_write.get("response", {})
             rows_count = len(resp_obj.get("data", [])) if isinstance(resp_obj, dict) else 0
 
-            health.record_success(metadata={"latest_date": latest_api_date, "rows": rows_count})
+            # Determine whether this run advanced the dataset or was a no-op (Prompt U §05)
+            newest_period = None
+            if isinstance(resp_obj, dict):
+                raw_rows = resp_obj.get("data", [])
+                periods = [r["period"] for r in raw_rows if isinstance(r, dict) and "period" in r]
+                if periods:
+                    newest_period = max(periods)
+
+            effective_latest = newest_period or latest_api_date
+            latest_curated = _get_latest_curated_date()
+
+            if latest_curated and effective_latest and effective_latest <= latest_curated:
+                # Fetch completed, but latest period is unchanged from what curated already holds.
+                reason = (
+                    f"fetch completed ({rows_count} rows) but newest period "
+                    f"{effective_latest} <= curated {latest_curated}"
+                )
+                health.record_no_op(
+                    reason=reason,
+                    metadata={
+                        "latest_date": effective_latest,
+                        "curated_latest": latest_curated,
+                        "rows": rows_count,
+                    },
+                )
+                return {
+                    "status": "no_op",
+                    "latest_date": effective_latest,
+                    "curated_latest": latest_curated,
+                    "rows": rows_count,
+                    "path": str(out_path),
+                }
+
+            health.record_success(metadata={"latest_date": effective_latest, "rows": rows_count})
             return {
                 "status": "ok",
-                "latest_date": latest_api_date,
+                "latest_date": effective_latest,
                 "rows": rows_count,
                 "path": str(out_path),
             }

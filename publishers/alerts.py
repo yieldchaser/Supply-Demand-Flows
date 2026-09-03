@@ -293,7 +293,8 @@ def send_feedgas_alerts_if_needed(dry_run: bool = False) -> list[dict[str, Any]]
         List of alert dictionaries. If dry_run=True, prints message bodies without sending.
     """
     import pandas as pd
-    from scripts.task3_validate import TERMINALS, load_terminal_history, detect_events
+
+    from scripts.task3_validate import TERMINALS, detect_events, load_terminal_history
 
     alerts: list[dict[str, Any]] = []
     for term_key, conf in TERMINALS.items():
