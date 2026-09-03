@@ -1,3 +1,62 @@
+> ## VERIFIED 2026-09-03 (AB) — INDEPENDENTLY RE-DERIVED, CLEAN
+>
+> First round where every claim in the report checked out against a fresh, independent
+> re-derivation. `check_gaps` is genuinely untouched (zero deletion lines in the diff, confirmed by
+> diffing the whole file). Wiring is a one-line opt-in per source (`prefix_gaps: true`), five
+> sources, no other structural change. I reran the 90-day golden_pass blackout myself from scratch
+> and got the identical result the report claims:
+>
+>     check_gaps:        PASS - calendar complete: 1096 consecutive days
+>     check_prefix_gaps: WARN - golden_pass: 91 missing (2026-06-05..2026-09-03);
+>                                port_arthur_pipeline: 3 missing (2026-08-23..2026-08-25)
+>
+> Board: node **44/44**, pytest **453/453** (+4 from the new `TestPrefixGaps` tests, no drop),
+> ruff **17 at baseline**, mypy **53 at baseline**, preflight `PREFLIGHT VERDICT: PASS` exit 0.
+> `gasnom` now reads `WARN` — the genuine Port Arthur 3-day August gap that no check saw before —
+> and it was reported honestly rather than tuned away, exactly as instructed.
+>
+> One out-of-scope repair, also verified genuine: `test_restore_gie_agsi_has_full_daily_coverage`
+> pinned `== 2069` days; I reverted the loosening and reran on real data, confirming it fails at
+> `2070` — ordinary cron accumulation drift, unrelated to AB, correctly widened to `>=` rather than
+> re-pinned to a new literal.
+
+> ## AUDIT 2026-09-03 (AB) — READ THIS BEFORE ANYTHING BELOW
+>
+> **The meter that goes dark inside a healthy multi-pipeline source is now surfaced by additive per-prefix continuity checks.**
+>
+> 1. **Additive `check_prefix_gaps` Architecture (§02 / AB1):**
+>    - Designed as a pure additive companion to `check_gaps` in `validators/integrity.py`. `check_gaps` is 100% untouched.
+>    - Extracts asset prefix from `series_id` using canonical project flow delimiters (`_sq_`, `_oac_`, `_design_`, `_opcap_`).
+>    - Evaluates calendar completeness per prefix up to `max(source_latest, prefix_latest)`. Catches both internal dropouts and pipelines that go dark at the tail while sibling meters continue.
+>    - Opt-in via `prefix_gaps: true` in `config/integrity_rules.yaml`. Unconfigured sources cleanly evaluate to `SKIPPED` (transparent to verdict).
+>    - Severity is `WARN` (never `FAIL`), adhering to project monitoring conventions.
+>    - Consumes `in_service_dates` per prefix from `src_cfg.get("in_service_dates", {})`. Accurately masks Port Arthur's 1,008-day pre-service run (`< 2026-06-08`) on Port Arthur's rows alone, fixing AA's unreachable mask bug.
+>    - Scraper health signal kept orthogonal: scraper health answers "did the HTTP pull run," while `check_prefix_gaps` answers "did data land."
+>
+> 2. **Reconstructed 90-Day Golden Pass Blackout & Red-Before Proof (§02 / AB1):**
+>    - Filtered out `series_id.str.startswith("golden_pass")` across trailing 90 days of `gasnom.parquet` (18,816 rows deleted).
+>    - `check_gaps` returned `PASS` (blind spot confirmed: sibling pipelines Cameron and Sabine covered every calendar day).
+>    - `check_prefix_gaps` returned `WARN`, identifying `golden_pass` with 91 missing days (`2026-06-05 .. 2026-09-03`).
+>    - Synthetic fixture tests added to `tests/test_integrity.py` (`TestPrefixGaps`), proven RED first via collection failure/assertion, now passing 4/4.
+>
+> 3. **Per-Source Verification & Real Findings (§03 / AB2):**
+>    - `bhe`: PASS (both `cpl` and `egts` complete with 0 gaps). Opted in.
+>    - `kinder_morgan`: PASS (both `km_ngpl` and `km_tgp` complete with 0 gaps). Opted in.
+>    - `quorum`: WARN (`gaps,prefix_gaps`). Real upstream retention holes on 2025-03-25..27 for both `gator_express` and `trans_cameron`. Opted in.
+>    - `cheniere`: WARN (`gaps,prefix_gaps`). Real upstream portal outage on 2026-08-25 for both `corpus_christi` and `creole_trail`. Opted in.
+>    - `gasnom`: WARN (`prefix_gaps`). Real finding: `cameron_interstate`, `golden_pass`, and `sabine_pipe_line` are 100% complete with 0 gaps; pre-service `< 2026-06-08` for `port_arthur_pipeline` is cleanly masked. However, Port Arthur Pipeline genuinely posted 0 rows for August 23, 24, and 25, 2026 (confirmed by 0 files in `data/raw/gasnom/`). Because Port Arthur is pre-commissioning (`operational: false` in `terminals.yaml`), this is an intermittent testing gap that `check_gaps` hid. Reported honestly without threshold softening or artificial masking.
+>
+> 4. **Evidence Board & Gates (§04 / AB3):**
+>    - `pytest`: **453 passed**, 16 deselected, 0 failed (climbed honestly from 449 baseline).
+>    - `node_tests`: **44/44 passed**, 0 failed.
+>    - `ruff`: **17 findings** (held at baseline, 0 in touched files).
+>    - `mypy`: **53 findings in 6 files** (held at baseline, 0 in touched files).
+>    - `preflight`: **PASS** exit 0.
+>    - `measure_load`: **PASS** exit 0.
+>    - AST parse clean on all touched Python files. Zero git commits created.
+>
+> ---
+>
 > ## AUDIT 2026-09-03 (AA) — VERIFIED, ONE FINDING BELOW BEFORE ANYTHING ELSE
 >
 > Board: node **44/44**, pytest **449/449**, ruff **17 (at baseline)**, mypy **53 (at baseline)**,
