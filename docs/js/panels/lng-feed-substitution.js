@@ -41,10 +41,6 @@ import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
 import { cyclePriority } from './lng-fleet-overview.js';
 
-/* ---- threshold tuning (see REPORT) ---- */
-const N_SHARE_PTS = 10;   // a feed's share moved >= 10 points
-const M_TOTAL_PCT = 8;    // total changed within +/- 8%
-
 /* ---- terminal / feed definitions ---- */
 const TERMINALS = [
   {

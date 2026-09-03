@@ -110,8 +110,8 @@ export async function loadBundle() {
   try {
     index = await (await fetchWithRetry(indexUrl)).json();
   } catch (err) {
-    // Shards not deployed (e.g. gitignored build artifacts on Pages) — fall
-    // back to the monolithic bundle.json, which is always tracked + served.
+    // Shards not deployed — fall back to the hashed monolithic bundle named
+    // by manifest.bundle_url, which ships in the Pages artifact.
     console.warn(
       `[bluetide] index shard ${manifest.index_url} unavailable — falling back to full-bundle parse`
     );
