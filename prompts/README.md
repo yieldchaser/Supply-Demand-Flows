@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across seventeen briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across eighteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -111,6 +111,27 @@ skeletons. So: `node --input-type=module -e "await import('./docs/js/<file>.js')
 module, and load the live site and read the console. Green unit tests are not evidence the page
 loads. When re-checking a fix in a browser, open a fresh tab — the module cache replays the old
 error and will convince you the fix did not deploy.
+
+**W generalised that rule the hard way, by doing the same thing in Python.** A typing edit replaced
+the module docstring's closing `"""` in `scripts/task3_validate.py` with the `from __future__`
+line, so the docstring never closed and **pytest collected nothing** — three collection errors,
+zero tests run, ruff 17 to 53. Self-scored 100/100 with a mypy count for a file that has no mypy
+result. So the parse check is language-agnostic now:
+
+    node --input-type=module -e "await import('./docs/js/<f>.js')"
+    python -c "import ast,io; ast.parse(io.open('<f>.py',encoding='utf-8').read())"
+
+**And check the artefact, never the claim of execution.** W reported its parquet migration as done
+and printed an after-state table; the parquet was untouched and the table was a prediction. The
+predicted numbers happened to be right, but actually running it surfaced two bugs a prediction
+never could — `safe_write_parquet` called with swapped arguments, and a half-finished transformer
+edit referencing a variable it had deleted.
+
+The compensating pattern is worth naming: **the honest "I did not do that" answers are where the
+next brief comes from.** W was told not to widen the cross-panel invariant, only to say what it
+covered. It said the test hardcodes two terminals and silently skips the rest — and that answer,
+followed up, exposed that Section 5 returns an empty series for four of the eight operational
+terminals. Ask what a test actually covers before asking anyone to extend it.
 
 ## Verification contract
 
@@ -186,4 +207,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `T-eia-storage-and-the-weekly-false-positive.md` | The divergence arm that FAILs a healthy weekly source every week, and a freshness gate that trusts a filename over its own payload | delivered 2026-09-03, verified — fix correct, board FAIL -> WARN, second clean report in a row; but its T1 regression test passed against the unfixed code and had to be repaired. Merged to `main` as `13b3cca` and deployed |
 | `U-the-payload-and-the-dropped-feed.md` | The 3.2 GB in `docs/data`, running the harness at last, and a Sabine feed that has resolved to nothing since the day it was added | delivered 2026-09-03, verified — the KM feed fix is real and its red-before proof was genuine for the first time; but ruff was never actually run (claimed 58 -> 25, was 55) and its own Sabine test failed while reported green. Merged as `303e473`; shards untracked and pruned in `d0fba7e` |
 | `V-the-68mb-nobody-loads.md` | A 68 MB file committed on every publish that no code path fetches, the four terminals the coverage guard has never checked, and `best` masquerading as a nomination cycle | delivered 2026-09-03, verified — all nine terminals now coverage-guarded and passing, and §04 correctly contradicted my stated expectation with evidence; but the bundle-loader edit deleted a `catch` clause and self-scored 100/100, and the migration row counts were invented. Merged as `4248ca4`/`33a141a`/`90fbb79` |
-| `W-one-rule-three-implementations.md` | The settled-cycle rule exists three times and the browser copy does not know the vocabulary the Python copy learned; Freeport's two nameplates; Section 8's missing four; the KM migration with real numbers | **pending** |
+| `W-one-rule-three-implementations.md` | The settled-cycle rule exists three times and the browser copy does not know the vocabulary the Python copy learned; Freeport's two nameplates; Section 8's missing four; the KM migration with real numbers | delivered 2026-09-03, verified — cycle rule consolidated, FERC analysis decisive, and §04's honest "the invariant skips them" answer became brief X; but the typing edit made `task3_validate.py` unparseable so pytest collected nothing, and the migration was reported executed while the parquet was untouched. Merged as `cb37204`/`462acfb` |
+| `X-the-invariant-that-tests-two.md` | A cross-panel invariant that claims "any terminal" and tests two, hiding that Section 5 renders nothing for four of the eight | **pending** |
