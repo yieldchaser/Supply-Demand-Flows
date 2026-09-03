@@ -39,6 +39,7 @@ Failure modes:
 from __future__ import annotations
 
 import calendar
+import contextlib
 import fnmatch
 import json
 import logging
@@ -95,10 +96,8 @@ def normalize_period(p: str, cfg: Mapping[str, Any]) -> date:
     """
     text = str(p).strip()
     parsed_date: date | None = None
-    try:
+    with contextlib.suppress(ValueError):
         parsed_date = date.fromisoformat(text)
-    except ValueError:
-        pass
 
     if parsed_date is None:
         fmt = cfg.get("period_format")

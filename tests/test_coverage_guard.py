@@ -137,3 +137,33 @@ def test_registry_sidecar_has_all_required_fields_for_all_terminals() -> None:
             f"Terminal '{term_key}' has invalid nameplate: {item['nameplate']}"
         )
 
+
+def test_km_feed_resolves_and_loads_daily() -> None:
+    """Sabine Pass's second leg (km_ngpl_sq_3592_d) must resolve to kinder_morgan
+    parquet and load a non-empty daily series (Prompt U §04).
+
+    Before fix:
+      - resolve_series("km_ngpl_sq_3592_d") returned (None, None) due to missing 'km' in PREFIX_MAP
+      - load_feed_daily("km_ngpl_sq_3592_d") printed 'WARN: no parquet' and returned None
+    After fix:
+      - resolve_series returns (Path('...kinder_morgan.parquet'), 'km_ngpl_sq_3592_d')
+      - load_feed_daily recognizes KM cycle aliases (evng, itrd1-3) and returns non-empty dict
+    """
+    from scripts.task3_validate import load_feed_daily, resolve_series
+
+    path, pattern = resolve_series("km_ngpl_sq_3592_d")
+    assert path is not None, "resolve_series('km_ngpl_sq_3592_d') must find parquet path"
+    assert path.name == "kinder_morgan.parquet"
+    assert pattern == "km_ngpl_sq_3592_d"
+
+    daily = load_feed_daily("km_ngpl_sq_3592_d")
+    assert daily is not None, "load_feed_daily('km_ngpl_sq_3592_d') must not be None"
+    assert len(daily) > 0, "load_feed_daily('km_ngpl_sq_3592_d') must return data rows"
+
+
+def test_sabine_pass_coverage_unchanged_with_km_feed() -> None:
+    """KM feed (km_ngpl_sq_3592_d) posts 0.0 Dth across all cycles, so Sabine Pass
+    coverage must remain exactly 30.3% (Prompt U §04).
+    """
+    res = compute_terminal_coverage_from_curated("sabine_pass", window_days=60, nameplate=4500.0)
+    assert round(res["coverage_pct"], 1) == 30.3, f"Sabine Pass coverage changed: {res['coverage_pct']}%"

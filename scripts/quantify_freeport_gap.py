@@ -13,9 +13,10 @@ Calculates:
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 CYCLE_PRIORITY = {
     "timely": 1,
@@ -38,7 +39,7 @@ def extract_daily_feed(df: pd.DataFrame, prefix_stem: str) -> pd.DataFrame:
     matches = df[df["series_id"].str.lower().str.startswith(prefix_stem.lower() + "_")].copy()
     matches = matches[matches["series_id"].str.contains("_sq_")]
     matches = matches[matches["series_id"].str.contains("_d_")]
-    
+
     rows = []
     for _, r in matches.iterrows():
         sid = r["series_id"].lower()
@@ -48,10 +49,10 @@ def extract_daily_feed(df: pd.DataFrame, prefix_stem: str) -> pd.DataFrame:
             continue
         p_str = str(r["period"])[:10]
         rows.append({"period": p_str, "cycle": cyc, "pri": pri, "value": float(r["value"])})
-    
+
     if not rows:
         return pd.DataFrame(columns=["period", "value"])
-    
+
     f_df = pd.DataFrame(rows)
     best = f_df.sort_values(["period", "pri"]).groupby("period").last().reset_index()
     return best[["period", "value"]]
@@ -59,7 +60,7 @@ def extract_daily_feed(df: pd.DataFrame, prefix_stem: str) -> pd.DataFrame:
 def analyze_freeport():
     gs_path = Path("data/curated/gulf_south.parquet")
     enb_path = Path("data/curated/enbridge.parquet")
-    
+
     if not gs_path.exists() or not enb_path.exists():
         print("Curated files missing.")
         return
@@ -77,10 +78,10 @@ def analyze_freeport():
     merged["tetco_mmcf"] = merged["value_tetco"] / 1.025 / 1000.0
 
     nameplate_nominal = 2100.0  # MMcf/d (3 trains x 700 MMcf/d)
-    nameplate_ferc = 2140.0     # FERC CP12-509 peak nameplate
+    # FERC CP12-509 peak nameplate is 2140.0 MMcf/d
 
     merged = merged.sort_values("period").reset_index(drop=True)
-    
+
     # 7-day and 30-day rolling averages
     merged["rolling_7d"] = merged["sum_mmcf"].rolling(7).mean()
     merged["rolling_30d"] = merged["sum_mmcf"].rolling(30).mean()
@@ -115,7 +116,7 @@ def analyze_freeport():
     print("=" * 65)
     print(f"Overlapping history: {all_n} days ({merged['period'].min()} to {merged['period'].max()})")
     print(f"Baseload operating days (>= 500 MMcf/d): {base_n} days")
-    
+
     print("\n--- MEASURED FEEDGAS DISTRIBUTION (Gulf South 24329 + TETCO 79999) ---")
     print(f"All Overlapping Days (n={all_n}):")
     print(f"  p10:    {all_stats['p10']:,.1f} MMcf/d  ({all_stats['p10']/nameplate_nominal*100:.1f}% of nameplate)")
@@ -133,7 +134,7 @@ def analyze_freeport():
     print("\n--- INVISIBLE REMAINDER AGAINST 2,100 MMCF/D NAMEPLATE ---")
     med_gap = nameplate_nominal - base_stats['median']
     p10_gap = nameplate_nominal - base_stats['p90']  # at peak measured, gap is smallest
-    p90_gap = nameplate_nominal - base_stats['p10']  # at low measured, gap is largest
+    # At low measured flow (p10), the gap would be nameplate_nominal - base_stats['p10']
     sustained_gap = nameplate_nominal - all_stats['max_30d']
     print(f"  At median baseload flow ({base_stats['median']:,.1f} MMcf/d):  gap = {med_gap:,.1f} MMcf/d ({med_gap/nameplate_nominal*100:.1f}%)")
     print(f"  At p90 baseload flow ({base_stats['p90']:,.1f} MMcf/d):     gap = {p10_gap:,.1f} MMcf/d ({p10_gap/nameplate_nominal*100:.1f}%)")

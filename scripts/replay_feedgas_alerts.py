@@ -7,20 +7,19 @@ Evaluates alert rate, monthly distribution, and suppresses alert fatigue.
 
 from __future__ import annotations
 
-import json
 from collections import defaultdict
-from datetime import date, datetime, timedelta
-from pathlib import Path
+from datetime import datetime
+
 import pandas as pd
 
-from scripts.task3_validate import TERMINALS, load_terminal_history, detect_events
 from publishers.alerts import format_feedgas_alert
+from scripts.task3_validate import TERMINALS, detect_events, load_terminal_history
 
 
 def replay_alerts(suppress_ongoing_drop: bool = True) -> dict:
     """
     Replay alert generation over history for each terminal.
-    
+
     If suppress_ongoing_drop=True:
         Only alert on the ONSET of an acute drop (day t is >= 40% drop while day t-1 was not),
         or enforce a 7-day dedup TTL on acute drop alerts.
@@ -94,7 +93,7 @@ def replay_alerts(suppress_ongoing_drop: bool = True) -> dict:
                         prior_d = sorted_dates[idx - 1]
                         prior_flow = hist[prior_d]["value"] / 1.025 / 1000.0
                         prior_drop = (baseline_mmcf - prior_flow) / baseline_mmcf if baseline_mmcf > 0 else 0
-                        
+
                         days_since_last = 999
                         if last_acute_alert_date:
                             days_since_last = (datetime.fromisoformat(d_str) - datetime.fromisoformat(last_acute_alert_date)).days

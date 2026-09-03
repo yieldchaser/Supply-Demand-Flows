@@ -1,13 +1,14 @@
 """TASK 3 Analysis: Terminal Downtime baseline methodology."""
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 DATA = Path("data/curated")
 
 # Source parquet files (actual filenames)
 sources = {
     "gulf_south": DATA / "gulf_south.parquet",
-    "enbridge": DATA / "enbridge.parquet", 
+    "enbridge": DATA / "enbridge.parquet",
     "bhe": DATA / "bhe.parquet",
     "cheniere": DATA / "cheniere.parquet",
     "kinder_morgan": DATA / "kinder_morgan.parquet",
@@ -60,7 +61,7 @@ for term, cfg in terminals.items():
         continue
 
     combined = pd.concat(dfs, ignore_index=True)
-    
+
     # Group by date
     combined['date'] = pd.to_datetime(combined['period']).dt.date
     daily = combined.groupby('date')['value'].sum().reset_index()
@@ -85,22 +86,22 @@ print("=== DESIGN OBSERVATIONS ===")
 print("""
 - Cove Point: ~604 days observed. 446 zero-days documented historically (cargo-driven).
   Zeros are NORMAL, not outages. DEPRESSED: below median. OFFLINE: >=2 consecutive zeros.
-  
+
 - Freeport: Gulf South dominates (GS share 71-100%). TETCO minority feed.
   Zeros are legitimate. OFFLINE = consecutive days both feeds zero.
-  
+
 - Sabine: 94 days observed, consistent throughput. 3592 is context/0 (idle).
   OFFLINE = >3 consecutive days at near-zero with no TSQ activity.
-  
+
 - Plaquemines: 1000+ days observed, low CV (stable throughput).
   OFFLINE = >2 consecutive days at zero during active pipeline season.
-  
+
 BASELINE WINDOW: Trailing 30 days | reason: captures 1 cycle + variability
   - Freeport: GS-dominated, TETCO swings, use 30d median as baseline
   - Cove Point: cargo-driven zeros, flag DEPRESSED (sustained below median),
     NOT OFFLINE for zeros alone — need 3+ consecutive zeros outside peak season
   - Sabine: 94d history, 30d covers >1/3 cycle; use median. 3592 idle = valid.
-  
+
 THREE-STATE DEFINITION:
 1. DEPRESSED: daily flow < 60% of 30d trailing median for >= 5 consecutive days
 2. OFFLINE: daily flow = 0 for >= 2 consecutive days (except cargo-zero terminals)

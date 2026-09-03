@@ -178,15 +178,17 @@ async def test_run_empty_response_skips_country(
             return _single_page_response([{**SAMPLE_ROW, "code": "EU", "name": "EU"}])
         return _single_page_response([])
 
-    with patch("scrapers.gie_agsi.european_storage.HealthWriter"):
-        with patch("scrapers.gie_agsi.european_storage.HttpClient") as MockClient:
-            mock_client_instance = AsyncMock()
-            mock_client_instance.get_json = _mock_get_json
-            mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-            mock_client_instance.__aexit__ = AsyncMock(return_value=False)
-            MockClient.return_value = mock_client_instance
+    with (
+        patch("scrapers.gie_agsi.european_storage.HealthWriter"),
+        patch("scrapers.gie_agsi.european_storage.HttpClient") as MockClient,
+    ):
+        mock_client_instance = AsyncMock()
+        mock_client_instance.get_json = _mock_get_json
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_client_instance
 
-            result = await run()
+        result = await run()
 
     assert result["status"] == "ok"
     assert result["row_count"] == 1
@@ -281,15 +283,17 @@ async def test_run_pagination_makes_two_requests(
             return _two_page_response(rows, page)
         return _single_page_response([])
 
-    with patch("scrapers.gie_agsi.european_storage.HealthWriter"):
-        with patch("scrapers.gie_agsi.european_storage.HttpClient") as MockClient:
-            mock_client_instance = AsyncMock()
-            mock_client_instance.get_json = _paginated_get
-            mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-            mock_client_instance.__aexit__ = AsyncMock(return_value=False)
-            MockClient.return_value = mock_client_instance
+    with (
+        patch("scrapers.gie_agsi.european_storage.HealthWriter"),
+        patch("scrapers.gie_agsi.european_storage.HttpClient") as MockClient,
+    ):
+        mock_client_instance = AsyncMock()
+        mock_client_instance.get_json = _paginated_get
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_client_instance
 
-            result = await run()
+        result = await run()
 
     assert page_calls.get("DE", 0) == 2, "DE should have triggered two page requests"
     assert result["status"] == "ok"

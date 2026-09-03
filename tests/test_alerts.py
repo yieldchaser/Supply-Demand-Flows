@@ -289,6 +289,7 @@ def test_format_feedgas_alert_renders_correctly() -> None:
 def test_send_feedgas_alerts_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
     """dry_run mode prints rendered message body and makes zero network calls."""
     import httpx
+
     import scripts.task3_validate as t3
 
     # Mock terminal history with an active outage

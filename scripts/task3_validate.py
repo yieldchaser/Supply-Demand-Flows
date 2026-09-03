@@ -10,6 +10,7 @@ Corrected findings from v2:
 import re
 from datetime import date
 from pathlib import Path
+
 import pandas as pd
 
 DATA = Path("data/curated")
@@ -22,6 +23,7 @@ PREFIX_MAP = {
     "creole_trail": "cheniere",
     "enbridge": "enbridge",
     "kinder_morgan": "kinder_morgan",
+    "km": "kinder_morgan",
     "gator_express": "quorum",
 }
 
@@ -63,11 +65,16 @@ TERMINALS = {
 CYCLE_PRIORITY = {
     "timely": 1,
     "evening": 2,
+    "evng": 2,
     "late": 3,
     "latec": 4,
     "id1": 5,
+    "itrd1": 5,
     "id2": 6,
+    "itrd2": 6,
     "id3": 7,
+    "itrd3": 7,
+    "best": 1,
 }
 
 
@@ -115,7 +122,7 @@ def load_feed_daily(feed_id):
     sub['prio'] = sub['cycle'].apply(cycle_priority)
     sub = sub[sub['prio'] > 0]
     sub = sub.sort_values('prio', ascending=False).drop_duplicates(subset=['period'], keep='first')
-    return dict(zip(sub['period'], sub['value']))
+    return dict(zip(sub['period'], sub['value'], strict=False))
 
 
 def load_terminal_history(term_key):
@@ -129,7 +136,7 @@ def load_terminal_history(term_key):
     history = {}
     for d in sorted(all_dates):
         total, feeds_posted = 0, 0
-        for feed, fd in feed_daily.items():
+        for fd in feed_daily.values():
             if fd and d in fd:
                 feeds_posted += 1
                 total += max(fd[d], 0)
@@ -183,7 +190,7 @@ def detect_events(history, conf):
 
     raw_vals = [(d, h["value"]) for d, h in values]
     medians = {}
-    for i, (d, h) in enumerate(values):
+    for i, (d, _h) in enumerate(values):
         window = [v for _, v in raw_vals[max(0, i - baseline_window):i] if v > 0]
         medians[d] = pd.Series(window).median() if window else 0
     first_window = [v for _, v in raw_vals[:30] if v > 0]
@@ -366,17 +373,18 @@ def run_validation():
         hist, conf = load_terminal_history(term)
         ev = detect_events(hist, conf)
         tc = {}
-        for e in ev: tc[e['type']] = tc.get(e['type'], 0) + 1
+        for e in ev:
+            tc[e['type']] = tc.get(e['type'], 0) + 1
         total = len(ev)
         print(f"\n  {conf['name']}: {total} events over {len(hist)} posted-days")
         for t, c in sorted(tc.items()):
             print(f"    {t}: {c}")
         if total > 20:
-            print(f"    HIGH NOISE - reduce sensitivity")
+            print("    HIGH NOISE - reduce sensitivity")
         elif total == 0 and len(hist) > 365:
-            print(f"    TOO QUIET - check sensitivity (0 events across >1 year)")
+            print("    TOO QUIET - check sensitivity (0 events across >1 year)")
         else:
-            print(f"    plausible")
+            print("    plausible")
 
     print("\nDone.")
 
