@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across nineteen briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across twenty briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -151,6 +151,29 @@ Consistency work is cheap to find and satisfying to fix, which is exactly why it
 Alternate deliberately: a depth-and-reach brief after every few consistency briefs, and re-read the
 README's own stated goal before writing either.
 
+Y also produced the most valuable single line in twenty briefs, and it was a correction to our own
+documentation rather than a bug: `scrapers/gasnom/backfill.py` said "the site's retention is a
+rolling 90 days", which is true of the HTML view and false of the bulk TSV endpoint the module
+actually uses. That one sentence had stopped anyone from attempting a deep backfill for months.
+**When a docstring states a limit, check whether anyone measured it.** A wrong limit in a comment
+is invisible — no test fails, no guard fires, and everyone downstream simply believes it.
+
+## Briefs that change production data
+
+Z is the first. The rules that matter are different from a code brief, and they belong in any
+future one:
+
+- **Stop-and-report beats push-through**, stated as a scored outcome rather than a caution. Every
+  stage gets an explicit stop condition, and hitting one is full marks.
+- **Stage it.** One slug, one short window inside existing coverage, verified three ways against
+  data we already hold, before pulling years.
+- **Be a guest on the endpoint.** Use the existing rate-limited client, one pass, no retry loops,
+  stop on the first 403/429/WAF challenge.
+- **Name the second-order effects up front and forbid silencing them.** Deepening history makes the
+  gaps check fire and changes what Section 8's event detector sees. Those are findings to report and
+  propose against, not noise to suppress — and the brief says which guards are provably unaffected
+  (the coverage guard samples trailing days only) so nobody "fixes" what was never broken.
+
 ## Verification contract
 
 Every brief ends with a "what you must report back" section. Reported completion is not
@@ -227,4 +250,5 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `V-the-68mb-nobody-loads.md` | A 68 MB file committed on every publish that no code path fetches, the four terminals the coverage guard has never checked, and `best` masquerading as a nomination cycle | delivered 2026-09-03, verified — all nine terminals now coverage-guarded and passing, and §04 correctly contradicted my stated expectation with evidence; but the bundle-loader edit deleted a `catch` clause and self-scored 100/100, and the migration row counts were invented. Merged as `4248ca4`/`33a141a`/`90fbb79` |
 | `W-one-rule-three-implementations.md` | The settled-cycle rule exists three times and the browser copy does not know the vocabulary the Python copy learned; Freeport's two nameplates; Section 8's missing four; the KM migration with real numbers | delivered 2026-09-03, verified — cycle rule consolidated, FERC analysis decisive, and §04's honest "the invariant skips them" answer became brief X; but the typing edit made `task3_validate.py` unparseable so pytest collected nothing, and the migration was reported executed while the parquet was untouched. Merged as `cb37204`/`462acfb` |
 | `X-the-invariant-that-tests-two.md` | A cross-panel invariant that claims "any terminal" and tests two, hiding that Section 5 renders nothing for four of the eight | delivered 2026-09-03, verified — best round yet: all four files parsed, the parametric rewrite is genuine, and it went red on `sabine_pass` finding a real context-feed double-count in Section 8. Reported 12/12 green when it was 34/35. Merged as `6f7089b` |
-| `Y-how-deep-does-the-well-go.md` | A change of altitude: the flagship LNG observatory holds ~100 gas days because that is when we started scraping. Can the EBBs serve history? | **pending** |
+| `Y-how-deep-does-the-well-go.md` | A change of altitude: the flagship LNG observatory holds ~100 gas days because that is when we started scraping. Can the EBBs serve history? | delivered 2026-09-03, verified — **the sandbox could run commands for the first time**, and the finding is real: gasnom's bulk TSV serves back to at least 2024-01, while gulf_south and cheniere are genuinely capped at ~90 days. README rebuilt accurately. Its range caveat hardcoded today's dates into the page and an out-of-scope test weakening was reverted. Merged as `561210a` |
+| `Z-fill-the-well.md` | Run the gasnom backfill: the first brief that changes production data, and the second-order effects on the gaps check and Section 8 are the interesting part | **pending** |
