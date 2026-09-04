@@ -13,26 +13,26 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-04T21:38:14Z",
+    "last_inventory_run": "2026-09-04T23:34:24Z",
     "total_locations_seen": 769,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1656820.0
+        "scheduled_quantity_dth": 1662806.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1109234.0
+        "scheduled_quantity_dth": 1122632.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 574810.0
+        "scheduled_quantity_dth": 574809.0
       },
       {
         "loc_id": 23700,
@@ -50,25 +50,25 @@
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 454780.0
+        "scheduled_quantity_dth": 434888.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 379978.0
+        "scheduled_quantity_dth": 400925.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 327780.0
+        "scheduled_quantity_dth": 326517.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 250533.0
+        "scheduled_quantity_dth": 271737.0
       },
       {
         "loc_id": 26016,
