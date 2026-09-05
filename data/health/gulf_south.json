@@ -1,12 +1,13 @@
 {
   "source": "gulf_south",
-  "status": "ok",
-  "timestamp_utc": "2026-09-05T19:18:36Z",
-  "error": null,
+  "status": "warn",
+  "timestamp_utc": "2026-09-05T21:28:47Z",
+  "error": "no-op run (scraper fetched 20 file(s) but 0 row(s) landed in curated — nothing new was published)",
   "metadata": {
-    "processed_count": 20,
-    "skipped_count": 0,
-    "filter_gas_day": null,
-    "filter_cycle": null
+    "rows_added": 0,
+    "files_fetched": 20,
+    "stage": "end_of_pipeline",
+    "reason": "scraper fetched 20 file(s) but 0 row(s) landed in curated — nothing new was published",
+    "consecutive_no_ops": 1
   }
 }
