@@ -13,26 +13,20 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-05T23:27:55Z",
+    "last_inventory_run": "2026-09-06T07:15:27Z",
     "total_locations_seen": 769,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1739268.0
+        "scheduled_quantity_dth": 1739382.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1090265.0
-      },
-      {
-        "loc_id": 23700,
-        "loc_name": "Gulf South Transfer To Coastal Bend",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 638842.0
+        "scheduled_quantity_dth": 1092136.0
       },
       {
         "loc_id": 23039,
@@ -41,22 +35,28 @@
         "scheduled_quantity_dth": 563905.0
       },
       {
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 563254.0
+      },
+      {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 484676.0
+        "scheduled_quantity_dth": 484680.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 465381.0
+        "scheduled_quantity_dth": 460798.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 388414.0
+        "scheduled_quantity_dth": 390815.0
       },
       {
         "loc_id": 2690,
@@ -68,7 +68,7 @@
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 255308.0
+        "scheduled_quantity_dth": 256227.0
       },
       {
         "loc_id": 26016,
