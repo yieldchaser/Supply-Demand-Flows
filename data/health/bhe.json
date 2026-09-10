@@ -1,10 +1,10 @@
 {
   "source": "bhe",
   "status": "ok",
-  "timestamp_utc": "2026-09-09T22:04:07Z",
+  "timestamp_utc": "2026-09-10T08:20:10Z",
   "error": null,
   "metadata": {
-    "processed_count": 19,
+    "processed_count": 16,
     "skipped_count": 0,
     "failed_count": 0
   }
