@@ -1,11 +1,7 @@
 {
   "source": "baker_hughes_rigs",
-  "status": "ok",
-  "timestamp_utc": "2026-09-05T21:00:03Z",
-  "error": null,
-  "metadata": {
-    "date": "2026-09-05",
-    "bytes": 7269931,
-    "sha256": "7b987c14ac4ef4c8"
-  }
+  "status": "failed",
+  "timestamp_utc": "2026-09-11T21:36:28Z",
+  "error": "Failed to perform, curl: (92) HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.",
+  "metadata": null
 }
