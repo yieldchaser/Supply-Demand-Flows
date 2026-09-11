@@ -13,20 +13,20 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-11T21:49:46Z",
+    "last_inventory_run": "2026-09-11T23:41:56Z",
     "total_locations_seen": 769,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1699008.0
+        "scheduled_quantity_dth": 1730201.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1126042.0
+        "scheduled_quantity_dth": 1147313.0
       },
       {
         "loc_id": 23700,
@@ -38,37 +38,37 @@
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 573749.0
-      },
-      {
-        "loc_id": 23365,
-        "loc_name": "Henry Hub (Sabine)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 460409.0
+        "scheduled_quantity_dth": 565086.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 379391.0
+        "scheduled_quantity_dth": 559842.0
+      },
+      {
+        "loc_id": 23365,
+        "loc_name": "Henry Hub (Sabine)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 430474.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 351690.0
+        "scheduled_quantity_dth": 376391.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 342719.0
+        "scheduled_quantity_dth": 331428.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 228830.0
+        "scheduled_quantity_dth": 241846.0
       },
       {
         "loc_id": 26016,
