@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-11T07:26:23.599520+00:00",
+  "generated_at": "2026-09-11T07:37:52.337159+00:00",
   "overall": "WARN",
   "sources": {
     "gulf_south": {
@@ -70,9 +70,9 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 475063→476539 / days 109→109",
+          "message": "history intact: rows 476539→476539 / days 109→109",
           "details": {
-            "rows_before": 475063,
+            "rows_before": 476539,
             "rows_after": 476539,
             "days_before": 109,
             "days_after": 109
@@ -265,7 +265,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 130h ago and dataset consistent (stale 7d, resolved 2026-09-04, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 131h ago and dataset consistent (stale 7d, resolved 2026-09-04, warn 9d / fail 18d)",
           "details": {
             "stale_days": 7
           }
@@ -356,7 +356,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 13h ago and dataset consistent (stale 7d, resolved 2026-09-04, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 14h ago and dataset consistent (stale 7d, resolved 2026-09-04, warn 9d / fail 18d)",
           "details": {
             "stale_days": 7
           }
@@ -447,7 +447,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 133h ago and dataset consistent (stale 73d, resolved 2026-06-30, warn 105d / fail 135d)",
+          "message": "no divergence: scraper 'ok' 134h ago and dataset consistent (stale 73d, resolved 2026-06-30, warn 105d / fail 135d)",
           "details": {
             "stale_days": 73
           }
@@ -630,11 +630,11 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 867374→867548 / days 1103→1104",
+          "message": "history intact: rows 867548→867548 / days 1104→1104",
           "details": {
-            "rows_before": 867374,
+            "rows_before": 867548,
             "rows_after": 867548,
-            "days_before": 1103,
+            "days_before": 1104,
             "days_after": 1104
           }
         },
@@ -743,11 +743,11 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 117930→117966 / days 2003→2004",
+          "message": "history intact: rows 117966→117966 / days 2004→2004",
           "details": {
-            "rows_before": 117930,
+            "rows_before": 117966,
             "rows_after": 117966,
-            "days_before": 2003,
+            "days_before": 2004,
             "days_after": 2004
           }
         },
@@ -851,7 +851,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 9h ago and dataset consistent (stale 1d, resolved 2026-09-10, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 10h ago and dataset consistent (stale 1d, resolved 2026-09-10, warn 2d / fail 4d)",
           "details": {
             "stale_days": 1
           }
@@ -1038,9 +1038,9 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 240064→240072 / days 1114→1114",
+          "message": "history intact: rows 240072→240072 / days 1114→1114",
           "details": {
-            "rows_before": 240064,
+            "rows_before": 240072,
             "rows_after": 240072,
             "days_before": 1114,
             "days_after": 1114
@@ -1049,7 +1049,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 7h ago and dataset consistent (stale 1d, resolved 2026-09-10, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 8h ago and dataset consistent (stale 1d, resolved 2026-09-10, warn 2d / fail 4d)",
           "details": {
             "stale_days": 1
           }
@@ -1135,9 +1135,9 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 259→263 / days 18→18",
+          "message": "history intact: rows 263→263 / days 18→18",
           "details": {
-            "rows_before": 259,
+            "rows_before": 263,
             "rows_after": 263,
             "days_before": 18,
             "days_after": 18
