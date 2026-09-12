@@ -13,14 +13,14 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-11T23:41:56Z",
+    "last_inventory_run": "2026-09-12T07:17:54Z",
     "total_locations_seen": 769,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1730201.0
+        "scheduled_quantity_dth": 1710268.0
       },
       {
         "loc_id": 22108,
@@ -29,46 +29,46 @@
         "scheduled_quantity_dth": 1147313.0
       },
       {
-        "loc_id": 23700,
-        "loc_name": "Gulf South Transfer To Coastal Bend",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 585233.0
-      },
-      {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 565086.0
+        "scheduled_quantity_dth": 566354.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 559842.0
+        "scheduled_quantity_dth": 562013.0
+      },
+      {
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 512529.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 430474.0
+        "scheduled_quantity_dth": 420388.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 376391.0
+        "scheduled_quantity_dth": 376710.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 331428.0
+        "scheduled_quantity_dth": 331482.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 241846.0
+        "scheduled_quantity_dth": 243334.0
       },
       {
         "loc_id": 26016,
