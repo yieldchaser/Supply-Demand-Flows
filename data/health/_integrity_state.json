@@ -4,55 +4,55 @@
     "distinct_periods": 113,
     "distinct_series": 4433,
     "max_period": "2026-09-14",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 0
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 1
   },
   "gie_agsi": {
-    "rows": 83240,
-    "distinct_periods": 2081,
+    "rows": 83280,
+    "distinct_periods": 2082,
     "distinct_series": 40,
-    "max_period": "2026-09-12",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 4
+    "max_period": "2026-09-13",
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 0
   },
   "baker_hughes": {
     "rows": 33142,
     "distinct_periods": 140,
     "distinct_series": 635,
     "max_period": "2026-09-04",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 59
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 60
   },
   "eia_storage": {
     "rows": 3624,
     "distinct_periods": 453,
     "distinct_series": 8,
     "max_period": "2026-09-04",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 26
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 27
   },
   "eia_lng_exports": {
     "rows": 2707,
     "distinct_periods": 66,
     "distinct_series": 45,
     "max_period": "2026-06-01",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 53
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 54
   },
   "eia_supply": {
     "rows": 468,
     "distinct_periods": 78,
     "distinct_series": 6,
     "max_period": "2026-06",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 78
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 79
   },
   "gasnom": {
-    "rows": 868504,
+    "rows": 868632,
     "distinct_periods": 1108,
-    "distinct_series": 1240,
+    "distinct_series": 1242,
     "max_period": "2026-09-15",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
     "consecutive_flat": 0
   },
   "quorum": {
@@ -60,31 +60,31 @@
     "distinct_periods": 2008,
     "distinct_series": 120,
     "max_period": "2026-09-15",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 0
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 1
   },
   "bhe": {
-    "rows": 15636,
-    "distinct_periods": 623,
+    "rows": 15708,
+    "distinct_periods": 624,
     "distinct_series": 120,
-    "max_period": "2026-09-14",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 1
+    "max_period": "2026-09-15",
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 0
   },
   "cheniere": {
-    "rows": 8712,
-    "distinct_periods": 113,
+    "rows": 8778,
+    "distinct_periods": 114,
     "distinct_series": 264,
-    "max_period": "2026-09-14",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 1
+    "max_period": "2026-09-15",
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 0
   },
   "enbridge": {
-    "rows": 240960,
+    "rows": 241088,
     "distinct_periods": 1119,
     "distinct_series": 216,
     "max_period": "2026-09-15",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
     "consecutive_flat": 0
   },
   "kinder_morgan": {
@@ -92,7 +92,7 @@
     "distinct_periods": 22,
     "distinct_series": 24,
     "max_period": "2026-09-15",
-    "checked_at": "2026-09-15T07:58:35.052422+00:00",
-    "consecutive_flat": 0
+    "checked_at": "2026-09-15T17:38:00.405262+00:00",
+    "consecutive_flat": 1
   }
 }
