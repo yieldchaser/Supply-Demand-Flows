@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-17T07:55:27Z",
+    "last_inventory_run": "2026-09-17T20:29:58Z",
     "total_locations_seen": 769,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1818565.0
+        "scheduled_quantity_dth": 1809700.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1218241.0
+        "scheduled_quantity_dth": 1228690.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 570631.0
+        "scheduled_quantity_dth": 566196.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 537780.0
+        "scheduled_quantity_dth": 518465.0
       },
       {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 528566.0
+        "scheduled_quantity_dth": 486907.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 481590.0
+        "scheduled_quantity_dth": 477329.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 370093.0
-      },
-      {
-        "loc_id": 24229,
-        "loc_name": "George Co Seme (Merrill To Fgt)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 327575.0
+        "scheduled_quantity_dth": 397364.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 306764.0
+        "scheduled_quantity_dth": 331521.0
+      },
+      {
+        "loc_id": 24229,
+        "loc_name": "George Co Seme (Merrill To Fgt)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 310666.0
       },
       {
         "loc_id": 26016,
         "loc_name": "Bbt Trans-Union Claiborne Parish",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 290170.0
+        "scheduled_quantity_dth": 239183.0
       }
     ]
   }
