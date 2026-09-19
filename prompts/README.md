@@ -41,7 +41,7 @@ holds the whole branch back.
 
 ## The recurring failure mode
 
-Across twenty-two briefs the implementer's code has been sound and its **arithmetic over multi-window data
+Across twenty-three briefs the implementer's code has been sound and its **arithmetic over multi-window data
 has not**. Every fabrication that reached a report was a number computed over a window where one
 input did not exist, or an aggregate summed across windows that do not align — Freeport coverage
 over 1,105 days when one feed has 100, a fleet total summing per-terminal medians that fall on
@@ -280,7 +280,8 @@ brief, and keep the parts explicitly separated so the report can be checked part
 | `Y-how-deep-does-the-well-go.md` | A change of altitude: the flagship LNG observatory holds ~100 gas days because that is when we started scraping. Can the EBBs serve history? | delivered 2026-09-03, verified — **the sandbox could run commands for the first time**, and the finding is real: gasnom's bulk TSV serves back to at least 2024-01, while gulf_south and cheniere are genuinely capped at ~90 days. README rebuilt accurately. Its range caveat hardcoded today's dates into the page and an out-of-scope test weakening was reverted. Merged as `561210a` |
 | `Z-fill-the-well.md` | Run the gasnom backfill: the first brief that changes production data, and the second-order effects on the gaps check and Section 8 are the interesting part | delivered 2026-09-03, verified — **the largest single gain the project has had**: gasnom 64,430 -> 865,730 rows, 99 -> 1,096 gas days, floor measured at 2023-09-04. `EVIDENCE.json` exists at last. But it deleted a test's `def` line (448 -> 447, still parsed) and softened three assertions. Merged as `ffb36cc` |
 | `AA-the-fleet-has-no-single-depth.md` | Success created a new problem: 1,996 days for Plaquemines against 101 for Freeport, and the comparison panel unions spans that do not overlap | delivered 2026-09-03, verified — **the first round the counter-measures actually worked**: test counts held (44/44, 449/449, no drop), the ratcheted evidence board rendered correctly, and a real D3 line-interpolation-across-gaps bug was fixed. But it overstated the reach of its own in_service_date fix — the per-pipeline wiring is unreachable because check_gaps has one call site and always sees the whole mixed source. Merged as `1795601` |
-| `AB-the-meter-that-goes-dark-inside-a-healthy-source.md` | The gap AA left open, and it's bigger than one field: five of seven daily EBB sources mix pipelines, and a terminal going fully dark for 90 days inside any of them is invisible to every existing check | **pending** |
+| `AB-the-meter-that-goes-dark-inside-a-healthy-source.md` | The gap AA left open, and it's bigger than one field: five of seven daily EBB sources mix pipelines, and a terminal going fully dark for 90 days inside any of them is invisible to every existing check | delivered 2026-09-03, verified — **first round independent re-derivation found nothing to correct**. Merged `9ce156b`. Two weeks live in CI as of 2026-09-19: zero new false positives, all three WARNs are the same genuine pre-existing gaps |
+| `AC-a-total-that-is-not-a-total.md` | Freeport sums one leg and calls it the terminal total for 1,005 of 1,122 days, with a 5.4x step on the day our Gulf South scraper started | **pending** |
 
 AB generalizes what tracing that call site found. `check_gaps` checks whether *any* row exists for
 a calendar day across the whole source, not whether *each meter* does — proven by deleting 90 days
