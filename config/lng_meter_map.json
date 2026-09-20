@@ -13,32 +13,32 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-20T21:44:39Z",
+    "last_inventory_run": "2026-09-20T23:43:21Z",
     "total_locations_seen": 769,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1857899.0
+        "scheduled_quantity_dth": 1858702.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1155433.0
+        "scheduled_quantity_dth": 1149954.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 594647.0
+        "scheduled_quantity_dth": 596708.0
       },
       {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 584889.0
+        "scheduled_quantity_dth": 588623.0
       },
       {
         "loc_id": 23039,
@@ -50,13 +50,13 @@
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 526485.0
+        "scheduled_quantity_dth": 526498.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 474819.0
+        "scheduled_quantity_dth": 474982.0
       },
       {
         "loc_id": 23371,
@@ -68,13 +68,13 @@
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 320535.0
+        "scheduled_quantity_dth": 321199.0
       },
       {
-        "loc_id": 24255,
-        "loc_name": "Methanex Geismer 2",
+        "loc_id": 50202,
+        "loc_name": "Petal Pipeline Injection/Withdrawal",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 173705.0
+        "scheduled_quantity_dth": 208986.0
       }
     ]
   }
