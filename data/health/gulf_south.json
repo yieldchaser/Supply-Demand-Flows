@@ -1,11 +1,11 @@
 {
   "source": "gulf_south",
   "status": "ok",
-  "timestamp_utc": "2026-09-20T07:52:47Z",
+  "timestamp_utc": "2026-09-20T19:40:20Z",
   "error": null,
   "metadata": {
     "processed_count": 26,
-    "skipped_count": 2,
+    "skipped_count": 1,
     "filter_gas_day": null,
     "filter_cycle": null
   }
