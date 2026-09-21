@@ -13,26 +13,26 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-20T23:43:21Z",
+    "last_inventory_run": "2026-09-21T08:08:14Z",
     "total_locations_seen": 769,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1858702.0
+        "scheduled_quantity_dth": 1858322.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1149954.0
+        "scheduled_quantity_dth": 1149472.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 596708.0
+        "scheduled_quantity_dth": 594442.0
       },
       {
         "loc_id": 23700,
@@ -44,13 +44,13 @@
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 554003.0
+        "scheduled_quantity_dth": 554010.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 526498.0
+        "scheduled_quantity_dth": 526529.0
       },
       {
         "loc_id": 23365,
@@ -62,19 +62,19 @@
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 381592.0
+        "scheduled_quantity_dth": 381591.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 321199.0
+        "scheduled_quantity_dth": 324844.0
       },
       {
         "loc_id": 50202,
         "loc_name": "Petal Pipeline Injection/Withdrawal",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 208986.0
+        "scheduled_quantity_dth": 199964.0
       }
     ]
   }
