@@ -13,20 +13,20 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-21T21:12:07Z",
+    "last_inventory_run": "2026-09-21T22:43:08Z",
     "total_locations_seen": 769,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1891818.0
+        "scheduled_quantity_dth": 1897274.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1169949.0
+        "scheduled_quantity_dth": 1169953.0
       },
       {
         "loc_id": 23700,
@@ -38,43 +38,43 @@
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 579782.0
+        "scheduled_quantity_dth": 573093.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 539435.0
+        "scheduled_quantity_dth": 539273.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 472283.0
+        "scheduled_quantity_dth": 487858.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 461922.0
+        "scheduled_quantity_dth": 459399.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 369323.0
+        "scheduled_quantity_dth": 369322.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 318974.0
+        "scheduled_quantity_dth": 318848.0
       },
       {
-        "loc_id": 24255,
-        "loc_name": "Methanex Geismer 2",
+        "loc_id": 23373,
+        "loc_name": "Transco (Petal Pipeline)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 183706.0
+        "scheduled_quantity_dth": 209653.0
       }
     ]
   }
