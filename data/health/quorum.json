@@ -1,17 +1,21 @@
 {
   "source": "quorum",
-  "status": "failed",
-  "timestamp_utc": "2026-09-24T12:09:53Z",
-  "error": "gator: TenantFallbackError: tenant-fallback trap suspected for quorum/gator_express (TspNo=2): expected identity 'Venture' not found in response evidence [body_head='Post Date/Time,TSP,TSP Name,Eff Gas Day/Time,End Eff Gas Day/Time,Cycle Desc,Loc']. Refusing to parse — the portal may have served a different tenant.; transcameron: TenantFallbackError: tenant-fallback trap suspected for quorum/trans_cameron (TspNo=10): expected identity 'Venture' not found in response evidence [body_head='Post Date/Time,TSP,TSP Name,Eff Gas Day/Time,End Eff Gas Day/Time,Cycle Desc,Loc']. Refusing to parse — the portal may have served a different tenant.",
+  "status": "ok",
+  "timestamp_utc": "2026-09-24T17:32:42Z",
+  "error": null,
   "metadata": {
-    "gas_day": null,
-    "processed_count": 0,
+    "gas_day": "2026-09-24",
+    "processed_count": 6,
     "skipped_count": 0,
-    "rows": 0,
-    "cycles": [],
+    "rows": 27,
+    "cycles": [
+      "evening",
+      "id3",
+      "timely"
+    ],
     "tenants": {
-      "gator": "failed",
-      "transcameron": "failed"
+      "gator": "ok",
+      "transcameron": "ok"
     }
   }
 }
