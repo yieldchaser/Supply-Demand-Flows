@@ -13,26 +13,26 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-24T00:07:30Z",
+    "last_inventory_run": "2026-09-24T07:45:06Z",
     "total_locations_seen": 770,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1649670.0
+        "scheduled_quantity_dth": 1689185.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1104963.0
+        "scheduled_quantity_dth": 1105271.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 638944.0
+        "scheduled_quantity_dth": 638365.0
       },
       {
         "loc_id": 23700,
@@ -44,37 +44,37 @@
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 572703.0
+        "scheduled_quantity_dth": 573183.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 466919.0
+        "scheduled_quantity_dth": 467123.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 451424.0
+        "scheduled_quantity_dth": 452031.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 370380.0
+        "scheduled_quantity_dth": 385525.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 272877.0
+        "scheduled_quantity_dth": 274313.0
       },
       {
         "loc_id": 50201,
         "loc_name": "Petal Storage Injection/Withdrawal",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 219062.0
+        "scheduled_quantity_dth": 219168.0
       }
     ]
   }
