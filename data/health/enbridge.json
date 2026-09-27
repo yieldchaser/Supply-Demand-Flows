@@ -1,7 +1,11 @@
 {
   "source": "enbridge",
-  "status": "failed",
-  "timestamp_utc": "2026-09-27T00:25:01Z",
-  "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
-  "metadata": null
+  "status": "ok",
+  "timestamp_utc": "2026-09-27T09:04:30Z",
+  "error": null,
+  "metadata": {
+    "written": 66,
+    "skipped_existing": 0,
+    "rows": 48048
+  }
 }
