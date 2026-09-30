@@ -13,14 +13,14 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-09-30T21:30:56Z",
+    "last_inventory_run": "2026-09-30T23:07:48Z",
     "total_locations_seen": 780,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1933399.0
+        "scheduled_quantity_dth": 1949030.0
       },
       {
         "loc_id": 22108,
@@ -32,7 +32,7 @@
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 582728.0
+        "scheduled_quantity_dth": 582725.0
       },
       {
         "loc_id": 3362,
@@ -41,34 +41,34 @@
         "scheduled_quantity_dth": 573071.0
       },
       {
-        "loc_id": 23365,
-        "loc_name": "Henry Hub (Sabine)",
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 492809.0
+        "scheduled_quantity_dth": 495307.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 488355.0
+        "scheduled_quantity_dth": 493503.0
       },
       {
-        "loc_id": 23700,
-        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "loc_id": 23365,
+        "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 471685.0
+        "scheduled_quantity_dth": 491095.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 265878.0
+        "scheduled_quantity_dth": 262245.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 226588.0
+        "scheduled_quantity_dth": 225214.0
       },
       {
         "loc_id": 22128,
