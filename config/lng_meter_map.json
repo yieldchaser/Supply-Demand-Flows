@@ -13,26 +13,26 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-02T01:12:33Z",
+    "last_inventory_run": "2026-10-02T08:50:30Z",
     "total_locations_seen": 780,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1904511.0
+        "scheduled_quantity_dth": 1927339.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1079227.0
+        "scheduled_quantity_dth": 1058043.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 662935.0
+        "scheduled_quantity_dth": 660481.0
       },
       {
         "loc_id": 23700,
@@ -44,37 +44,37 @@
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 457311.0
+        "scheduled_quantity_dth": 450771.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 391037.0
+        "scheduled_quantity_dth": 400925.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 383420.0
+        "scheduled_quantity_dth": 394209.0
       },
       {
         "loc_id": 22128,
         "loc_name": "Clarke County (To Destin)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 298298.0
-      },
-      {
-        "loc_id": 24160,
-        "loc_name": "Tetco - Kosciusko Del - Lease Logical",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 280555.0
+        "scheduled_quantity_dth": 296309.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 272437.0
+        "scheduled_quantity_dth": 272468.0
+      },
+      {
+        "loc_id": 24160,
+        "loc_name": "Tetco - Kosciusko Del - Lease Logical",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 270592.0
       }
     ]
   }
