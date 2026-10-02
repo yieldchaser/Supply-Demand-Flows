@@ -13,44 +13,44 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-02T21:25:13Z",
+    "last_inventory_run": "2026-10-02T23:08:15Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1895058.0
+        "scheduled_quantity_dth": 1895375.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1119053.0
+        "scheduled_quantity_dth": 1115295.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 699911.0
+        "scheduled_quantity_dth": 698571.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 615339.0
+        "scheduled_quantity_dth": 615810.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 507889.0
+        "scheduled_quantity_dth": 507239.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 456041.0
+        "scheduled_quantity_dth": 458885.0
       },
       {
         "loc_id": 23700,
@@ -62,19 +62,19 @@
         "loc_id": 22128,
         "loc_name": "Clarke County (To Destin)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 306622.0
+        "scheduled_quantity_dth": 306615.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 259493.0
+        "scheduled_quantity_dth": 260618.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 239370.0
+        "scheduled_quantity_dth": 230791.0
       }
     ]
   }
