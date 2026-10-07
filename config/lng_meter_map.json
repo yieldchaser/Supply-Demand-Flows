@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-07T09:05:01Z",
+    "last_inventory_run": "2026-10-07T22:12:14Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1823878.0
+        "scheduled_quantity_dth": 1855392.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1081453.0
-      },
-      {
-        "loc_id": 3362,
-        "loc_name": "Lonewa (To Texas Gas)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 575994.0
+        "scheduled_quantity_dth": 1032473.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 532943.0
+        "scheduled_quantity_dth": 609654.0
+      },
+      {
+        "loc_id": 3362,
+        "loc_name": "Lonewa (To Texas Gas)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 579242.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 479426.0
+        "scheduled_quantity_dth": 462728.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 359428.0
-      },
-      {
-        "loc_id": 23700,
-        "loc_name": "Gulf South Transfer To Coastal Bend",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 352249.0
-      },
-      {
-        "loc_id": 24229,
-        "loc_name": "George Co Seme (Merrill To Fgt)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 294489.0
-      },
-      {
-        "loc_id": 22128,
-        "loc_name": "Clarke County (To Destin)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 285127.0
+        "scheduled_quantity_dth": 375471.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 243616.0
+        "scheduled_quantity_dth": 361872.0
+      },
+      {
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 312981.0
+      },
+      {
+        "loc_id": 22128,
+        "loc_name": "Clarke County (To Destin)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 283220.0
+      },
+      {
+        "loc_id": 24229,
+        "loc_name": "George Co Seme (Merrill To Fgt)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 279653.0
       }
     ]
   }
