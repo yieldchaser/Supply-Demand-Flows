@@ -1,11 +1,11 @@
 {
   "source": "gie_agsi",
   "status": "ok",
-  "timestamp_utc": "2026-10-08T15:59:10Z",
+  "timestamp_utc": "2026-10-09T15:41:12Z",
   "error": null,
   "metadata": {
-    "latest_gas_day": "2026-10-06",
-    "row_count": 21050,
+    "latest_gas_day": "2026-10-07",
+    "row_count": 21060,
     "countries_ok": [
       "EU",
       "DE",
