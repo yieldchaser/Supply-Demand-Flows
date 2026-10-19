@@ -13,50 +13,50 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-19T21:40:44Z",
+    "last_inventory_run": "2026-10-19T22:59:27Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1835912.0
+        "scheduled_quantity_dth": 1835900.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1060600.0
+        "scheduled_quantity_dth": 1060108.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 691775.0
+        "scheduled_quantity_dth": 691790.0
       },
       {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 565275.0
+        "scheduled_quantity_dth": 565285.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 561727.0
+        "scheduled_quantity_dth": 561940.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 531451.0
+        "scheduled_quantity_dth": 536974.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 350405.0
+        "scheduled_quantity_dth": 351827.0
       },
       {
         "loc_id": 22128,
@@ -68,13 +68,13 @@
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 328585.0
+        "scheduled_quantity_dth": 329569.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 283512.0
+        "scheduled_quantity_dth": 280481.0
       }
     ]
   }
