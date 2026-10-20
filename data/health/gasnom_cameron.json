@@ -1,14 +1,14 @@
 {
   "source": "gasnom_cameron",
   "status": "ok",
-  "timestamp_utc": "2026-10-20T14:11:43Z",
+  "timestamp_utc": "2026-10-20T17:48:57Z",
   "error": null,
   "metadata": {
     "slug": "cameron",
     "gas_day": "2026-10-20",
-    "cycle": "evening",
-    "cycle_desc": "Evening",
-    "posted_at": "October 19, 2026 08:33 PM CT",
+    "cycle": "id1",
+    "cycle_desc": "Intraday 1",
+    "posted_at": "October 20, 2026 12:32 PM CT",
     "row_count": 20
   }
 }
