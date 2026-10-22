@@ -1,7 +1,7 @@
 {
   "source": "gasnom",
   "status": "warn",
-  "timestamp_utc": "2026-10-22T07:49:09Z",
+  "timestamp_utc": "2026-10-22T08:20:29Z",
   "error": "SABINE: no-op run (no posting for 2026-10-22 (blank header))",
   "metadata": {
     "gas_day": "2026-10-22",
