@@ -1,16 +1,16 @@
 {
   "source": "gasnom",
-  "status": "ok",
-  "timestamp_utc": "2026-10-21T17:56:05Z",
-  "error": null,
+  "status": "warn",
+  "timestamp_utc": "2026-10-22T07:49:09Z",
+  "error": "SABINE: no-op run (no posting for 2026-10-22 (blank header))",
   "metadata": {
-    "gas_day": "2026-10-21",
+    "gas_day": "2026-10-22",
     "processed_count": 0,
     "skipped_count": 0,
     "rows": 0,
     "cycles": [],
     "pipelines": {
-      "SABINE": "ok",
+      "SABINE": "warn",
       "SABINE.prev": "ok",
       "cameron": "ok",
       "cameron.prev": "ok",

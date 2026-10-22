@@ -1,14 +1,14 @@
 {
   "source": "gasnom_SABINE",
-  "status": "ok",
-  "timestamp_utc": "2026-10-21T17:56:05Z",
-  "error": null,
+  "status": "warn",
+  "timestamp_utc": "2026-10-22T07:49:06Z",
+  "error": "no-op run (no posting for 2026-10-22 (blank header))",
   "metadata": {
     "slug": "SABINE",
-    "gas_day": "2026-10-21",
-    "cycle": "id1",
-    "cycle_desc": "Intraday 1",
-    "posted_at": "October 21, 2026 12:42 PM CT",
-    "row_count": 43
+    "gas_day": "2026-10-22",
+    "outcome": "no_posting_for_gas_day",
+    "row_count": 0,
+    "reason": "no posting for 2026-10-22 (blank header)",
+    "consecutive_no_ops": 1
   }
 }
