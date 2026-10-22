@@ -13,56 +13,56 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-22T20:43:34Z",
+    "last_inventory_run": "2026-10-22T22:35:28Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1693130.0
+        "scheduled_quantity_dth": 1688834.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1012205.0
+        "scheduled_quantity_dth": 1009879.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 689855.0
+        "scheduled_quantity_dth": 696461.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 562017.0
+        "scheduled_quantity_dth": 565341.0
       },
       {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 508219.0
+        "scheduled_quantity_dth": 509219.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 494601.0
+        "scheduled_quantity_dth": 493915.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 434713.0
+        "scheduled_quantity_dth": 433970.0
       },
       {
         "loc_id": 22128,
         "loc_name": "Clarke County (To Destin)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 344952.0
+        "scheduled_quantity_dth": 345295.0
       },
       {
         "loc_id": 24229,
@@ -74,7 +74,7 @@
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 295214.0
+        "scheduled_quantity_dth": 298484.0
       }
     ]
   }
