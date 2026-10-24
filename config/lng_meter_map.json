@@ -13,26 +13,26 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-24T21:43:58Z",
+    "last_inventory_run": "2026-10-24T23:52:24Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1708447.0
+        "scheduled_quantity_dth": 1709282.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 987233.0
+        "scheduled_quantity_dth": 990663.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 730666.0
+        "scheduled_quantity_dth": 730740.0
       },
       {
         "loc_id": 3362,
@@ -50,31 +50,31 @@
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 528545.0
+        "scheduled_quantity_dth": 528546.0
       },
       {
         "loc_id": 22128,
         "loc_name": "Clarke County (To Destin)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 357282.0
+        "scheduled_quantity_dth": 357176.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 329258.0
+        "scheduled_quantity_dth": 335555.0
       },
       {
         "loc_id": 50202,
         "loc_name": "Petal Pipeline Injection/Withdrawal",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 281676.0
+        "scheduled_quantity_dth": 289378.0
       },
       {
-        "loc_id": 23371,
-        "loc_name": "Bosco (Texas Gas)",
+        "loc_id": 2690,
+        "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 274097.0
+        "scheduled_quantity_dth": 278735.0
       }
     ]
   }
