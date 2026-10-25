@@ -13,32 +13,32 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-25T07:45:20Z",
+    "last_inventory_run": "2026-10-25T19:52:59Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1709282.0
+        "scheduled_quantity_dth": 1729284.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 989851.0
+        "scheduled_quantity_dth": 1000662.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 730738.0
+        "scheduled_quantity_dth": 730914.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 562646.0
+        "scheduled_quantity_dth": 575599.0
       },
       {
         "loc_id": 23700,
@@ -50,31 +50,31 @@
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 528546.0
+        "scheduled_quantity_dth": 521425.0
       },
       {
         "loc_id": 22128,
         "loc_name": "Clarke County (To Destin)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 357231.0
+        "scheduled_quantity_dth": 357282.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 335576.0
-      },
-      {
-        "loc_id": 50202,
-        "loc_name": "Petal Pipeline Injection/Withdrawal",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 289512.0
+        "scheduled_quantity_dth": 329295.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 281148.0
+        "scheduled_quantity_dth": 283465.0
+      },
+      {
+        "loc_id": 23371,
+        "loc_name": "Bosco (Texas Gas)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 259245.0
       }
     ]
   }
