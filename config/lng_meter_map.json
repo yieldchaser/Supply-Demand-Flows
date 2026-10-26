@@ -13,38 +13,38 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-26T21:46:54Z",
+    "last_inventory_run": "2026-10-26T23:14:44Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1687940.0
+        "scheduled_quantity_dth": 1716797.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1011552.0
+        "scheduled_quantity_dth": 1014419.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 720013.0
+        "scheduled_quantity_dth": 741314.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 568108.0
+        "scheduled_quantity_dth": 604136.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 519780.0
+        "scheduled_quantity_dth": 519155.0
       },
       {
         "loc_id": 22128,
@@ -56,25 +56,25 @@
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 355674.0
+        "scheduled_quantity_dth": 354291.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 336112.0
+        "scheduled_quantity_dth": 336761.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 320164.0
+        "scheduled_quantity_dth": 327938.0
       },
       {
         "loc_id": 21264,
         "loc_name": "Gulfstream Interconnect",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 224560.0
+        "scheduled_quantity_dth": 224559.0
       }
     ]
   }
