@@ -13,44 +13,44 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-27T21:27:26Z",
+    "last_inventory_run": "2026-10-27T23:02:21Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1773356.0
+        "scheduled_quantity_dth": 1806516.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1051381.0
+        "scheduled_quantity_dth": 1048769.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 672908.0
+        "scheduled_quantity_dth": 672631.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 575901.0
+        "scheduled_quantity_dth": 574142.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 498043.0
+        "scheduled_quantity_dth": 488278.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 409345.0
+        "scheduled_quantity_dth": 405239.0
       },
       {
         "loc_id": 22128,
@@ -62,19 +62,19 @@
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 314358.0
+        "scheduled_quantity_dth": 311941.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 281955.0
+        "scheduled_quantity_dth": 276878.0
       },
       {
-        "loc_id": 24255,
-        "loc_name": "Methanex Geismer 2",
+        "loc_id": 50202,
+        "loc_name": "Petal Pipeline Injection/Withdrawal",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 188656.0
+        "scheduled_quantity_dth": 197157.0
       }
     ]
   }
