@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-28T21:51:07Z",
+    "last_inventory_run": "2026-10-28T23:23:34Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1724273.0
+        "scheduled_quantity_dth": 1725600.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1062058.0
+        "scheduled_quantity_dth": 1059530.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 622522.0
+        "scheduled_quantity_dth": 624463.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 597571.0
-      },
-      {
-        "loc_id": 2690,
-        "loc_name": "Holmesville (To Transco)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 484627.0
+        "scheduled_quantity_dth": 590006.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 483782.0
+        "scheduled_quantity_dth": 484433.0
+      },
+      {
+        "loc_id": 2690,
+        "loc_name": "Holmesville (To Transco)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 482808.0
       },
       {
         "loc_id": 22128,
         "loc_name": "Clarke County (To Destin)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 361982.0
+        "scheduled_quantity_dth": 361983.0
       },
       {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 356160.0
+        "scheduled_quantity_dth": 343375.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 312759.0
+        "scheduled_quantity_dth": 317592.0
       },
       {
         "loc_id": 50202,
         "loc_name": "Petal Pipeline Injection/Withdrawal",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 235341.0
+        "scheduled_quantity_dth": 237113.0
       }
     ]
   }
