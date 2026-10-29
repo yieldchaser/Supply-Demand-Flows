@@ -57,6 +57,28 @@ export function renderPanelChrome(panelEl, { title, subtitle, sourceKey, latestP
   };
 }
 
+/**
+ * Register a block as its own reading inside the chapter.
+ *
+ * The block is appended to the panel as usual; the attribute only says which
+ * section owns it. The section layer (components/chapter-sections.js) then
+ * moves it under that section's heading instead of leaving it stacked under the
+ * panel's main chart. An untagged block stays with its panel — a panel is never
+ * required to tag anything, and a tag naming a section the chapter does not
+ * declare leaves the block where it is.
+ *
+ * @param {HTMLElement} panelEl
+ * @param {string} sectionId e.g. `overview-cover` (see SECTION_ORDER)
+ * @param {HTMLElement} block  the rendered block to append
+ * @param {Element|null} [before] insert before this node instead of appending
+ * @returns {HTMLElement} the block, for chaining
+ */
+export function appendSection(panelEl, sectionId, block, before = null) {
+  block.setAttribute('data-chapter-section', sectionId);
+  panelEl.insertBefore(block, before || null);
+  return block;
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',

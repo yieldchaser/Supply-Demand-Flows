@@ -1,0 +1,233 @@
+/* Chapter sections — the sub-panel layer inside a chapter.
+
+   Chapters split the observatory into six tabs (chapter-nav.css). This splits a
+   chapter into anchorable sections with their own headings, a jump list and a
+   foldable method note.
+
+   Additive only: without JS the chapter is a flat stack of panels and none of
+   these selectors match. */
+
+.chapter-sections {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  padding-bottom: var(--space-3, 12px);
+  border-bottom: 1px solid var(--rule, rgba(255, 255, 255, 0.08));
+}
+
+.chapter-sections__label {
+  font-family: var(--font-mono, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary, #6b7280);
+}
+
+.chapter-sections__link {
+  font-family: var(--font-sans, Inter, sans-serif);
+  font-size: 12px;
+  color: var(--text-secondary, #9ca3af);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 1px solid transparent;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.chapter-sections__link:hover,
+.chapter-sections__link:focus-visible {
+  color: var(--text-primary, #e5e7eb);
+  border-bottom-color: var(--rule-strong, rgba(255, 255, 255, 0.24));
+  outline: none;
+}
+
+.chapter-sections__link.is-active {
+  color: var(--text-primary, #e5e7eb);
+  border-bottom-color: var(--text-primary, #e5e7eb);
+}
+
+/* One section: heading, optional blurb, then its panels. */
+.chapter-section {
+  /* Sticky tab bar is ~96px tall at desktop; the heading has to clear it when a
+     section is reached by native anchor jump (?chapter=x&section=y, or a shared
+     #sec- link). */
+  scroll-margin-top: 112px;
+  min-width: 0;
+}
+
+.chapter-section__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--space-2, 8px);
+}
+
+/* A lone panel draws its own title and subtitle; only the sr-only copy of the
+   section heading is kept, so the head is not drawn at all. */
+.chapter-section__head--sr {
+  padding-top: 0;
+}
+
+.chapter-section__head--sr .chapter-section__blurb {
+  display: none;
+}
+
+/* The heading stays for the jump list and the accessibility tree; a lone panel
+   that draws its own title already shows it, so only the visible copy hides. */
+.chapter-section[data-single-panel='1'] .chapter-section__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.chapter-section[data-single-panel='1'] .chapter-section__blurb {
+  padding-top: var(--space-1, 4px);
+}
+
+.chapter-section__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--font-sans, Inter, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary, #e5e7eb);
+}
+
+/* The anchor is a link for the reader who wants to send a section to someone;
+   it stays out of the way until the heading is hovered. */
+.chapter-section__anchor {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-tertiary, #6b7280);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.chapter-section:hover .chapter-section__anchor,
+.chapter-section__anchor:focus-visible {
+  opacity: 1;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.chapter-section__blurb {
+  margin: 0;
+  font-size: var(--fs-xs, 11px);
+  line-height: 1.5;
+  color: var(--text-tertiary, #6b7280);
+}
+
+.chapter-section__body {
+  display: block;
+  min-width: 0;
+}
+
+/* A block a panel tagged for this section (a companion chart, a breakdown, a
+   note) sits on the same panel surface as the panel it came from, minus the
+   frame: it is part of this reading, not a second card. */
+.chapter-section__body > .chapter-lifted {
+  margin-top: var(--space-4, 16px);
+}
+
+.chapter-section__body > .chapter-lifted:first-child {
+  margin-top: var(--space-3, 12px);
+}
+
+/* Lifted blocks keep no gap of their own: the section owns the rhythm, so a
+   subchart lifted out of its panel does not double the spacing. */
+.chapter-section__body > .panel-subchart.chapter-lifted {
+  margin: 0;
+}
+
+/* A panel that gave every block to its own sections leaves no frame behind. */
+.panel.panel--consumed {
+  display: none;
+}
+
+/* A declared pair (scatter + shares) is the same two-column row as .deep-grid,
+   but the gap comes from the section, not from a stray margin. The class is
+   applied only while the section actually holds both panels. */
+.chapter-section__body.deep-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6, 24px);
+  margin: 0;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .chapter-section__body.deep-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Folded method / provenance note (built by chapter-sections.js). Reads as a
+   quiet footnote whose summary sits on the same line as the panel's data. */
+.panel-method {
+  margin-top: var(--space-3, 12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: var(--space-2, 8px);
+}
+
+.panel-method__summary {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary, #6b7280);
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.panel-method__summary::-webkit-details-marker {
+  display: none;
+}
+
+.panel-method__summary::before {
+  content: '+';
+  font-size: 11px;
+  line-height: 1;
+}
+
+.panel-method[open] .panel-method__summary::before {
+  content: '\2212';
+}
+
+.panel-method__summary:hover,
+.panel-method__summary:focus-visible {
+  color: var(--text-secondary, #9ca3af);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  outline: none;
+}
+
+/* Inside the disclosure the note keeps its mono provenance type but loses the
+   rule and margins it carried as an inline block. */
+.panel-method .data-provenance {
+  margin-top: var(--space-2, 8px);
+  border-top: 0;
+  padding-top: 0;
+}
+
+@media (max-width: 640px) {
+  .chapter-sections {
+    gap: 4px 10px;
+  }
+
+  .chapter-section {
+    scroll-margin-top: 80px;
+  }
+}

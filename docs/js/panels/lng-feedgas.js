@@ -9,7 +9,7 @@
  */
 
 import * as d3 from 'd3';
-import { renderPanelChrome } from '../components/panel-base.js';
+import { renderPanelChrome, appendSection } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
 import {
   get_utilization_level,
@@ -292,6 +292,8 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
   }
   renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestData, latestCycleCode, isProxy, kpiOverride);
 
+  // The per-pipe split is a footnote to the hero chart, not a reading of its
+  // own: it stays with the panel.
   if (isMultiFeed && multi.latestSplit) {
     const parts = multi.feedLabels
       .filter((label) => multi.latestSplit[label] !== undefined)
@@ -301,23 +303,25 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
         (sum, label) => sum + Math.round(multi.latestSplit[label] || 0),
         0
       );
+      // Appended into the chrome, not the panel root: the panel root now holds
+      // the terminal chips and the body wrapper, and the split belongs with the
+      // chart it annotates.
       const breakdown = document.createElement('div');
       breakdown.className = 'feed-breakdown';
+      bodyEl.appendChild(breakdown);
       breakdown.innerHTML =
         `<span class="feed-breakdown__line">${parts.join(' · ')} ` +
         `<span class="feed-breakdown__eq">=</span> ` +
         `<strong>${splitTotal.toFixed(0)}</strong> MMcf/d</span>` +
         `<span class="feed-breakdown__note">per-pipe split · latest fully-reported gas day</span>`;
-      sidebarEl.appendChild(breakdown);
     }
   }
 
   // 7. Intraday cycle revisions — single-source only (multi-feed platforms
   // publish on different cycles, so per-cycle revisions are not comparable).
   if (!isMultiFeed) {
-    const revisionsContainer = document.createElement('div');
+    const revisionsContainer = appendSection(bodyEl, 'lng-hero-revisions', document.createElement('div'));
     revisionsContainer.className = 'cycle-revisions-panel';
-    sidebarEl.appendChild(revisionsContainer);
 
     const todayCyclesMap = rowsByDate[latestData.dateStr] || {};
     const todayCyclesData = Object.keys(todayCyclesMap)
@@ -333,7 +337,7 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
   }
 
   // 8. Footnote — from the registry, per terminal
-  const footerContainer = document.createElement('div');
+  const footerContainer = appendSection(bodyEl, 'lng-hero-note', document.createElement('div'));
   footerContainer.className = 'lng-panel-footnote';
   // Provenance, stated once. Each line says where the number comes from and
   // what the meter does not see — no warning glyphs, no second telling of the
@@ -353,7 +357,6 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     ${covNoteLine}
     <p><strong>Last updated</strong> ${latestPeriodText} · ${totalDays.toLocaleString()} gas days of history</p>
   `;
-  panelEl.appendChild(footerContainer);
 }
 
 /**

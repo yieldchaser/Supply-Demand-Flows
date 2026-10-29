@@ -311,19 +311,26 @@ describe('season-to-date render', () => {
    * itself is skipped (the d3 stub throws), so this only asserts that the
    * season block actually reaches the page with its numbers.
    */
-  // `appendSeasonToDate` builds its wrapper with `document.createElement`.
-  globalThis.document = {
-    createElement: () => ({
+  // `appendSeasonToDate` and the cover/region blocks build their wrappers with
+  // `document.createElement`; each one records the attributes it is given, since
+  // that is how the block tells the chapter which section owns it.
+  function makeBlock() {
+    const attrs = {};
+    return {
       className: '',
       innerHTML: '',
       children: [],
+      setAttribute: (k, v) => { attrs[k] = String(v); },
+      getAttribute: (k) => (k in attrs ? attrs[k] : null),
       appendChild(c) { this.children.push(c); return c; },
       insertBefore(c) { this.children.push(c); return c; },
-    }),
-  };
+    };
+  }
+  globalThis.document = { createElement: makeBlock };
 
   function stubPanel() {
     const make = () => {
+      const attrs = {};
       const el = {
         innerHTML: '',
         textContent: '',
@@ -335,7 +342,8 @@ describe('season-to-date render', () => {
         addEventListener() {},
         removeEventListener() {},
         getBoundingClientRect: () => ({ width: 800, height: 400, top: 0, left: 0 }),
-        setAttribute() {},
+        setAttribute(k, v) { attrs[k] = String(v); },
+        getAttribute: (k) => (k in attrs ? attrs[k] : null),
         remove() {},
       };
       return el;
@@ -353,11 +361,11 @@ describe('season-to-date render', () => {
       if (sel === '.panel-body') return body;
       return null;
     };
-    return { panel, body };
+    return { panel, chart, body };
   }
 
   it('mounts the season-to-date block with its n and prior range', () => {
-    const { panel, body } = stubPanel();
+    const { panel, chart, body } = stubPanel();
     assert.doesNotThrow(
       () => renderStoragePanel(panel, { sources: { eia_storage: { data: rows, latest_period: bundle.sources.eia_storage.latest_period } } }),
       'renderStoragePanel threw',
@@ -368,6 +376,22 @@ describe('season-to-date render', () => {
     assert.ok(html.includes(`n=${analysis.seasonToDate.n}`), 'sample size not printed');
     assert.ok(html.includes('Bcf'), 'net change not printed');
     assert.ok(html.includes('not a forecast') || !analysis.seasonRest, 'arithmetic repeat not labelled');
+    // The blocks below the hero chart are readings of their own and say which
+    // section owns them; a block that lost its tag would stack back under the
+    // panel's chart and never reach its heading.
+    const tagged = body.children
+      .map((c) => (typeof c.getAttribute === 'function' ? c.getAttribute('data-chapter-section') : null))
+      .filter(Boolean);
+    assert.ok(tagged.includes('overview-regions'), 'season / region blocks are not tagged for their section');
+    // Days of cover needs the supply source; without it the block is correctly
+    // absent rather than empty, so only assert the tag when the panel drew it.
+    const hasCover = body.children.some((c) => String(c.innerHTML).includes('Days of Cover'));
+    if (hasCover) {
+      assert.ok(tagged.includes('overview-cover'), 'the days-of-cover chart is not tagged for its section');
+    }
+    // A block may be replaced with plain markup by a panel on purpose; the
+    // sidebar keeps the KPIs and is the only column the lift must leave alone.
+    assert.ok(body.children.includes(chart) || body.children.length > 0, 'panel body emptied');
   });
 });
 

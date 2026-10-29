@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="css/components/lng-panel.css">
   <link rel="stylesheet" href="css/components/basin-egress.css">
   <link rel="stylesheet" href="css/components/chapter-nav.css">
+  <link rel="stylesheet" href="css/components/chapter-sections.css">
 
   <script type="importmap">
   {
@@ -46,6 +47,11 @@
        page still works from top to bottom. -->
   <nav class="chapter-bar" id="chapter-nav" aria-label="Observatory chapters" hidden></nav>
 
+  <!-- Chapters are the horizontal tabs. Inside each chapter,
+       js/components/chapter-sections.js groups the panels into anchored
+       sections with their own headings and a jump list (SECTION_ORDER holds the
+       grouping). The panel order here is the authored order and the no-JS
+       fallback; without JS the page is one continuous scroll, as before. -->
   <main class="dashboard chapter-root">
     <div class="chapter" data-chapter="overview">
       <section class="panel" id="panel-storage" data-panel="storage"></section>
@@ -56,62 +62,30 @@
     </div>
 
     <div class="chapter" data-chapter="basins">
-      <header class="section-header">
-        <h2>Basin Momentum · deep dive</h2>
-        <p>15 US basins · gas/oil split · 24-month perspective</p>
-      </header>
       <div class="panel" id="panel-basin-table"></div>
-      <div class="deep-grid">
-        <div class="panel" id="panel-basin-scatter"></div>
-        <div class="panel" id="panel-basin-share"></div>
-      </div>
+      <div class="panel" id="panel-basin-scatter"></div>
+      <div class="panel" id="panel-basin-share"></div>
       <div class="panel panel--slim" id="panel-basin-extremes"></div>
     </div>
 
     <div class="chapter" data-chapter="lng">
-      <header class="section-header">
-        <h2>LNG Feedgas Observatory</h2>
-        <p>Real-time scheduled quantities at US LNG export terminals</p>
-      </header>
       <div class="panel panel--fleet" id="panel-lng-fleet" data-panel="lng-fleet"></div>
       <div class="panel" id="panel-lng-feedgas" data-panel="lng-feedgas"></div>
       <div class="panel" id="panel-lng-comparison" data-panel="lng-comparison"></div>
     </div>
 
     <div class="chapter" data-chapter="flows">
-      <header class="section-header">
-        <h2>Basin Egress — Haynesville Take-Away</h2>
-        <p>Scheduled flows out of the Haynesville via Gulf South · the supply-side read</p>
-      </header>
       <div class="panel" id="panel-basin-egress" data-panel="basin-egress"></div>
-
-      <header class="section-header">
-        <h2>Feed Substitution at Multi-Feed Terminals</h2>
-        <p>Routing vs demand — a share flip at constant total is re-routing, not lost volume</p>
-      </header>
       <div class="panel" id="panel-lng-feed-substitution" data-panel="lng-substitution"></div>
     </div>
 
     <div class="chapter" data-chapter="reliability">
-      <header class="section-header">
-        <h2>Terminal Downtime / Turnaround Indicator</h2>
-        <p>Operational outages, cargo-driven idle, and commissioning ramps — false-positive guarded</p>
-      </header>
       <div class="panel" id="panel-lng-downtime" data-panel="lng-downtime"></div>
     </div>
 
     <div class="chapter" data-chapter="macro">
-      <header class="section-header">
-        <h2>US LNG Exports · EIA Monthly</h2>
-        <p>Where US LNG goes · destination shares · 36-month perspective</p>
-      </header>
       <div class="panel" id="panel-lng-total"></div>
       <div class="panel" id="panel-lng-shares"></div>
-
-      <header class="section-header">
-        <h2>European Storage Context · GIE AGSI+</h2>
-        <p>10 countries · daily updates · 5-year history</p>
-      </header>
       <div class="panel" id="panel-eu-storage"></div>
     </div>
   </main>

@@ -30,7 +30,7 @@
  */
 
 import * as d3 from 'd3';
-import { renderPanelChrome } from '../components/panel-base.js';
+import { renderPanelChrome, appendSection } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
 import { getSeries, referenceDate } from '../util/series.js';
 import { formatPeriodKey, parsePeriod } from '../util/period.js';
@@ -364,7 +364,7 @@ function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
         assumed to close. The chart ends at the newest month where production and
         consumption are both published.</span>
       </div>`;
-    panelBody.insertBefore(wrap, sidebar);
+    appendSection(panelBody, 'overview-bridge', wrap, sidebar || null);
     return;
   }
 
@@ -494,7 +494,7 @@ function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
     wrap.querySelector('.panel-subchart__header .panel-subchart__title-group')
       .insertAdjacentHTML('beforeend', badge);
   }
-  panelBody.insertBefore(wrap, sidebar);
+  appendSection(panelBody, 'overview-bridge', wrap, sidebar || null);
 }
 
 const LEG_LABELS = {

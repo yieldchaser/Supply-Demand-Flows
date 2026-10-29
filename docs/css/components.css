@@ -14,17 +14,12 @@
   pointer-events: none;
 }
 
-/* === Brand Flame (animated logo) === */
+/* === Brand Flame === */
+/* Static mark: the logo does not breathe, glow or flicker. */
 .brand-flame {
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  animation: flame-flicker 3s ease-in-out infinite;
-}
-
-@keyframes flame-flicker {
-  0%, 100% { filter: drop-shadow(0 0 12px rgba(125, 211, 252, 0.4)); }
-  50%      { filter: drop-shadow(0 0 20px rgba(125, 211, 252, 0.6)); }
 }
 
 /* === Header lockup === */
@@ -66,12 +61,6 @@
   border-radius: var(--radius-full);
   background: var(--color-bullish-supply);
   display: inline-block;
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.4; }
 }
 
 /* === Panel — flat section, no card === */
@@ -411,11 +400,12 @@
 }
 
 /* === Panel Sub-chart (companion analytics chart below main chart) === */
+/* Sub-charts, like panels, are separated by a hairline rule rather than boxed
+   in glass: one flat surface, no fill, no corner radius, no shadow. */
 .panel-subchart {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--rule);
+  padding: var(--space-4) 0 var(--space-1);
+  margin-top: var(--space-4);
 }
 .panel-subchart__header {
   display: flex;
@@ -447,29 +437,20 @@
   letter-spacing: -0.01em;
 }
 
+/* A badge states a fact in text on the same surface; it is not a coloured
+   lozenge. Only the text colour carries the signal. */
 .panel-subchart__badge {
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
 }
 
-.panel-subchart__badge--bullish {
-  color: var(--color-bullish-supply);
-  background: rgba(34, 211, 164, 0.12);
-}
-
-.panel-subchart__badge--bearish {
-  color: var(--color-bearish-supply);
-  background: rgba(239, 78, 92, 0.12);
-}
-
-.panel-subchart__badge--neutral {
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.05);
-}
+.panel-subchart__badge--bullish { color: var(--color-bullish-supply); }
+.panel-subchart__badge--bearish { color: var(--color-bearish-supply); }
+.panel-subchart__badge--neutral { color: var(--text-secondary); }
 
 .panel-subchart__subtitle {
   font-size: var(--fs-xs);
@@ -482,18 +463,23 @@
   position: relative;
 }
 
+/* Tabular companions (bridge, reconciliation) size to their own content. */
+.panel-subchart__body--auto {
+  height: auto;
+}
+
 /* === Chart Tooltip === */
+/* Opaque, not frosted: a tooltip has to stay legible over dense line work, and
+   a blur behind it both obscures the point being read and costs a composite
+   pass per frame while the pointer moves. */
 .chart-tooltip {
   position: absolute;
-  background: rgba(15, 20, 30, 0.95);
-  backdrop-filter: blur(12px);
+  background: var(--bg-1);
   border: 1px solid var(--border-glass-strong);
-  border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   pointer-events: none;
   font-size: var(--fs-sm);
   color: var(--text-primary);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   transition: opacity var(--dur-fast) var(--ease-out);
   z-index: 100;
   min-width: 180px;
@@ -525,6 +511,73 @@
 .chart-tooltip .tt-row--accent .num {
   color: var(--blue-flame);
   font-weight: 500;
+}
+
+/* === Balance bridge === */
+/* A reconciliation table is dense by nature: tight rows, right-aligned
+   figures, and no row striping — the columns line up or they do not. */
+.bridge-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.bridge-table th {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-align: right;
+  padding: 0 0 var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+.bridge-table th:first-child { text-align: left; }
+.bridge-table td {
+  padding: var(--space-1) 0;
+}
+.bridge-table td.lbl {
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+}
+.bridge-table td.num {
+  text-align: right;
+  padding-left: var(--space-5);
+}
+.bridge-table__residual td {
+  border-top: 1px solid var(--rule);
+  color: var(--text-tertiary);
+}
+/* A leg the route does not carry is shown, not omitted, so the gap in the
+   identity is visible where the arithmetic is. */
+.bridge-table__missing td {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+.bridge-table__hint {
+  display: block;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-style: normal;
+}
+.bridge-table__total td {
+  border-top: 1px solid var(--rule-strong);
+  padding-top: var(--space-2);
+  font-weight: 500;
+}
+.bridge-table__total td.lbl { color: var(--text-primary); }
+
+/* Legend text and crosshair live on the chart tokens so every panel's
+   annotations share one size and colour instead of re-declaring them inline. */
+.chart-legend-text {
+  fill: var(--chart-label);
+  font-size: 10px;
+  font-family: var(--font-sans);
+}
+.chart-crosshair {
+  stroke: var(--chart-axis);
+  stroke-width: 1;
+  stroke-dasharray: 2, 3;
+  pointer-events: none;
 }
 
 /* === Panel Error === */

@@ -25,12 +25,41 @@ import { renderLngComparisonPanel } from './panels/lng-comparison.js';
 
 import { applyRangeCaveat, computeSeriesDateRange } from './util/range-state.js';
 import { initChartExports } from './util/chart-snapshot.js';
+import { foldMethodNotes, initChapterSections, updateChapterSections } from './components/chapter-sections.js';
 
 /** Section key → the DOM id of the panel that section renders into. */
 const SECTION_PANEL_ID = {
   lng: 'panel-lng-fleet',
   'lng-substitution': 'panel-lng-feed-substitution',
 };
+
+/**
+ * The panel element a section name renders into.
+ *
+ * Most keys are the panel id without its prefix, but five are not: the fleet
+ * section draws `panel-lng-fleet`, substitution `panel-lng-feed-substitution`,
+ * egress `panel-basin-egress` (while its key is 'basin-egress'), and the two
+ * storage panels are keyed 'storage' and 'eu-storage'. Falling back through the
+ * chapter export's own list keeps a renamed panel from silently losing its
+ * caveat and its folded method note.
+ *
+ * @param {string} name section key
+ * @returns {HTMLElement|null}
+ */
+function sectionPanelEl(name) {
+  const ids = [
+    SECTION_PANEL_ID[name],
+    `panel-${name}`,
+    name,
+    // 'basin-egress' renders panel-basin-egress, which the key already covers;
+    // 'lng' and 'lng-substitution' are covered above.
+  ].filter(Boolean);
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) return el;
+  }
+  return null;
+}
 
 /**
  * Derive the LNG range-caveat's history facts from the actual data in the bundle,
@@ -71,6 +100,18 @@ export async function safeRender(name, renderFn, bundle = null) {
       const panelEl = document.getElementById(SECTION_PANEL_ID[name] || `panel-${name}`) || document.getElementById(name);
       const seriesInfo = bundle ? getLngCaveatSeriesInfo(bundle) : null;
       applyRangeCaveat(panelEl, name, window.location.search, seriesInfo);
+    }
+
+    // Panels print a method / provenance note under their charts. Fold the long
+    // ones behind a disclosure once the panel has drawn, so the numbers lead and
+    // the audit trail is one click away instead of a wall of mono type.
+    if (typeof document !== 'undefined') {
+      const caveatEl = sectionPanelEl(name);
+      if (caveatEl) foldMethodNotes(caveatEl);
+      // Blocks a panel tagged for another section are moved now, with their
+      // charts already drawn — moving a node re-fires its redraw observers, so
+      // lifting a half-rendered block would leave an empty frame behind.
+      updateChapterSections(document);
     }
   } catch (err) {
     console.error(`[${name}] panel render failed:`, err);
@@ -137,6 +178,15 @@ const SECTIONS = {
 };
 
 async function main() {
+  // Split each chapter into anchored sub-sections before any panel renders, so
+  // every deferred observer watches an element that is in its final place.
+  try {
+    initChapterSections(document);
+  } catch (err) {
+    // Enhancement only: a failure here leaves the flat panel stack intact.
+    console.error('[sections] chapter sections unavailable, panels stacked flat:', err);
+  }
+
   // One delegated listener turns every panel's [data-chart-export] button into a
   // download; panels register their plotted points as they draw.
   initChartExports(document);

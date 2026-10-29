@@ -24,7 +24,7 @@
  */
 
 import * as d3 from 'd3';
-import { renderPanelChrome } from '../components/panel-base.js';
+import { renderPanelChrome, appendSection } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
 import { getSeries, referenceDate } from '../util/series.js';
 import { formatIsoDate } from '../util/format.js';
@@ -95,7 +95,9 @@ export function renderEuStoragePanel(panelEl, bundle) {
   const heroEl = chartEl.querySelector('.eu-hero-container');
   const gridEl = chartEl.querySelector('.eu-grid-container');
   const detailEl = chartEl.querySelector('.eu-detail-container');
-  const methodEl = chartEl.querySelector('.eu-method');
+  // The method note is long-form prose about how the figures were built, not a
+  // chart: it is its own section under its own heading.
+  const methodEl = appendSection(panelEl, 'europe-method', chartEl.querySelector('.eu-method'));
 
   const aggregateNormal = (row) => positionalNormal(aggregate, row.period);
 
@@ -139,7 +141,7 @@ function renderMethodNote(views, aggregate) {
   const maxSpread = spread.length ? Math.max(...spread) : null;
   return `
     <p class="data-provenance">
-      Working gas derived as <span class="num">stock ÷ % × 100</span> per country per day
+      Method. Working gas derived as <span class="num">stock ÷ % × 100</span> per country per day
       (median of daily ratios). ${withCap}/${views.length} countries resolve a capacity,
       total <span class="num">${capacity.toFixed(1)} TWh</span>;
       largest day-to-day spread of that ratio

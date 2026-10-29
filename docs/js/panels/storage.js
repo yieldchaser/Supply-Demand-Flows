@@ -112,12 +112,19 @@ export function renderStoragePanel(panelEl, bundle) {
     : [];
   const coverRows = computeStorageCover(l48, consumptionRows);
   const coverEnvelope = computeCoverEnvelope(coverRows, 5);
-  insertCoverMiniChart(panelEl, coverRows, coverEnvelope);
-  // ───────────────────────────────────────────────────────────────────
 
-  renderStorageKpis(sidebarEl, analysis);
+  // Everything below the main chart is its own reading and says so: the cover
+  // chart, the season block and the regional table become sections of the
+  // chapter (components/chapter-sections.js) instead of stacking under the
+  // main chart.
+  // (Season before regions: both name `overview-regions`, so the order they
+  // render in is the order the section reads.)
+  insertCoverMiniChart(panelEl, coverRows, coverEnvelope);
   appendSeasonToDate(panelEl, analysis);
   appendRegionTable(panelEl, analysis);
+  // ─────────────────────────────────────────────────────────────────────
+
+  renderStorageKpis(sidebarEl, analysis);
   appendProvenance(panelEl, analysis);
 }
 
@@ -372,6 +379,7 @@ function insertCoverMiniChart(panelEl, coverRows, coverEnvelope) {
 
   const wrapper = document.createElement('div');
   wrapper.className = 'panel-subchart';
+  wrapper.setAttribute('data-chapter-section', 'overview-cover');
   wrapper.innerHTML = `
     <div class="panel-subchart__header">
       <div class="panel-subchart__title-group">
@@ -384,9 +392,10 @@ function insertCoverMiniChart(panelEl, coverRows, coverEnvelope) {
     <div class="panel-subchart__body"></div>
   `;
 
-  // Insert before .panel-sidebar (the KPI strip)
+  // Insert before .panel-sidebar (the KPI strip). The sidebar can be the next
+  // sibling: `insertBefore(node, null)` appends.
   const sidebar = panelBody.querySelector('.panel-sidebar');
-  panelBody.insertBefore(wrapper, sidebar);
+  panelBody.insertBefore(wrapper, sidebar || null);
 
   const coverBody = wrapper.querySelector('.panel-subchart__body');
   const drawCover = () => drawCoverMiniChart(coverBody, coverRows, coverEnvelope);
@@ -687,6 +696,7 @@ function appendRegionTable(panelEl, analysis) {
 
   const wrap = document.createElement('div');
   wrap.className = 'panel-subchart';
+  wrap.setAttribute('data-chapter-section', 'overview-regions');
   wrap.innerHTML = `
     <div class="panel-subchart__header">
       <div class="panel-subchart__title-group">
@@ -727,7 +737,7 @@ function appendRegionTable(panelEl, analysis) {
   `;
 
   const sidebar = panelBody.querySelector('.panel-sidebar');
-  panelBody.insertBefore(wrap, sidebar);
+  panelBody.insertBefore(wrap, sidebar || null);
 }
 
 function signedCell(v, digits = 0) {
@@ -838,8 +848,10 @@ function appendSeasonToDate(panelEl, analysis) {
     ? `If the rest of this season repeats last year's path, the ${rest.seasonEnd.getFullYear() === std.end.getFullYear() ? 'season ends' : 'new year opens'} at about ${Math.round(rest.impliedSeasonEndBcf).toLocaleString()} Bcf (${rest.weeksAhead} weeks ahead, arithmetic repeat \u2014 not a forecast).`
     : '';
 
+  // The season block sits with the regional table under one heading.
   const wrap = document.createElement('div');
   wrap.className = 'panel-subchart';
+  wrap.setAttribute('data-chapter-section', 'overview-regions');
   wrap.innerHTML = `
     <div class="panel-subchart__header">
       <div class="panel-subchart__title-group">
@@ -854,7 +866,7 @@ function appendSeasonToDate(panelEl, analysis) {
     </div>
   `;
   const sidebar = panelBody.querySelector('.panel-sidebar');
-  panelBody.insertBefore(wrap, sidebar);
+  panelBody.insertBefore(wrap, sidebar || null);
 }
 
 /* ================================================================== */
