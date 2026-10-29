@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { computeWeeklyEnvelope, referenceYear } from '../docs/js/util/series.js';
+import { referenceYear } from '../docs/js/util/series.js';
 import {
   percentileRank,
   quantileSorted,
@@ -51,29 +51,28 @@ describe('referenceYear', () => {
   });
 });
 
-describe('computeWeeklyEnvelope', () => {
-  it('uses the series reference year so a stale bundle still renders', () => {
-    const rows = weeklySeries(2018, 2019, (y) => (y === 2019 ? 1200 : 1000));
-    const env = computeWeeklyEnvelope(rows, 5, { referenceYear: 2019 });
-    assert.ok(env.size > 0, 'envelope must not be empty for a historical series');
-    for (const [, e] of env) {
-      assert.ok(e.mean >= 990 && e.mean <= 1010, `prior-year only: got ${e.mean}`);
-    }
+describe('weekly envelope is season-keyed, not ISO-keyed', () => {
+  it('no longer exports an ISO-week envelope', async () => {
+    // The ISO-keyed band compared a Friday reading against a normal from the
+    // neighbouring week of the season and switched under the reader between
+    // years. `seasonalEnvelope` is the only envelope now; reintroducing an
+    // ISO-keyed one would put the two back out of step.
+    const series = await import('../docs/js/util/series.js');
+    assert.equal(series.computeWeeklyEnvelope, undefined);
+    assert.equal(series.isoWeek, undefined);
   });
 
-  it('reports how many prior years fed each bucket', () => {
-    const rows = weeklySeries(2018, 2019, () => 1000);
-    const env = computeWeeklyEnvelope(rows, 5, { referenceYear: 2019 });
-    const first = env.values().next().value;
-    assert.equal(first.n, 1);
-  });
-
-  it('interpolates quartiles rather than indexing into the sample', () => {
-    const rows = weeklySeries(2015, 2019, (y) => 1000 + (y - 2015) * 100);
-    const env = computeWeeklyEnvelope(rows, 5, { referenceYear: 2019 });
-    const first = env.values().next().value;
+  it('keeps the interpolated-quartile rule on the surviving envelope', () => {
     // prior values 1000,1100,1200,1300 -> p25 = 1075 (not the 2nd order stat)
-    assert.equal(first.n, 4);
+    const rows = [];
+    for (let y = 2015; y <= 2018; y += 1) {
+      for (let wk = 0; wk < 52; wk += 1) {
+        rows.push({ period: new Date(y, 0, 3 + wk * 7), value: 1000 + (y - 2015) * 100 });
+      }
+    }
+    const env = seasonalEnvelope(rows, { anchor: new Date(2019, 0, 4) });
+    const first = env.values().next().value;
+    assert.equal(first.count, 4);
     assert.ok(Math.abs(first.p25 - 1075) < 1e-6, `p25 was ${first.p25}`);
     assert.ok(Math.abs(first.p75 - 1225) < 1e-6, `p75 was ${first.p75}`);
   });

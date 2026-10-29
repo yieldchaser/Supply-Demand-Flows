@@ -771,22 +771,40 @@
 
 .eu-country-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-3);
+  margin-top: var(--space-4);
 }
 @media (max-width: 1100px) {
-  .eu-country-grid { grid-template-columns: repeat(3, 1fr); }
+  .eu-country-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
-  .eu-country-grid { grid-template-columns: repeat(2, 1fr); }
+  .eu-country-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* Cards are <button>s: the whole card is the affordance for the drill-down, so
+   the browser's default button chrome is removed and focus is drawn on the
+   card itself rather than on an invisible inner control. */
 .eu-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  text-align: left;
   background: none;
   border: 0;
   border-top: 1px solid var(--rule);
   border-radius: 0;
   padding: var(--space-3) 0 var(--space-2);
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.eu-card:hover { border-top-color: var(--rule-strong); }
+.eu-card:focus-visible { outline: 2px solid var(--blue-flame); outline-offset: 2px; }
+.eu-card.is-selected {
+  border-top-color: var(--blue-flame);
+  background: rgba(125, 211, 252, 0.04);
 }
 
 .eu-card--low  { border-top-color: rgba(239, 78, 92, 0.6); }
@@ -795,11 +813,10 @@
 
 .eu-card__head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
+  justify-content: space-between;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
 }
-.eu-card__flag  { font-size: var(--fs-base); }
 .eu-card__label {
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -807,20 +824,24 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+.eu-card__cc {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
 
 .eu-card__metric {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
 }
 .eu-card__value {
   font-size: var(--fs-lg);
   font-weight: 500;
   color: var(--text-primary);
 }
-.eu-card--low  .eu-card__value { color: #ef4e5c; }
-.eu-card--mid  .eu-card__value { color: #f59e0b; }
+.eu-card--low  .eu-card__value { color: var(--color-bearish-supply); }
+.eu-card--mid  .eu-card__value { color: var(--color-warning); }
 .eu-card--high .eu-card__value { color: var(--blue-flame); }
 
 .eu-card__sub {
@@ -828,16 +849,142 @@
   color: var(--text-tertiary);
 }
 
+.eu-card__normal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--fs-xs);
+}
+
 .eu-card__spark {
   width: 100%;
-  height: 60px;
+  height: 52px;
   display: block;
+  margin-top: var(--space-1);
   overflow: visible;
 }
 
 .eu-hero-container {
   width: 100%;
+  position: relative;
 }
+
+.eu-hero-legend {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+/* Shared chart primitives for the European surfaces. Colours come from tokens;
+   the band is a fill on the same scale as the lines, not a decoration. */
+.eu-grid {
+  stroke: rgba(255, 255, 255, 0.05);
+  shape-rendering: crispEdges;
+}
+.eu-grid--major { stroke: rgba(255, 255, 255, 0.12); }
+.eu-axis-text {
+  font-size: 10px;
+  fill: var(--text-tertiary);
+}
+.eu-crosshair {
+  stroke: var(--rule-strong);
+  stroke-dasharray: 2 3;
+  pointer-events: none;
+}
+.eu-band--range { fill: rgba(148, 163, 184, 0.14); }
+.eu-band-median {
+  stroke: var(--text-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.eu-year {
+  stroke: rgba(148, 163, 184, 0.4);
+  stroke-width: 1;
+}
+.eu-year--current {
+  stroke: var(--blue-flame);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.eu-year-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--text-tertiary);
+}
+.eu-year-label--current { fill: var(--blue-flame); }
+.eu-spark-prior {
+  stroke: rgba(148, 163, 184, 0.28);
+  stroke-width: 0.75;
+}
+.eu-flow--in  { stroke: var(--color-bullish-supply); }
+.eu-flow--out { stroke: var(--color-bearish-supply); }
+
+.eu-detail {
+  margin-top: var(--space-5);
+  border-top: 1px solid var(--rule-strong);
+  padding-top: var(--space-4);
+}
+.eu-detail__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.eu-detail__title {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  margin: 0;
+  color: var(--text-primary);
+}
+.eu-detail__sub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+.eu-detail__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+}
+.eu-detail__stats > div { display: flex; flex-direction: column; gap: 2px; }
+.eu-detail__stats dt {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+.eu-detail__stats dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+}
+.eu-detail__charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+@media (max-width: 900px) {
+  .eu-detail__charts { grid-template-columns: 1fr; }
+}
+.eu-detail__chart { position: relative; min-width: 0; }
+.eu-detail__cap {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-2);
+}
+.eu-detail__table { margin-top: var(--space-4); }
+
+.delta-pos { color: var(--color-bullish-supply); }
+.delta-neg { color: var(--color-bearish-supply); }
+.muted     { color: var(--text-tertiary); }
+.num       { font-family: var(--font-mono); font-feature-settings: 'tnum'; }
 
 /* ================================================================== */
 /*  Interlude — Transatlantic Storage Divergence                       */

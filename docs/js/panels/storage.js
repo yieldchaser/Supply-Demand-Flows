@@ -23,7 +23,6 @@ import {
   computeCoverEnvelope,
   classifyCover,
 } from '../util/cover.js';
-import { isoWeekFromDate } from '../util/season.js';
 import { registerChartSnapshot } from '../util/chart-snapshot.js';
 import { redrawOnResize } from '../util/responsive-chart.js';
 import {
@@ -117,6 +116,7 @@ export function renderStoragePanel(panelEl, bundle) {
   // ───────────────────────────────────────────────────────────────────
 
   renderStorageKpis(sidebarEl, analysis);
+  appendSeasonToDate(panelEl, analysis);
   appendRegionTable(panelEl, analysis);
   appendProvenance(panelEl, analysis);
 }
@@ -703,6 +703,7 @@ function appendRegionTable(panelEl, analysis) {
             <th>Region</th>
             <th>Bcf</th>
             <th>Share</th>
+            <th title="Level as a share of this region's own observed maximum">Fill</th>
             <th>WoW</th>
             <th>Bcf/d</th>
             <th>4w</th>
@@ -750,6 +751,7 @@ function tableRow(r) {
       <td class="lbl">${r.label}</td>
       <td>${r.levelBcf.toLocaleString()}</td>
       <td class="muted">${r.shareOfL48Pct != null ? `${r.shareOfL48Pct.toFixed(1)}%` : '—'}</td>
+      <td ${fillTooltip(r)}>${r.fillPctOfObservedMax != null ? `${r.fillPctOfObservedMax.toFixed(0)}%` : '—'}</td>
       <td class="${signClass(r.wowBcf)}">${signedCell(r.wowBcf)}</td>
       <td class="${signClass(r.wowRate)}">${signedCell(r.wowRate, 2)}</td>
       <td class="${signClass(r.fourWeekBcf)}">${signedCell(r.fourWeekBcf)}</td>
@@ -757,6 +759,13 @@ function tableRow(r) {
       <td class="${signClass(r.vsNormalBcf)}">${signedCell(r.vsNormalBcf)}</td>
     </tr>
   `;
+}
+
+function fillTooltip(r) {
+  if (r.fillPctOfObservedMax == null) return 'class="muted"';
+  const max = Math.round(r.fillPctOfObservedMax) + '%';
+  const room = r.roomToObservedMaxBcf == null ? '' : ` \u00b7 ${Math.round(r.roomToObservedMaxBcf).toLocaleString()} Bcf below that peak`;
+  return `title="${r.label}: ${max} of its own observed peak${room}"`;
 }
 
 function l48Row(analysis) {
@@ -768,6 +777,7 @@ function l48Row(analysis) {
       <td class="lbl"><strong>Lower 48</strong></td>
       <td><strong>${env.valueBcf.toLocaleString()}</strong></td>
       <td class="muted">100%</td>
+      <td class="muted" title="Fill vs the nominal 4,000 Bcf convention, not the observed peak">${env.pctOfMax.toFixed(0)}%</td>
       <td class="${signClass(wow?.deltaBcf)}"><strong>${signedCell(wow ? wow.deltaBcf : null)}</strong></td>
       <td>${wow ? wow.rate.toFixed(2) : '—'}</td>
       <td class="${signClass(four?.deltaBcf)}">${signedCell(four ? four.deltaBcf : null)}</td>
@@ -775,6 +785,76 @@ function l48Row(analysis) {
       <td class="${signClass(env.vsNormalBcf)}">${signedCell(env.vsNormalBcf)}</td>
     </tr>
   `;
+}
+
+/* ================================================================== */
+/*  Season to date                                                     */
+/* ================================================================== */
+
+/**
+ * How far the season's net injection or withdrawal has run, next to what the
+ * same calendar window did in prior years.
+ *
+ * This is the question a level plus a weekly change cannot answer: "are we 6%
+ * above normal" says nothing about whether the season is running hot or whether
+ * it started there. The prior-year window is date-matched and its n is printed;
+ * the season-end figure is explicitly "if this repeats", not a forecast.
+ */
+/**
+ * Where this season's net change sits against the date-matched prior years.
+ * With one prior year the ordering is not evidence of anything, so it reads
+ * `mid-range` rather than crowning it the largest on a sample of one.
+ */
+export function seasonToDateStanding(std) {
+  if (!std || std.netChangeBcf == null || std.n < 2) return 'mid-range';
+  const signedLike = (v) => (v >= 0) === (std.netChangeBcf >= 0);
+  const mag = Math.abs(std.netChangeBcf);
+  if (std.prior.every((p) => signedLike(p.netChangeBcf) && Math.abs(p.netChangeBcf) <= mag)) return 'largest';
+  // Opposite-direction prior years make "smallest" misleading: minus 40 sits
+  // below plus 30 in level but not in size of the swing.
+  if (std.prior.every((p) => signedLike(p.netChangeBcf) && Math.abs(p.netChangeBcf) >= mag)) return 'smallest';
+  return 'mid-range';
+}
+
+function appendSeasonToDate(panelEl, analysis) {
+  const panelBody = panelEl.querySelector('.panel-body');
+  const std = analysis.seasonToDate;
+  if (!panelBody || !std || std.netChangeBcf == null) return;
+
+  const fmtDay = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const signed = (v, digits = 0) => `${v > 0 ? '+' : v < 0 ? '\u2212' : ''}${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+  const verb = std.netChangeBcf >= 0 ? 'injected' : 'withdrawn';
+
+  const priorText = std.n === 0
+    ? 'No prior year has a date-matched window for this period, so there is nothing to compare against.'
+    : `Same window, prior years (n=${std.n}): ${std.prior
+        .map((p) => `${p.year} ${signed(p.netChangeBcf)}`)
+        .join(' \u00b7 ')}. Range ${signed(std.priorMinBcf)} to ${signed(std.priorMaxBcf)} Bcf.`;
+
+  const direction = seasonToDateStanding(std);
+
+  const rest = analysis.seasonRest;
+  const restText = rest
+    ? `If the rest of this season repeats last year's path, the ${rest.seasonEnd.getFullYear() === std.end.getFullYear() ? 'season ends' : 'new year opens'} at about ${Math.round(rest.impliedSeasonEndBcf).toLocaleString()} Bcf (${rest.weeksAhead} weeks ahead, arithmetic repeat \u2014 not a forecast).`
+    : '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'panel-subchart';
+  wrap.innerHTML = `
+    <div class="panel-subchart__header">
+      <div class="panel-subchart__title-group">
+        <span class="panel-subchart__title">Season to date</span>
+        <span class="panel-subchart__hero num">${signed(std.netChangeBcf)} Bcf</span>
+        <span class="panel-subchart__badge panel-subchart__badge--neutral">${direction.toUpperCase()}</span>
+      </div>
+      <span class="panel-subchart__subtitle">${fmtDay(std.start)} \u2192 ${fmtDay(std.end)} \u00b7 net ${verb}</span>
+    </div>
+    <div class="panel-subchart__body">
+      <span class="panel-table__note">${priorText}${restText ? `<br>${restText}` : ''}</span>
+    </div>
+  `;
+  const sidebar = panelBody.querySelector('.panel-sidebar');
+  panelBody.insertBefore(wrap, sidebar);
 }
 
 /* ================================================================== */
@@ -802,6 +882,8 @@ function appendProvenance(panelEl, analysis) {
     `${analysis.dropped} unparseable row(s) dropped`,
     analysis.duplicateKeys ? `<span class="data-provenance__flag">${analysis.duplicateKeys} duplicate row(s)</span>` : null,
     'Norms are calendar-date matched, never week-index matched',
+    'Fill is a share of each region\'s own observed peak; only the Lower 48 row uses the nominal 4,000 Bcf convention',
+    'Nothing on this page forecasts demand, prices or the weather: the season-end line repeats a prior path arithmetically',
   ]
     .filter(Boolean)
     .join(' &middot; ');

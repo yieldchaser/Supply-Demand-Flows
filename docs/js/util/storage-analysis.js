@@ -505,11 +505,17 @@ export function regionTable(periods, { regions = STORAGE_REGIONS } = {}) {
     const wow = windowChange(rows, 1);
     const four = windowChange(rows, 4);
     const normal = seasonNormal(rows, latest.period);
+    // Fill against the region's *own observed* range, not the L48 4,000 Bcf
+    // convention: caverns differ in size, and a regional "51%" borrowed from the
+    // national denominator says nothing about how much that region can still take.
+    const observedMax = rows.reduce((m, r) => Math.max(m, r.value), -Infinity);
     out.push({
       key: region.key,
       label: region.label,
       seriesId: region.seriesId,
       levelBcf: level,
+      fillPctOfObservedMax: observedMax > 0 ? (level / observedMax) * 100 : null,
+      roomToObservedMaxBcf: observedMax > 0 ? observedMax - level : null,
       wowBcf: wow ? wow.deltaBcf : null,
       wowRate: wow ? wow.rate : null,
       wowDays: wow ? wow.days : null,
@@ -603,6 +609,8 @@ export function analyseStorage(rawRows, { horizonWeeks = 8, lookbackYears = 5 } 
     regions,
     regionChange: regionChangeSum(regions, windowChange(l48, 1)?.deltaBcf ?? null),
     regionFills: computeRegionSeasonFill(periods, regions),
+    seasonToDate: seasonToDateDelta(l48, { lookbackYears }),
+    seasonRest: restOfSeason(l48),
     sameSlotHistory,
     sample: {
       weeks: l48.length,
@@ -647,6 +655,101 @@ export function computeRegionSeasonFill(periods, regions = regionTable(periods))
     });
   }
   return out;
+}
+
+/**
+ * Season-to-date: how much gas this season has put in or taken out so far, and
+ * what the same calendar window did in prior years.
+ *
+ * The window runs from the first print on or after the season's opening month
+ * to the latest print. Each prior year is matched by calendar date within a
+ * week, never by table position, for the same reason `priorSameWeekValues`
+ * matches by date: a holiday-shifted Friday or a 53-week year would otherwise
+ * compare a different number of weeks in each year.
+ *
+ * `restOfSeasonIfUnchangedBcf` is deliberately arithmetic and not a forecast: it
+ * says where storage lands if the season's realised prior-year net change is
+ * repeated from here. Reporting it separately keeps the distinction visible.
+ *
+ * @param {Array<{period: Date, value: number}>} rows ascending
+ * @param {{lookbackYears?: number, toleranceDays?: number}} [opts]
+ * `prior[].weeks` is the number of weekly steps in that year's window. It is
+ * published so a 53-week year can be *seen* to cover the same span as a normal
+ * one rather than assumed to.
+ *
+ * @returns {{start: Date|null, end: Date|null, netChangeBcf: number|null,
+ *            prior: Array<{year: number, netChangeBcf: number, lagDays: number, weeks: number}>,
+ *            priorMinBcf: number|null, priorMaxBcf: number|null, n: number,
+ *            impliesPeakBcf: number|null}}
+ */
+export function seasonToDateDelta(rows, { lookbackYears = 5, toleranceDays = 7 } = {}) {
+  const empty = {
+    start: null, end: null, netChangeBcf: null, prior: [],
+    priorMinBcf: null, priorMaxBcf: null, n: 0, impliesPeakBcf: null,
+  };
+  if (!rows || rows.length < 2) return empty;
+
+  const end = rows[rows.length - 1];
+  const season = seasonProgress(end.period);
+  const start = rows.find((r) => r.period >= season.seasonStart) ?? rows[0];
+  if (start.period >= end.period) return empty;
+  const netChangeBcf = end.value - start.value;
+
+  const prior = [];
+  for (let y = end.period.getFullYear() - 1; y >= end.period.getFullYear() - lookbackYears; y--) {
+    // Shift the window ends into year `y` first, then look inside that year's
+    // rows: a prior year's window must cover the same calendar days as this
+    // year's, not the same number of table positions.
+    const shift = (d) => new Date(y, d.getMonth(), d.getDate());
+    const inYear = rows.filter((r) => r.period.getFullYear() === y && r.period >= shift(start.period));
+    // Both ends use the same rule as this year's window: the first print on or
+    // after the same calendar day. Neither end may reach back a week, which is
+    // what would let the prior season's last print in and count an extra week
+    // in one year and not in another.
+    const yStart = inYear.find((r) => daysBetween(shift(start.period), r.period) >= 0
+      && daysBetween(shift(start.period), r.period) <= toleranceDays) ?? null;
+    const yEnd = inYear.find((r) => daysBetween(shift(end.period), r.period) >= 0
+      && daysBetween(shift(end.period), r.period) <= toleranceDays) ?? null;
+    if (!yStart || !yEnd) continue;
+    prior.push({
+      year: y,
+      netChangeBcf: yEnd.value - yStart.value,
+      lagDays: daysBetween(shift(end.period), yEnd.period),
+      weeks: Math.round(daysBetween(yStart.period, yEnd.period) / 7),
+    });
+  }
+  const vals = prior.map((p) => p.netChangeBcf);
+  return {
+    start: start.period,
+    end: end.period,
+    netChangeBcf,
+    prior,
+    priorMinBcf: vals.length ? Math.min(...vals) : null,
+    priorMaxBcf: vals.length ? Math.max(...vals) : null,
+    n: vals.length,
+    impliesPeakBcf: end.value - netChangeBcf,
+  };
+}
+
+/**
+ * Change a row is still ahead of, if its prior-year path repeats exactly.
+ * Returns null when the year has no observation far enough ahead to define it.
+ */
+export function restOfSeason(rows, asOf = null) {
+  const latest = asOf ?? rows?.[rows.length - 1];
+  if (!rows?.length || !latest) return null;
+  const season = seasonProgress(latest.period);
+  const year = latest.period.getFullYear();
+  const inYear = rows.filter((r) => r.period.getFullYear() === year);
+  const seasonEndRow = inYear.find((r) => r.period >= season.seasonEnd) ?? null;
+  if (!seasonEndRow) return null;
+  const match = matchYearAgo(rows.filter((r) => r.period.getFullYear() === year - 1), seasonEndRow.period, 0, 7);
+  if (!match) return null;
+  return {
+    seasonEnd: seasonEndRow.period,
+    impliedSeasonEndBcf: latest.value + (seasonEndRow.value - match.value),
+    weeksAhead: Math.round(daysBetween(latest.period, seasonEndRow.period) / 7),
+  };
 }
 
 export { matchYearAgo, percentileRank, ols, currentStreak, seasonalEnvelope };

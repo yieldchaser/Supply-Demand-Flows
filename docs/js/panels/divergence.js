@@ -13,6 +13,7 @@ import * as d3 from 'd3';
 import { getSeries } from '../util/series.js';
 import { seasonalEnvelope, envelopeLookup, dayOnly } from '../util/season.js';
 import { seasonWeekOf } from '../util/storage-analysis.js';
+import { parsePeriod, formatPeriodKey } from '../util/period.js';
 
 /* ─────────────────────────────────────────────── */
 /*  Constants                                      */
@@ -48,15 +49,20 @@ export function buildDivergenceModel(bundle) {
   // Extract Lower 48 total per period (max of 8 region rows = the aggregate).
   // Same workaround as storage.js — see Phase 2 backlog: fix transformer to
   // emit region-tagged rows so we don't need this trick.
+  // Keyed on the parsed calendar date, not the raw string: the same week was
+  // grouped twice when a source mixed label formats, and `new Date()` read a
+  // bare `YYYY-MM-DD` as UTC midnight (a day early west of Greenwich).
   const usByPeriod = d3.rollup(
     usSource.data,
     (g) => d3.max(g, (r) => Number(r.value)),
-    (r) => r.period
+    (r) => parsePeriod(r.period)?.getTime()
   );
-  const usSeries = Array.from(usByPeriod, ([period, value]) => ({
-    period: new Date(period),
+  const usSeries = Array.from(usByPeriod, ([t, value]) => ({
+    period: new Date(t),
     value,
-  })).sort((a, b) => a.period - b.period);
+  }))
+    .filter((r) => Number.isFinite(r.period.getTime()) && Number.isFinite(r.value))
+    .sort((a, b) => a.period - b.period);
 
   // Same week-of-season axis as the storage panel (see util/season.js): the ISO
   // week of a Friday label steps by one more than the mean between neighbouring
@@ -108,7 +114,9 @@ export function buildDivergenceModel(bundle) {
  */
 export function divergenceExport(model) {
   if (!model) return null;
-  const day = (d) => (d?.period instanceof Date ? d.period.toISOString().slice(0, 10) : null);
+  // Calendar day, not the UTC instant: `toISOString().slice(0, 10)` reported the
+  // previous day for a local-midnight period in any timezone east of Greenwich.
+  const day = (d) => formatPeriodKey(d?.period ?? null);
   return {
     basis:
       'US: % deviation of latest weekly total from the same week-of-season mean over the trailing 5 years. ' +

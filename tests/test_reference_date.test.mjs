@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { referenceDate, referenceYear } from '../docs/js/util/series.js';
+import { formatPeriodKey } from '../docs/js/util/period.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -25,7 +26,10 @@ test('referenceDate returns the newest period as a Date', () => {
 
 test('referenceDate accepts Date and string periods alike', () => {
   const got = referenceDate([{ period: '2026-02-06', value: 2 }, row('2026-01-02')]);
-  assert.equal(got.toISOString(), new Date('2026-02-06').toISOString());
+  // A date-only string is a calendar day in local time (see parsePeriod), so
+  // compare the day rather than an instant: `toISOString` of a local midnight
+  // is the previous day in any timezone east of Greenwich.
+  assert.equal(formatPeriodKey(got), '2026-02-06');
 });
 
 test('referenceDate spans several series and ignores junk', () => {

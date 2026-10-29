@@ -81,8 +81,12 @@ export function matchYearAgo(rows, date, yearDelta = 1, toleranceDays = 6) {
   const target = new Date(d.getFullYear() - yearDelta, d.getMonth(), d.getDate());
   let best = null;
   for (const r of rows) {
+    // `daysBetween` compares whole calendar days, so `toleranceDays` is a day
+    // count on both sides and never a millisecond subtraction.
     const lag = Math.abs(daysBetween(target, r.period));
     if (lag > toleranceDays) continue;
+    // Strictly nearer wins; on an exact tie the earlier row keeps the match, so
+    // a date-matched lookup is deterministic across input orderings.
     if (!best || lag < best.lagDays) best = { period: r.period, value: r.value, lagDays: lag };
   }
   return best;

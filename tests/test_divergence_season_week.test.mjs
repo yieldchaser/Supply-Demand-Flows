@@ -135,6 +135,9 @@ describe('buildDivergenceModel — week-of-season comparison', () => {
     assert.equal(exp.normal.us.n, 5);
     // US +50pp, EU flat → spread +50 pp on the num US% − num EUpp scale.
     assert.ok(Math.abs(exp.spread_pp - 50) < 1e-9);
+    // Calendar day, not an instant: periods are parsed in local time, so an
+    // ISO comparison would read a day earlier east of Greenwich and a day
+    // later west of it.
     assert.equal(exp.us.period, '2026-10-03');
   });
 });

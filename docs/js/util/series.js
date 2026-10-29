@@ -3,36 +3,45 @@
  * Schema: source | series_id | series_name | period | value | unit | region | ingested_at
  */
 
-import { quantileSorted } from './season.js';
+import { parsePeriod, withParsedPeriods } from './period.js';
 
 /**
  * Filter rows from a source by series_id, returning chronologically sorted records.
+ *
+ * Periods are read with `parsePeriod`, the project's single parsing rule. The
+ * previous `new Date(r.period)` read a bare `YYYY-MM-DD` as UTC midnight, which
+ * shifts the label a day west of Greenwich and can move a month-boundary row
+ * into the previous month. Rows whose period cannot be read are dropped rather
+ * than sorted as `Invalid Date`.
+ *
  * @param {Array} rows - bundle.sources[sourceKey].data
  * @param {string} seriesId - exact series_id match
  * @returns {Array<{period: Date, value: number, ...}>}
  */
 export function getSeries(rows, seriesId) {
-  return rows
-    .filter((r) => r.series_id === seriesId)
-    .map((r) => ({ ...r, period: new Date(r.period), value: Number(r.value) }))
+  const matching = (rows || []).filter((r) => r.series_id === seriesId);
+  const { rows: parsed } = withParsedPeriods(matching);
+  return parsed
+    .map((r) => ({ ...r, value: Number(r.value) }))
     .sort((a, b) => a.period - b.period);
 }
 
 /**
  * Group rows by series_id, return a Map<series_id, sorted-rows>.
+ *
+ * Same parsing rule as `getSeries`, and the same row objects are copied rather
+ * than mutated: a caller that later hands these rows to one of the envelope
+ * helpers previously found their `period` field already replaced.
  */
 export function groupBySeriesId(rows) {
   const map = new Map();
-  for (const r of rows) {
+  for (const r of rows || []) {
     if (!map.has(r.series_id)) map.set(r.series_id, []);
     map.get(r.series_id).push(r);
   }
-  for (const arr of map.values()) {
-    for (const item of arr) {
-      item.period = new Date(item.period);
-      item.value = Number(item.value);
-    }
-    arr.sort((a, b) => a.period - b.period);
+  for (const [id, arr] of map) {
+    const { rows: parsed } = withParsedPeriods(arr);
+    map.set(id, parsed.sort((a, b) => a.period - b.period));
   }
   return map;
 }
@@ -64,7 +73,8 @@ export function referenceDate(...seriesList) {
   for (const rows of seriesList) {
     for (const r of rows || []) {
       if (r == null) continue;
-      const p = r.period instanceof Date ? r.period : new Date(r.period);
+      const p = r.period instanceof Date ? r.period : parsePeriod(r.period);
+      if (!p) continue;
       const t = p.getTime();
       if (!Number.isFinite(t)) continue;
       if (max === null || t > max) max = t;
@@ -73,64 +83,13 @@ export function referenceDate(...seriesList) {
   return max === null ? null : new Date(max);
 }
 
-/**
- * For a weekly series, compute week-of-year statistics for a band overlay.
- * Returns Map<weekNumber, {min, max, mean, p25, p75, p90, count, n}> across
- * prior years.
- *
- * Two rules the previous version broke:
- *  - the reference year comes from the series (see `referenceYear`), not from
- *    `new Date()`;
- *  - quartiles are interpolated (Hyndman-Fan type 7), because indexing into the
- *    sorted sample returns an order statistic, not a quartile — with 4 years of
- *    history `sorted[floor(4*0.25)]` is the *minimum*, not p25.
- */
-export function computeWeeklyEnvelope(rows, lookbackYears = 5, opts = {}) {
-  const currentYear = opts.referenceYear ?? referenceYear(rows);
-  if (currentYear === null) return new Map();
-  const cutoffYear = currentYear - lookbackYears;
-  const filtered = (rows || []).filter((r) => {
-    const p = r.period instanceof Date ? r.period : new Date(r.period);
-    const yr = p.getFullYear();
-    return Number.isFinite(p.getTime()) && yr < currentYear && yr >= cutoffYear;
-  });
-
-  const byWeek = new Map();
-  for (const r of filtered) {
-    const p = r.period instanceof Date ? r.period : new Date(r.period);
-    const wk = isoWeek(p);
-    const v = Number(r.value);
-    if (!Number.isFinite(v)) continue;
-    if (!byWeek.has(wk)) byWeek.set(wk, []);
-    byWeek.get(wk).push(v);
-  }
-
-  const envelope = new Map();
-  for (const [wk, vals] of byWeek) {
-    const sorted = [...vals].sort((a, b) => a - b);
-    envelope.set(wk, {
-      min: sorted[0],
-      max: sorted[sorted.length - 1],
-      mean: vals.reduce((s, v) => s + v, 0) / vals.length,
-      p25: quantileSorted(sorted, 0.25),
-      p75: quantileSorted(sorted, 0.75),
-      p90: quantileSorted(sorted, 0.90),
-      count: vals.length,
-      n: vals.length,
-    });
-  }
-  return envelope;
-}
-
-/**
- * ISO week number (1-53) for a given date.
- */
-export function isoWeek(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-}
+// `computeWeeklyEnvelope` and `isoWeek` used to live here. They bucketed storage
+// weeks by ISO week number, which is not the axis these series live on: the EIA
+// week ends on Friday and its ISO number shifts an extra week between years, so
+// a reading could be compared against a normal from a different week of the
+// season. `seasonalEnvelope`/`seasonWeek` in season.js (week-of-season counted
+// from each year's first observation) replaced it, and nothing should reintroduce
+// the ISO-keyed band.
 
 /**
  * Compute year-over-year deltas for a series.
