@@ -11,15 +11,13 @@
  * not published SQ.
  */
 
-import * as d3 from 'd3';
 import {
   LNG_TERMINALS,
   LNG_FLEET_ORDER,
   FLEET_PROXY_EXCLUSIONS,
-  COMPARISON_FEED_EXCLUSIONS,
   DEFAULT_TERMINAL_ID,
 } from '../util/lng-terminals.js';
-import { dth_to_mmcf, get_utilization_level } from '../util/lng-metrics.js';
+import { get_utilization_level } from '../util/lng-metrics.js';
 
 import {
   buildSqCycleMaps,
@@ -27,8 +25,6 @@ import {
   buildProxyImpliedByDate,
   buildDailyProxySeries,
   buildDailyFromCycles,
-  buildFeedDaily,
-  summarizeDaily,
   terminalSummary,
   cyclePriority,
 } from '../util/lng-fleet-data.js';

@@ -12,7 +12,6 @@ import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
 import {
-  dth_to_mmcf,
   get_utilization_level,
   calculate_wow_delta,
   should_show_envelope,
@@ -21,7 +20,6 @@ import {
   LNG_TERMINALS,
   LNG_FLEET_ORDER,
   DEFAULT_TERMINAL_ID,
-  terminalSeriesPrefixes,
   terminalCycleInfo,
 } from '../util/lng-terminals.js';
 import {
@@ -43,7 +41,6 @@ const FEED_COLORS = [
 ];
 
 import {
-  buildFeedCycleMaps,
   buildMultiFeedData,
 } from '../util/lng-feedgas-data.js';
 

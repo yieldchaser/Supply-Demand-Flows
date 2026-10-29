@@ -10,7 +10,6 @@
  */
 
 import { LNG_TERMINALS } from './lng-terminals.js';
-import { dth_to_mmcf } from './lng-metrics.js';
 import { buildDailyTotal, DOWNTIME_CONF } from './lng-downtime.js';
 
 /**

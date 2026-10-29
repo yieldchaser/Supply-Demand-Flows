@@ -47,13 +47,9 @@
 
 import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
-import { kpiCardHtml } from '../components/kpi-card.js';
-import { dth_to_mmcf } from '../util/lng-metrics.js';
 import { watchColumn } from '../util/responsive-chart.js';
 import {
   DOWNTIME_CONF as CONF,
-  detectDowntime,
-  buildDailyTotal,
   buildDowntimeViewModel,
   renderEventListHtml,
 } from '../util/lng-downtime.js';

@@ -39,7 +39,6 @@
 import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
-import { cyclePriority } from './lng-fleet-overview.js';
 import { watchColumn } from '../util/responsive-chart.js';
 
 /* ---- terminal / feed definitions ---- */
@@ -75,7 +74,6 @@ const TERMINALS = [
 
 /* ------------------------------------------------------------------ */
 import {
-  dailyFromFeed,
   alignFeeds,
   buildShareSeries,
   detectSubstitutionEvents as detectEvents,

@@ -4,13 +4,10 @@
  */
 
 import {
-  LNG_TERMINALS,
-  LNG_FLEET_ORDER,
-  FLEET_PROXY_EXCLUSIONS,
   COMPARISON_FEED_EXCLUSIONS,
   terminalSeriesPrefixes,
 } from './lng-terminals.js';
-import { dth_to_mmcf, get_utilization_level } from './lng-metrics.js';
+import { dth_to_mmcf } from './lng-metrics.js';
 import { cyclePriority } from './lng-downtime.js';
 
 export { cyclePriority };
