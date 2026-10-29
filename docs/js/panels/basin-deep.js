@@ -22,7 +22,7 @@
 
 import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
-import { getSeries } from '../util/series.js';
+import { getSeries, referenceDate } from '../util/series.js';
 import { redrawOnResize } from '../util/responsive-chart.js';
 
 /** All 15 known basins with display labels. */
@@ -401,12 +401,18 @@ export function renderBasinShare(panelEl, bundle) {
     return;
   }
 
-  // Build sorted, deduplicated period list filtered to last 24 months
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 24);
+  // Build sorted, deduplicated period list filtered to the last 24 months of
+  // actual observations. Anchoring on the wall clock dropped the window's tail
+  // whenever the bundle lagged the calendar, silently shortening the series.
+  const anchor = referenceDate(...withGas.map((b) => b.gas));
+  const cutoff = anchor ? new Date(anchor) : null;
+  if (cutoff) cutoff.setMonth(cutoff.getMonth() - 24);
 
   const allTimestamps = new Set(withGas.flatMap((b) => b.gas.map((r) => r.period.getTime())));
-  const periods = [...allTimestamps].sort().map((t) => new Date(t)).filter((p) => p >= cutoff);
+  const periods = [...allTimestamps]
+    .sort((a, b) => a - b)
+    .map((t) => new Date(t))
+    .filter((p) => cutoff === null || p >= cutoff);
 
   if (periods.length < 2) {
     chartEl.innerHTML = '<div class="extremes-empty">Insufficient history for 24-month view.</div>';

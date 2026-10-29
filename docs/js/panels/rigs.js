@@ -9,7 +9,7 @@
 import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
-import { getSeries } from '../util/series.js';
+import { getSeries, referenceDate } from '../util/series.js';
 
 export function renderRigsPanel(panelEl, bundle) {
   const source = bundle.sources.baker_hughes_weekly;
@@ -57,14 +57,17 @@ function drawRigsChart(container, gasRows, oilRows) {
     .style('display', 'block');
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-  // Last 2 years
-  const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - 2);
-  gasRows = gasRows.filter((r) => r.period >= cutoff);
-  oilRows = oilRows.filter((r) => r.period >= cutoff);
+  // Last 2 years, anchored on the newest rig observation rather than the wall
+  // clock: a bundle read after a long outage would otherwise lose its history
+  // one week at a time on every redraw.
+  const anchor = referenceDate(gasRows, oilRows);
+  const cutoff = anchor ? new Date(anchor) : null;
+  if (cutoff) cutoff.setFullYear(cutoff.getFullYear() - 2);
+  gasRows = cutoff ? gasRows.filter((r) => r.period >= cutoff) : [];
+  oilRows = cutoff ? oilRows.filter((r) => r.period >= cutoff) : [];
 
   if (gasRows.length === 0 && oilRows.length === 0) {
-    container.innerHTML = '<div class="panel-error">No rig data in the last 2 years.</div>';
+    container.innerHTML = '<div class="panel-error">No rig observations in the last 2 years of data.</div>';
     return;
   }
 

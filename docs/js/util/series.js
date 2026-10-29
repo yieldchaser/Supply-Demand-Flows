@@ -45,14 +45,32 @@ export function groupBySeriesId(rows) {
  * storage as "last year", which emptied the envelope and blanked the chart.
  */
 export function referenceYear(rows) {
+  const latest = referenceDate(rows);
+  return latest === null ? null : latest.getFullYear();
+}
+
+/**
+ * Latest observation across one or more row arrays, as a Date (or null).
+ *
+ * Windows such as "last 3 years" or "last 24 months" must be anchored here,
+ * not on the wall clock: a bundle built last quarter read next quarter would
+ * slide its whole window forward and silently drop real history, and a chart
+ * that redraws on resize would change shape without the data changing.
+ * Accepts several series so a window covering production and consumption is
+ * anchored on the newest row of either.
+ */
+export function referenceDate(...seriesList) {
   let max = null;
-  for (const r of rows || []) {
-    const p = r.period instanceof Date ? r.period : new Date(r.period);
-    const t = p.getTime();
-    if (!Number.isFinite(t)) continue;
-    if (max === null || t > max) max = t;
+  for (const rows of seriesList) {
+    for (const r of rows || []) {
+      if (r == null) continue;
+      const p = r.period instanceof Date ? r.period : new Date(r.period);
+      const t = p.getTime();
+      if (!Number.isFinite(t)) continue;
+      if (max === null || t > max) max = t;
+    }
   }
-  return max === null ? null : new Date(max).getFullYear();
+  return max === null ? null : new Date(max);
 }
 
 /**

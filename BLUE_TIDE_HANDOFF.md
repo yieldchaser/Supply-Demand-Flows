@@ -269,6 +269,41 @@ because the frozen tail is one day and its `zeroDaysThreshold` is 3; on a live b
 with the outage still running, that case is expected to flip and should be re-pointed at
 the historical window instead of deleted.
 
+### 6.2 Bug #10 — the wall clock as a data reference (2026-10-29)
+
+Same pattern again: code disagreed with the data, nothing asserted they agreed, and the
+failure was quiet. This one has two faces.
+
+**Face 1: the wrong season axis.** The divergence card and the EU-storage hero compared
+this week's reading against a "5-year average" keyed on **ISO week number**. The EIA
+storage week is labelled by its *Friday*, so between years the ISO week steps an extra
+position in the season — the normal being subtracted could come from one or two weeks
+away from the reading. On the live bundle the headline moved from **+2.5% to −0.1%**
+between two consecutive Fridays with no meaningful change in the underlying level. A
+`?? 0` fallback turned a missing leg into a confident "at normal" verdict.
+
+Fix: `weekOfSeason` primitives in `docs/js/util/season.js` (weeks counted from each year's
+own first observation) and `seasonWeekOf` / `priorSameWeekValues` in
+`docs/js/util/storage-analysis.js`. The chart, the hover tooltip and the KPI card now read
+the *same* normal, and each prints its real sample size (`n=5`) instead of an unqualified
+"5y avg". A missing leg now propagates as `null` and renders "Comparison incomplete".
+
+**Face 2: the wrong window anchor.** `balance`, `rigs` and `basin-deep` filtered their
+windows with a cutoff built from `new Date()`. That is the same mistake as
+`referenceYear` (fixed earlier in `docs/js/util/series.js` for the seasonal envelope), and
+it has the same cost: a bundle read weeks after it was built slides its window forward and
+drops real history, and every resize redraw changes the chart shape even though the data
+never changed. All three now anchor on `referenceDate(...series)` — the newest observation
+in the data — so the window is a property of the series, not of when the page was opened.
+
+`tests/test_reference_date.test.mjs` pins the primitive **and** asserts that none of the
+three panels builds a cutoff from `new Date()`, so the pattern cannot creep back in.
+
+**The question to ask of any time-windowed view:** *whose clock defines this window — the
+reader's, or the data's?* For anything describing a data vintage, the answer is the data's.
+`new Date()` belongs in "now" labels and export timestamps, never in a filter over
+historical observations.
+
 ---
 
 ## 7. Things deliberately killed (do not resurrect without new data)

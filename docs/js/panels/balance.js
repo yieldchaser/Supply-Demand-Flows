@@ -10,7 +10,7 @@
 import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
-import { getSeries } from '../util/series.js';
+import { getSeries, referenceDate } from '../util/series.js';
 
 export function renderBalancePanel(panelEl, bundle) {
   const source = bundle.sources.eia_supply;
@@ -62,14 +62,17 @@ function drawBalanceChart(container, groups) {
     .style('display', 'block');
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-  // Last ~3 years
-  const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - 3);
-  const productionRows = groups.FPD.filter((r) => r.period >= cutoff);
-  const consumptionRows = groups.VC0.filter((r) => r.period >= cutoff);
+  // Last ~3 years, measured back from the newest observation rather than the
+  // wall clock, so a stale bundle keeps its history instead of sliding empty.
+  const anchor = referenceDate(groups.FPD, groups.VC0);
+  const cutoff = anchor ? new Date(anchor) : null;
+  if (cutoff) cutoff.setFullYear(cutoff.getFullYear() - 3);
+  const productionRows = cutoff ? groups.FPD.filter((r) => r.period >= cutoff) : [];
+  const consumptionRows = cutoff ? groups.VC0.filter((r) => r.period >= cutoff) : [];
 
   if (productionRows.length === 0 || consumptionRows.length === 0) {
-    container.innerHTML = '<div class="panel-error">Production or consumption series missing.</div>';
+    container.innerHTML =
+      '<div class="panel-error">No production or consumption observations in the last 3 years of data.</div>';
     return;
   }
 
