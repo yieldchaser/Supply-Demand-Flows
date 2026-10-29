@@ -18,11 +18,15 @@ export function renderRigsPanel(panelEl, bundle) {
     return;
   }
 
+  // `chartEl` only exists after the chrome renders, so the redraw hook reads it
+  // through the ref rather than closing over the not-yet-declared binding.
+  const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'US Rig Count Monitor',
     subtitle: 'Baker Hughes · gas vs oil drilling activity',
     sourceKey: 'baker_hughes_weekly',
     latestPeriod: source.latest_period,
+    draw: () => drawRef.current?.(),
   });
 
   const us_total = getSeries(source.data, 'bh_rollup_us_total');
@@ -30,7 +34,8 @@ export function renderRigsPanel(panelEl, bundle) {
   const us_oil   = getSeries(source.data, 'bh_rollup_us_oil');
   const us_horiz = getSeries(source.data, 'bh_rollup_us_horizontal');
 
-  drawRigsChart(chartEl, us_gas, us_oil);
+  drawRef.current = () => drawRigsChart(chartEl, us_gas, us_oil);
+  drawRef.current();
   renderRigsKpis(sidebarEl, us_total, us_gas, us_oil, us_horiz);
 }
 

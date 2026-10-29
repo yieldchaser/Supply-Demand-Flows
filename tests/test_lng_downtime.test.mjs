@@ -220,3 +220,73 @@ test('Nameplate parity: DOWNTIME_CONF matches LNG_TERMINALS registry (Freeport r
   }
 });
 
+
+test('Meter pinned at its floor is a real OFFLINE outage, not a DEPRESSED blip', () => {
+  // Production case: Cove Point plant intake (10001-D) sat frozen at 15,000 Dth/d
+  // (14.6 MMcf/d ≈ 2% of a 784 MMcf/d operating level) for 23 consecutive days
+  // from 2026-09-19. Because the value is not exactly zero it escaped the
+  // posted-zero branch and classified as a 16-day DEPRESSED event, and the
+  // collapse dragged the 30-day baseline onto the floor so the recovery then
+  // registered as a phantom ~50x RAMPING event. Verified against the live bundle
+  // at docs/data/src.bhe.<hash>.json on 2026-10-28.
+  const conf = DOWNTIME_CONF.cove_point;
+  const daily = [];
+  const day = (offset) => {
+    const dt = new Date(Date.UTC(2026, 5, 1));
+    dt.setUTCDate(dt.getUTCDate() + offset);
+    return dt.toISOString().slice(0, 10);
+  };
+
+  // 40 healthy days at ~780 MMcf/d
+  for (let i = 0; i < 40; i++) {
+    daily.push({ dateStr: day(i), value: 780, posted: true, postedZero: false, feedsPosted: 1 });
+  }
+  // 23 days pinned at the 14.6 MMcf/d floor — posted, non-zero
+  for (let i = 40; i < 63; i++) {
+    daily.push({ dateStr: day(i), value: 14.6, posted: true, postedZero: false, feedsPosted: 1 });
+  }
+  // recovery to the prior operating level
+  for (let i = 63; i < 80; i++) {
+    daily.push({ dateStr: day(i), value: 780, posted: true, postedZero: false, feedsPosted: 1 });
+  }
+
+  const events = detectDowntime(daily, conf);
+  const offline = events.filter((e) => e.type === 'OFFLINE');
+  const depressed = events.filter((e) => e.type === 'DEPRESSED');
+  const ramping = events.filter((e) => e.type === 'RAMPING');
+
+  assert.strictEqual(offline.length, 1, `expected 1 OFFLINE, got ${offline.length}: ${JSON.stringify(events)}`);
+  assert.strictEqual(offline[0].duration, 23, 'floor run must be reported at its true 23-day length');
+  assert.strictEqual(offline[0].date, day(62));
+  assert.match(offline[0].detail, /meter floor/);
+  assert.strictEqual(depressed.length, 0, 'a floor-pinned meter must not be reported as DEPRESSED');
+  assert.strictEqual(ramping.length, 0, 'recovery from an outage is not a ramp');
+});
+
+test('Fleet card surfaces a live outage from the data, and clears on recovery', async () => {
+  // A low utilization bar cannot distinguish "running soft" from "shut in".
+  // Cove Point at 2% of nameplate for 23 days must announce itself on the card.
+  const { summarizeDaily } = await import('../docs/js/util/lng-fleet-data.js');
+  const mk = (dateStr, value, postedZero = false) => ({
+    dateStr,
+    date: new Date(dateStr),
+    value,
+    posted: true,
+    postedZero,
+  });
+
+  const healthy = [];
+  for (let i = 0; i < 30; i++) healthy.push(mk(`2026-08-${String(i + 1).padStart(2, '0')}`, 780));
+
+  const down = [...healthy, ...Array.from({ length: 5 }, (_, i) => mk(`2026-09-0${i + 1}`, 14.6))];
+  const live = summarizeDaily(down, 750);
+  assert.ok(live.outage, 'mid-outage day must report an outage');
+  assert.strictEqual(live.outage.type, 'AT_FLOOR');
+  assert.strictEqual(live.outage.duration, 5);
+
+  const recovered = [...down, mk('2026-09-06', 784), mk('2026-09-07', 780)];
+  assert.strictEqual(summarizeDaily(recovered, 750).outage, null, 'recovery must clear the outage');
+
+  const trueZero = [...healthy, mk('2026-09-01', 0, true)];
+  assert.strictEqual(summarizeDaily(trueZero, 750).outage.type, 'OFFLINE');
+});

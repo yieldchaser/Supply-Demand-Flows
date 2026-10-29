@@ -49,6 +49,7 @@ import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
 import { dth_to_mmcf } from '../util/lng-metrics.js';
+import { watchColumn } from '../util/responsive-chart.js';
 import {
   DOWNTIME_CONF as CONF,
   detectDowntime,
@@ -77,9 +78,13 @@ const COLORS = {
  * @param {Object} bundle
  */
 export function renderTerminalDowntimePanel(panelEl, bundle) {
+  const drawRef = { current: null };
+  // The redraw hook is attached *after* the tab strip and footnote are in the
+  // DOM: redrawOnResize fires on the very next layout pass, and this panel's
+  // draw clears the whole chart column — attaching early would delete the tabs.
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
-    title: 'Section 8 · Terminal Downtime / Turnaround Indicator',
-    subtitle: 'Real outages, cargo idle, and commissioning ramps — false-positive guarded',
+    title: 'Terminal Downtime',
+    subtitle: 'Outages, cargo idle and commissioning ramps per terminal',
     sourceKey: 'gulf_south',
     latestPeriod: bundle.sources?.gulf_south?.latest_period || '',
   });
@@ -108,7 +113,8 @@ export function renderTerminalDowntimePanel(panelEl, bundle) {
       btn.classList.add('downtime-tab--active');
       btn.setAttribute('aria-selected', 'true');
       btn.focus();
-      renderTerminal(chartEl, sidebarEl, footEl, bundle, key);
+      drawRef.current = () => renderTerminal(chartEl, sidebarEl, footEl, bundle, key);
+      drawRef.current();
     };
 
     btn.onclick = selectTab;
@@ -127,7 +133,9 @@ export function renderTerminalDowntimePanel(panelEl, bundle) {
 
   chartEl.parentNode.insertBefore(tabs, chartEl);
   chartEl.parentNode.appendChild(footEl);
-  renderTerminal(chartEl, sidebarEl, footEl, bundle, termKeys[0]);
+  drawRef.current = () => renderTerminal(chartEl, sidebarEl, footEl, bundle, termKeys[0]);
+  drawRef.current();
+  watchColumn(chartEl, () => drawRef.current?.());
 }
 
 function renderTerminal(chartEl, sidebarEl, footEl, bundle, key) {

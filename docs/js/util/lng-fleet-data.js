@@ -192,7 +192,43 @@ export function summarizeDaily(daily, nameplate, headlineSource = null) {
       pct: weekAgo.value !== 0 ? ((latest - weekAgo.value) / weekAgo.value) * 100 : 0,
     };
   }
-  return { ok: true, latest, utilPct, spark, wow, days: daily.length };
+  return { ok: true, latest, utilPct, spark, wow, days: daily.length, outage: activeOutage(daily, nameplate) };
+}
+
+/**
+ * The outage event still in force on the newest gas day, if any.
+ *
+ * A card that shows only a low utilization bar cannot distinguish "running soft"
+ * from "shut in". Only events that reach the newest day count as current; a
+ * historical outage belongs to the Section 8 timeline, not the fleet snapshot.
+ *
+ * @param {Array<{dateStr: string, value: number, postedZero?: boolean, posted?: boolean}>} daily
+ * @param {number} nameplate MMcf/d
+ * @returns {{type: string, duration: number, detail: string}|null}
+ */
+export function activeOutage(daily, nameplate) {
+  if (!daily || daily.length === 0) return null;
+  const last = daily[daily.length - 1];
+  // Operating level = median of days comfortably above the floor, so an outage
+  // cannot drag its own baseline down and declare itself "normal".
+  const operating = daily.filter((d) => d.value > nameplate * 0.05).map((d) => d.value);
+  if (operating.length === 0) return null;
+  operating.sort((a, b) => a - b);
+  const baseline = operating[Math.floor(operating.length / 2)];
+  if (baseline <= 0) return null;
+
+  const atFloor = (d) => d.postedZero === true || d.value <= baseline * 0.05;
+  if (!atFloor(last)) return null;
+
+  let n = 0;
+  for (let i = daily.length - 1; i >= 0 && atFloor(daily[i]); i--) n++;
+
+  const type = last.postedZero ? 'OFFLINE' : 'AT_FLOOR';
+  return {
+    type,
+    duration: n,
+    detail: `${n} consecutive day(s) at or below 5% of the ${baseline.toFixed(0)} MMcf/d operating level (latest ${last.value.toFixed(0)} MMcf/d on ${last.dateStr})`,
+  };
 }
 
 /**

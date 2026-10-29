@@ -58,7 +58,7 @@ test('P4: Shared time range calculates correct preset interval relative to ancho
 test('P4: Range exceeding history surfaces honest caveat rather than silent clipping', () => {
   const caveat = checkRangeExceedsHistory('2025-01-01', '2026-05-25', 'Gulf South');
   assert.ok(caveat !== null, 'Must return caveat when requested start precedes history');
-  assert.ok(caveat.includes('Gulf South history begins 2026-05-25'), 'Must state source history boundary');
+  assert.ok(caveat.includes('Gulf South starts 2026-05-25'), 'Must state source history boundary');
 
   const noCaveat = checkRangeExceedsHistory('2026-06-01', '2026-05-25', 'Gulf South');
   assert.strictEqual(noCaveat, null, 'Must return null when range is within history');

@@ -6,6 +6,10 @@
   --surface-glass-hover: rgba(25, 32, 46, 0.65);
   --border-glass: rgba(255, 255, 255, 0.06);
   --border-glass-strong: rgba(255, 255, 255, 0.1);
+  /* Flat rules replace card borders. --rule is the resting hairline between
+     sections and columns; --rule-strong is the one heavier divider. */
+  --rule: rgba(255, 255, 255, 0.08);
+  --rule-strong: rgba(255, 255, 255, 0.16);
 
   /* === Color: Text === */
   --text-primary: #e5e7eb;
@@ -66,8 +70,7 @@
   --dur-slow: 320ms;
 
   /* === Shadows === */
-  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 32px rgba(0, 0, 0, 0.2);
-  --shadow-glow-blue: 0 0 32px rgba(125, 211, 252, 0.15);
+  --shadow-panel: none;
 
   /* === Layout === */
   --max-width: 1440px;

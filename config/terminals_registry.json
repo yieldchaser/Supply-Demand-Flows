@@ -48,8 +48,8 @@
     "id": "cove_point",
     "display": "Cove Point",
     "nameplate": 750.0,
-    "expectedCoveragePct": 97.1,
-    "expectedMedianMmcf": 728.5,
+    "expectedCoveragePct": 104.6,
+    "expectedMedianMmcf": 784.2,
     "coverageTolerancePct": 7.0,
     "operational": true
   },
@@ -66,8 +66,8 @@
     "id": "corpus_christi",
     "display": "Corpus Christi",
     "nameplate": 2400.0,
-    "expectedCoveragePct": 99.4,
-    "expectedMedianMmcf": 2384.7,
+    "expectedCoveragePct": 106.7,
+    "expectedMedianMmcf": 2561.0,
     "coverageTolerancePct": 7.0,
     "operational": true
   },

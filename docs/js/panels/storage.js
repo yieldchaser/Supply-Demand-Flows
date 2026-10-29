@@ -1,27 +1,39 @@
 /**
- * Storage Panel — Weekly EIA Storage with 5-year envelope + Days-of-Cover.
+ * Storage Panel — weekly EIA working gas, read through `util/storage-analysis`.
  *
- * Data schema: all rows have series_id='storage', region='NA'.
- * 8 rows per period — the max value row is the Lower 48 total.
- * We extract the L48 total per period, then overlay current year
- * against a 5-year band (min/max, p25/p75, mean).
+ * Every number printed here comes from the analysis module, not from a local
+ * rollup. Two data defects the previous version shipped are gone by design:
  *
- * Phase 2.2 addition: Days-of-Cover companion mini-chart and 5th KPI card.
- *   Cover = storage_Bcf ÷ daily_consumption_Bcf_per_day
- *   Joined from eia_supply (supply_vc0, monthly MMcf) via piecewise interpolation.
+ *  - the Lower 48 level was `max(value per period)`, which silently returns the
+ *    largest *region* whenever the aggregate row is missing. It is now the
+ *    `storage_lower48` series, cross-checked against the sum of the five regions.
+ *  - the envelope was keyed by ISO week while the data is EIA Friday weeks, so
+ *    a 53-week year shifted every later label by one. The envelope is now keyed
+ *    by week-of-season (see `seasonalEnvelope`) and prints its sample size.
+ *
+ * Pure formatting helpers live here; all arithmetic lives in the module.
  */
 
 import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
-import { computeWeeklyEnvelope, isoWeek } from '../util/series.js';
 import { getSeries } from '../util/series.js';
 import {
   computeStorageCover,
   computeCoverEnvelope,
   classifyCover,
-  isoWeekFromDate,
 } from '../util/cover.js';
+import { isoWeekFromDate } from '../util/season.js';
+import { registerChartSnapshot } from '../util/chart-snapshot.js';
+import { redrawOnResize } from '../util/responsive-chart.js';
+import {
+  analyseStorage,
+  seasonWeekOf,
+  seasonalEnvelope,
+  windowChange,
+} from '../util/storage-analysis.js';
+
+const STORAGE_CHART_ID = 'storage-envelope';
 
 export function renderStoragePanel(panelEl, bundle) {
   const source = bundle.sources.eia_storage;
@@ -30,60 +42,99 @@ export function renderStoragePanel(panelEl, bundle) {
     return;
   }
 
+  const analysis = analyseStorage(source.data);
+  if (!analysis.usable) {
+    panelEl.innerHTML = '<div class="panel-error">EIA Storage bundle has no Lower 48 series.</div>';
+    return;
+  }
+
+  const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'Weekly Storage',
-    subtitle: 'EIA · Lower 48 working gas, 5-year band',
+    subtitle: 'EIA · Lower 48 working gas, week ending Friday',
     sourceKey: 'eia_storage',
     latestPeriod: source.latest_period,
+    chartExport: STORAGE_CHART_ID,
+    draw: () => drawRef.current?.(),
   });
 
-  // Extract Lower 48 total: max value per period (the aggregate row)
-  const byPeriod = d3.rollup(
-    source.data,
-    (g) => d3.max(g, (r) => Number(r.value)),
-    (r) => r.period
+  const { l48, latest, projection } = analysis;
+  const currentRows = l48.filter((r) => r.period.getFullYear() === latest.period.getFullYear());
+
+  // Week-of-season key for every row; the envelope is indexed by the same key.
+  const weekKey = (r) => seasonWeekOf(l48, r.period);
+  const envelope = envelopeFromRows(l48, latest.period);
+
+  registerChartSnapshot(
+    STORAGE_CHART_ID,
+    'storage-envelope',
+    currentRows.map((r) => {
+      const wk = weekKey(r);
+      const env = envelope.get(wk);
+      return {
+        date: r.period.toISOString().slice(0, 10),
+        week_of_season: wk,
+        bcf: r.value,
+        normal_n: env ? env.count : 0,
+        normal_mean_bcf: env ? Math.round(env.mean) : null,
+        normal_median_bcf: env ? Math.round(env.median) : null,
+        p25_bcf: env && Number.isFinite(env.p25) ? Math.round(env.p25) : null,
+        p75_bcf: env && Number.isFinite(env.p75) ? Math.round(env.p75) : null,
+        min_bcf: env ? Math.round(env.min) : null,
+        max_bcf: env ? Math.round(env.max) : null,
+        vs_normal_bcf: env ? Math.round(r.value - env.mean) : null,
+      };
+    }),
+    {
+      source: 'eia_storage',
+      basis:
+        'Lower 48 weekly working gas (storage_lower48); band = same week-of-season in the trailing 5 years, sample size per week reported.',
+      latest_period: source.latest_period ?? null,
+      invariants: {
+        periods_checked: analysis.invariants.checked,
+        salt_nonsalt_breaks: analysis.invariants.saltPlusNonsalt.length,
+        region_sum_breaks: analysis.invariants.regionsSumL48.length,
+      },
+    },
   );
-  const seriesRows = Array.from(byPeriod, ([period, value]) => ({
-    period: new Date(period),
-    value,
-  })).sort((a, b) => a.period - b.period);
 
-  // Current-year subset for the prominent line
-  const currentYear = new Date().getFullYear();
-  const currentYearRows = seriesRows.filter((r) => r.period.getFullYear() === currentYear);
-
-  // 5-year envelope
-  const envelope = computeWeeklyEnvelope(seriesRows, 5);
+  const drawMain = () => drawStorageChart(chartEl, currentRows, envelope, weekKey, projection);
+  drawRef.current = drawMain;
+  drawMain();
 
   // ── Days-of-Cover ──────────────────────────────────────────────────
-  // Consumption comes from the supply source (supply_vc0, monthly MMcf)
+  // Consumption comes from the supply source (supply_vc0, monthly MMcf).
   const supplySource = bundle.sources?.eia_supply;
-  const rawConsumptionRows = supplySource?.data
-    ? getSeries(supplySource.data, 'supply_vc0')
+  const consumptionRows = supplySource?.data
+    ? getSeries(supplySource.data, 'supply_vc0').map((r) => ({
+        period: r.period instanceof Date ? r.period : new Date(r.period),
+        value: Number(r.value),
+      }))
     : [];
-  // getSeries already parses period to Date; values are in MMcf
-  const consumptionRows = rawConsumptionRows.map((r) => ({
-    period: r.period instanceof Date ? r.period : new Date(r.period),
-    value:  Number(r.value), // MMcf — computeStorageCover handles the /1000 conversion
-  }));
-
-  const coverRows     = computeStorageCover(seriesRows, consumptionRows);
+  const coverRows = computeStorageCover(l48, consumptionRows);
   const coverEnvelope = computeCoverEnvelope(coverRows, 5);
+  insertCoverMiniChart(panelEl, coverRows, coverEnvelope);
   // ───────────────────────────────────────────────────────────────────
 
-  drawStorageChart(chartEl, currentYearRows, envelope);
+  renderStorageKpis(sidebarEl, analysis);
+  appendRegionTable(panelEl, analysis);
+  appendProvenance(panelEl, analysis);
+}
 
-  // Insert companion mini-chart between chart and KPI strip
-  insertCoverMiniChart(panelEl, coverRows, coverEnvelope);
-
-  renderStorageKpis(sidebarEl, seriesRows, envelope);
+/**
+ * The seasonal envelope, keyed by week-of-season, built once for the chart.
+ * `seasonalEnvelope` is re-exported by the analysis module so the panel and the
+ * engine cannot drift onto different anchors.
+ */
+function envelopeFromRows(l48, anchor, lookbackYears = 5) {
+  return new Map(seasonalEnvelope(l48, { anchor, lookbackYears }));
 }
 
 /* ================================================================== */
 /*  Main Storage Chart                                                 */
 /* ================================================================== */
 
-function drawStorageChart(container, currentYearRows, envelope) {
+function drawStorageChart(container, currentYearRows, envelope, weekKey, projection) {
   container.innerHTML = '';
   const rect = container.getBoundingClientRect();
   const margin = { top: 24, right: 16, bottom: 36, left: 56 };
@@ -97,8 +148,10 @@ function drawStorageChart(container, currentYearRows, envelope) {
     .style('display', 'block');
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-  // X scale: 1..52 weeks
-  const x = d3.scaleLinear().domain([1, 52]).range([0, width]);
+  // X scale spans whole storage seasons (52 or 53 weeks), so a 53-week year
+  // does not push its tail past the axis.
+  const maxWeek = Math.max(52, ...Array.from(envelope.keys()));
+  const x = d3.scaleLinear().domain([1, maxWeek]).range([0, width]);
 
   // Y scale: extent of envelope + current year
   const allValues = [
@@ -151,7 +204,7 @@ function drawStorageChart(container, currentYearRows, envelope) {
 
   // Current-year line — style() resolves CSS custom properties; attr() does not
   const currentLine = d3.line()
-    .x((d) => x(isoWeek(d.period))).y((d) => y(d.value))
+    .x((d) => x(weekKey(d))).y((d) => y(d.value))
     .curve(d3.curveMonotoneX);
   g.append('path').datum(currentYearRows).attr('d', currentLine)
     .attr('fill', 'none')
@@ -164,10 +217,29 @@ function drawStorageChart(container, currentYearRows, envelope) {
   if (currentYearRows.length > 0) {
     const latest = currentYearRows[currentYearRows.length - 1];
     g.append('circle')
-      .attr('cx', x(isoWeek(latest.period))).attr('cy', y(latest.value))
+      .attr('cx', x(weekKey(latest))).attr('cy', y(latest.value))
       .attr('r', 4)
       .style('fill', 'var(--blue-flame)')
       .style('filter', 'drop-shadow(0 0 6px rgba(125, 211, 252, 0.6))');
+  }
+
+  // Projection ghost — the fitted line only, never a filled "forecast".
+  if (projection && Number.isFinite(projection.modelBcf)) {
+    const anchorRow = currentYearRows[currentYearRows.length - 1];
+    const anchorWeek = weekKey(anchorRow);
+    const projWeeks = projection.horizonWeeks;
+    g.append('line')
+      .attr('x1', x(anchorWeek)).attr('y1', y(anchorRow.value))
+      .attr('x2', x(Math.min(anchorWeek + projWeeks, maxWeek))).attr('y2', y(projection.modelBcf))
+      .attr('stroke', 'rgba(255,255,255,0.35)')
+      .attr('stroke-width', 1.25)
+      .attr('stroke-dasharray', '3,3');
+    g.append('text')
+      .attr('x', x(Math.min(anchorWeek + projWeeks, maxWeek)) + 4)
+      .attr('y', y(projection.modelBcf) + 3)
+      .attr('font-size', 10).attr('font-family', 'var(--font-mono)')
+      .style('fill', 'rgba(255,255,255,0.45)')
+      .text(`${projWeeks}w model`);
   }
 
   // X-axis: 6 month labels (every other month)
@@ -194,14 +266,14 @@ function drawStorageChart(container, currentYearRows, envelope) {
     .style('fill', 'var(--chart-label)')
     .text((d) => d >= 1000 ? `${(d / 1000).toFixed(1)}k` : `${d}`);
 
-  setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelope, margin);
+  setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelope, margin, weekKey);
 }
 
 /* ================================================================== */
 /*  Storage hover                                                      */
 /* ================================================================== */
 
-function setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelope, margin) {
+function setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelope, margin, weekKey) {
   const tooltipDiv = d3.select(svg.node().parentNode).append('div')
     .attr('class', 'chart-tooltip').style('opacity', 0);
 
@@ -225,7 +297,7 @@ function setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelop
     .on('mousemove', function (event) {
       const [mx] = d3.pointer(event);
       const wk  = Math.round(x.invert(mx));
-      const row = currentYearRows.find((r) => isoWeek(r.period) === wk);
+      const row = currentYearRows.find((r) => weekKey(r) === wk);
       const env = envelope.get(wk);
       
       if (!env) {
@@ -256,8 +328,11 @@ function setupStorageHover(svg, g, x, y, width, height, currentYearRows, envelop
         tooltipDiv.html(`
           <div class="tt-date">${row.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
           <div class="tt-row"><span class="tt-label">Storage</span><span class="num">${row.value.toLocaleString()} Bcf</span></div>
-          <div class="tt-row"><span class="tt-label">5y avg</span><span class="num">${Math.round(env.mean).toLocaleString()} Bcf</span></div>
-          <div class="tt-row tt-row--accent"><span class="tt-label">vs avg</span><span class="num">${vsAvg >= 0 ? '+' : ''}${Math.round(vsAvg).toLocaleString()} (${vsAvgPct >= 0 ? '+' : ''}${vsAvgPct.toFixed(1)}%)</span></div>
+          <div class="tt-row"><span class="tt-label">Mean n=${env.count}</span><span class="num">${Math.round(env.mean).toLocaleString()} Bcf</span></div>
+          <div class="tt-row"><span class="tt-label">Median</span><span class="num">${Math.round(env.median).toLocaleString()} Bcf</span></div>
+          <div class="tt-row tt-row--accent"><span class="tt-label">vs mean</span><span class="num">${vsAvg >= 0 ? '+' : ''}${Math.round(vsAvg).toLocaleString()} (${vsAvgPct >= 0 ? '+' : ''}${vsAvgPct.toFixed(1)}%)</span></div>
+          <div class="tt-row"><span class="tt-label">Range</span><span class="num">${Math.round(env.min).toLocaleString()}–${Math.round(env.max).toLocaleString()} Bcf</span></div>
+          ${env.years?.length ? `<div class="tt-row"><span class="tt-label">Years</span><span class="num">${env.years.join(', ')}</span></div>` : ''}
         `);
       } else {
         hoverDot.style('opacity', 0);
@@ -313,7 +388,10 @@ function insertCoverMiniChart(panelEl, coverRows, coverEnvelope) {
   const sidebar = panelBody.querySelector('.panel-sidebar');
   panelBody.insertBefore(wrapper, sidebar);
 
-  drawCoverMiniChart(wrapper.querySelector('.panel-subchart__body'), coverRows, coverEnvelope);
+  const coverBody = wrapper.querySelector('.panel-subchart__body');
+  const drawCover = () => drawCoverMiniChart(coverBody, coverRows, coverEnvelope);
+  drawCover();
+  redrawOnResize(coverBody, drawCover);
 }
 
 function drawCoverMiniChart(container, coverRows, envelope) {
@@ -331,16 +409,27 @@ function drawCoverMiniChart(container, coverRows, envelope) {
     .style('display', 'block');
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-  // Current-year rows only for the hero line
-  const currentYear = new Date().getFullYear();
+  // Reference year comes from the series, never the wall clock: a replayed or
+  // archived bundle must render its own latest year, not whatever year the
+  // viewer happens to open the page in.
+  if (!coverRows || coverRows.length === 0) {
+    container.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:12px;padding:16px">No cover history available.</div>';
+    return;
+  }
+  const currentYear = Math.max(...coverRows.map((r) => r.period.getFullYear()));
   const currentRows = coverRows.filter((r) => r.period.getFullYear() === currentYear);
   if (currentRows.length === 0) {
     container.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:12px;padding:16px">Insufficient data for current year.</div>';
     return;
   }
 
-  // X: ISO week 1-52
-  const x = d3.scaleLinear().domain([1, 52]).range([0, width]);
+  // X: week-of-season, not ISO week. The envelope is keyed by week-of-season
+  // (`seasonalEnvelope` measures from each year's own first observation), so an
+  // ISO-keyed hero line would sit half a week off its own band in years whose
+  // first Friday differs — the same defect the main chart was fixed for.
+  const weekKey = (r) => seasonWeekOf(currentRows, r.period);
+  const maxWeek = Math.max(52, ...Array.from(envelope.keys()));
+  const x = d3.scaleLinear().domain([1, maxWeek]).range([0, width]);
 
   // Y: envelope + current year combined extent
   const envValues = Array.from(envelope.values()).flatMap((e) => [e.min, e.max]);
@@ -408,7 +497,7 @@ function drawCoverMiniChart(container, coverRows, envelope) {
 
   // Current-year cover line — hero
   const lineGen = d3.line()
-    .x((d) => x(isoWeekFromDate(d.period)))
+    .x((d) => x(weekKey(d)))
     .y((d) => y(d.daysOfCover))
     .curve(d3.curveMonotoneX);
   g.append('path').datum(currentRows).attr('d', lineGen)
@@ -420,20 +509,20 @@ function drawCoverMiniChart(container, coverRows, envelope) {
   // Latest dot
   const latest = currentRows[currentRows.length - 1];
   g.append('circle')
-    .attr('cx', x(isoWeekFromDate(latest.period)))
+    .attr('cx', x(weekKey(latest)))
     .attr('cy', y(latest.daysOfCover))
     .attr('r', 3.5)
     .style('fill', 'var(--blue-flame)')
     .style('filter', 'drop-shadow(0 0 5px rgba(125, 211, 252, 0.5))');
 
-  setupCoverHover(svg, g, x, y, width, height, currentRows, margin);
+  setupCoverHover(svg, g, x, y, width, height, currentRows, margin, weekKey, envelope);
 }
 
 /* ================================================================== */
 /*  Cover hover                                                        */
 /* ================================================================== */
 
-function setupCoverHover(svg, g, x, y, width, height, currentRows, margin) {
+function setupCoverHover(svg, g, x, y, width, height, currentRows, margin, weekKey, envelope) {
   const tooltipDiv = d3.select(svg.node().parentNode).append('div')
     .attr('class', 'chart-tooltip').style('opacity', 0);
 
@@ -457,7 +546,7 @@ function setupCoverHover(svg, g, x, y, width, height, currentRows, margin) {
     .on('mousemove', function (event) {
       const [mx] = d3.pointer(event);
       const wk  = Math.round(x.invert(mx));
-      const row = currentRows.find((r) => isoWeekFromDate(r.period) === wk);
+      const row = currentRows.find((r) => weekKey(r) === wk);
       if (!row) {
         crosshair.style('opacity', 0); hoverDot.style('opacity', 0); tooltipDiv.style('opacity', 0);
         return;
@@ -471,13 +560,21 @@ function setupCoverHover(svg, g, x, y, width, height, currentRows, margin) {
       const tooltipX = margin.left * scaleX + x(wk) * scaleX + 16;
       const tooltipY = margin.top  * scaleX + y(row.daysOfCover) * scaleX - 20;
 
+      // The cover figure is only meaningful next to what it is being compared
+      // with; the old tooltip printed a bare number with no normal at all.
+      const env = envelope?.get(wk) ?? null;
+      const vsNormal = env ? Math.round(row.daysOfCover - env.mean) : null;
+
       tooltipDiv
         .style('opacity', 1)
-        .style('left', `${Math.min(tooltipX, containerRect.width - 150)}px`)
+        .style('left', `${Math.min(tooltipX, containerRect.width - 190)}px`)
         .style('top',  `${Math.max(tooltipY, 10)}px`)
         .html(`
           <div class="tt-date">${row.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
           <div class="tt-row"><span class="tt-label">Cover</span><span class="num">${Math.round(row.daysOfCover)} days</span></div>
+          ${env ? `<div class="tt-row"><span class="tt-label">5y normal</span><span class="num">${Math.round(env.mean)} days</span></div>
+          <div class="tt-row"><span class="tt-label">vs normal</span><span class="num">${vsNormal > 0 ? '+' : ''}${vsNormal} days</span></div>
+          <div class="tt-row"><span class="tt-label">Sample</span><span class="num">n=${env.count}</span></div>` : `<div class="tt-row"><span class="tt-label">5y normal</span><span class="num">n/a</span></div>`}
         `);
     })
     .on('mouseleave', () => {
@@ -489,64 +586,224 @@ function setupCoverHover(svg, g, x, y, width, height, currentRows, margin) {
 /*  KPI sidebar                                                        */
 /* ================================================================== */
 
-function renderStorageKpis(sidebarEl, seriesRows, envelope) {
-  if (seriesRows.length < 2) return;
+function renderStorageKpis(sidebarEl, analysis) {
+  const { environment: env, projection, pace, season, l48 } = analysis;
+  if (!env || l48.length < 2) return;
 
-  // Defensive Date coercion — JSON parse may leave period as string
-  seriesRows = seriesRows.map((r) => ({
-    ...r,
-    period: r.period instanceof Date ? r.period : new Date(r.period),
-  }));
+  const wow = windowChange(l48, 1);
+  const latestWk = env.normal?.weekOfSeason;
 
-  const latest    = seriesRows[seriesRows.length - 1];
-  const prior     = seriesRows[seriesRows.length - 2];
-  const latestWk  = isoWeek(latest.period);
-  console.debug('[storage] latestWk:', latestWk, 'envelope size:', envelope.size, 'keys sample:', Array.from(envelope.keys()).slice(0, 8));
-  const env = envelope.get(latestWk);
+  const pos = (v) => (v >= 0 ? 'bullish' : 'bearish');
+  const signed = (v) => `${v >= 0 ? '+' : ''}${Math.round(v).toLocaleString()}`;
 
-  const wow       = latest.value - prior.value;
-  const vsAvg     = env ? latest.value - env.mean : null;
-  const vsAvgPct  = env && env.mean !== 0 ? (vsAvg / env.mean) * 100 : null;
-
-  // YoY: same week last year
-  const yearAgoTarget = new Date(latest.period);
-  yearAgoTarget.setFullYear(yearAgoTarget.getFullYear() - 1);
-  const yearAgo = seriesRows
-    .filter((r) => Math.abs(r.period - yearAgoTarget) < 10 * 86400000)
-    .sort((a, b) => Math.abs(a.period - yearAgoTarget) - Math.abs(b.period - yearAgoTarget))[0];
-  const yoy    = yearAgo ? latest.value - yearAgo.value : null;
-  const yoyPct = yearAgo && yearAgo.value !== 0 ? (yoy / yearAgo.value) * 100 : null;
-
-  sidebarEl.innerHTML = [
+  const cards = [
     kpiCardHtml({
       label: 'Latest',
-      value: `${latest.value.toLocaleString()} Bcf`,
-      helpText: `Week ending ${latest.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      value: `${env.valueBcf.toLocaleString()} Bcf`,
+      helpText: `Week ending ${env.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
     }),
     kpiCardHtml({
       label: 'WoW change',
-      value: `${wow >= 0 ? '+' : ''}${wow.toLocaleString()} Bcf`,
-      delta: {
-        value: wow > 0 ? 'Storage build' : wow < 0 ? 'Storage draw' : 'Flat',
-        kind:  wow > 0 ? 'bullish' : wow < 0 ? 'bearish' : 'neutral',
-      },
+      value: wow ? `${signed(wow.deltaBcf)} Bcf` : 'n/a',
+      delta: wow ? { value: `${wow.rate >= 0 ? '+' : ''}${wow.rate.toFixed(2)} Bcf/d`, kind: pos(wow.deltaBcf) } : null,
+      helpText: wow ? `over ${wow.days} days` : '',
     }),
     kpiCardHtml({
-      label: 'vs 5y avg',
-      value: vsAvg != null ? `${vsAvg >= 0 ? '+' : ''}${Math.round(vsAvg).toLocaleString()} Bcf` : 'n/a',
-      delta: vsAvgPct != null ? {
-        value: `${vsAvgPct >= 0 ? '+' : ''}${vsAvgPct.toFixed(1)}%`,
-        kind:  vsAvgPct >= 0 ? 'bullish' : 'bearish',
-      } : null,
-      helpText: env ? `5-year average for week ${latestWk}` : '',
+      label: `vs mean n=${env.normal?.n ?? 0}`,
+      value: env.vsNormalBcf != null ? `${signed(env.vsNormalBcf)} Bcf` : 'n/a',
+      delta:
+        env.vsNormalPct != null
+          ? { value: `${env.vsNormalPct >= 0 ? '+' : ''}${env.vsNormalPct.toFixed(1)}%`, kind: pos(env.vsNormalBcf) }
+          : null,
+      helpText: `Week ${latestWk} · vs median ${env.vsMedianBcf != null ? signed(env.vsMedianBcf) : 'n/a'} Bcf`,
     }),
     kpiCardHtml({
-      label: 'YoY',
-      value: yoy != null ? `${yoy >= 0 ? '+' : ''}${yoy.toLocaleString()} Bcf` : 'n/a',
-      delta: yoyPct != null ? {
-        value: `${yoyPct >= 0 ? '+' : ''}${yoyPct.toFixed(1)}%`,
-        kind:  yoyPct >= 0 ? 'bullish' : 'bearish',
-      } : null,
+      label: 'Of nominal max',
+      value: `${env.pctOfMax.toFixed(1)}%`,
+      helpText: `4,000 Bcf nominal · observed peak ${env.observedMaxBcf?.toLocaleString() ?? 'n/a'} Bcf`,
     }),
-  ].join('');
+    kpiCardHtml({
+      label: `Rank ${env.rankPct != null ? `p${Math.round(env.rankPct)}` : '—'}`,
+      value: `of n=${env.rankN}`,
+      helpText: env.rankN ? 'Same calendar week, prior years' : 'Insufficient prior years',
+    }),
+    kpiCardHtml({
+      label: `Season wk ${season.weeksElapsed}/${season.weeksTotal}`,
+      value: season.season === 'injection' ? 'Injection' : 'Withdrawal',
+      helpText: `${season.progressPct.toFixed(0)}% elapsed`,
+    }),
+    kpiCardHtml({
+      label: `Pace ${pace?.n ?? 0}w`,
+      value: pace ? `${pace.bePerDay >= 0 ? '+' : ''}${pace.bePerDay.toFixed(2)} Bcf/d` : 'n/a',
+      delta: pace?.seBePerDay != null ? { value: `± ${pace.seBePerDay.toFixed(2)}`, kind: 'neutral' } : null,
+      helpText: pace
+        ? `R² ${pace.r2.toFixed(2)} · last week ${pace.thisWeekBePerDay.toFixed(2)} Bcf/d`
+        : '',
+    }),
+  ];
+
+  if (projection) {
+    cards.push(
+      kpiCardHtml({
+        label: `+${projection.horizonWeeks}w model`,
+        value: `${Math.round(projection.modelBcf).toLocaleString()} Bcf`,
+        delta:
+          projection.residualQ50 != null
+            ? {
+                value: `median residual ${signed(projection.residualQ50)} (n=${projection.empiricalN})`,
+                kind: 'neutral',
+              }
+            : null,
+        helpText:
+          projection.residualQ10 != null && projection.residualQ90 != null
+            ? `Realised 8w band ${Math.round(projection.residualQ10)} to ${Math.round(projection.residualQ90)} Bcf`
+            : 'Insufficient prior years for a band',
+      }),
+    );
+  }
+
+  sidebarEl.innerHTML = cards.join('');
+}
+
+/* ================================================================== */
+/*  Regional decomposition table                                       */
+/* ================================================================== */
+
+/**
+ * The table that makes the panel checkable: every region's level, change and
+ * same-week normal, with the L48 row as the sum it must match. Order mirrors
+ * EIA's own regional table so a reader can diff by eye.
+ */
+function appendRegionTable(panelEl, analysis) {
+  const panelBody = panelEl.querySelector('.panel-body');
+  if (!panelBody || analysis.regions.length === 0) return;
+
+  const change = analysis.regionChange;
+  const when = analysis.latest.period.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  const wrap = document.createElement('div');
+  wrap.className = 'panel-subchart';
+  wrap.innerHTML = `
+    <div class="panel-subchart__header">
+      <div class="panel-subchart__title-group">
+        <span class="panel-subchart__title">Regional decomposition</span>
+        <span class="panel-subchart__subtitle">Week ending ${when}</span>
+      </div>
+      <span class="panel-subchart__subtitle">${change.nBuild} built · ${change.nDraw} drew</span>
+    </div>
+    <div class="panel-subchart__body">
+      <table class="panel-table">
+        <caption>Level, week-over-week change and same-week normal by EIA region. (n) is the number of prior years that actually contributed.</caption>
+        <thead>
+          <tr>
+            <th>Region</th>
+            <th>Bcf</th>
+            <th>Share</th>
+            <th>WoW</th>
+            <th>Bcf/d</th>
+            <th>4w</th>
+            <th>Mean (n)</th>
+            <th>vs mean</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${analysis.regions.map(tableRow).join('')}
+          ${l48Row(analysis)}
+        </tbody>
+      </table>
+      <span class="panel-table__note">
+        Regional changes sum to ${Math.round(change.sumBcf)} Bcf${
+          change.residualVsL48Bcf != null
+            ? `; ${Math.round(change.residualVsL48Bcf)} Bcf of that is EIA rounding each region independently against the L48 print`
+            : ''
+        }.
+      </span>
+    </div>
+  `;
+
+  const sidebar = panelBody.querySelector('.panel-sidebar');
+  panelBody.insertBefore(wrap, sidebar);
+}
+
+function signedCell(v, digits = 0) {
+  if (v == null || !Number.isFinite(v)) return '—';
+  const s = Math.abs(v).toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  return `${v > 0 ? '+' : v < 0 ? '\u2212' : ''}${s}`;
+}
+
+function signClass(v) {
+  if (v == null || !Number.isFinite(v)) return 'muted';
+  return v > 0 ? 'pos' : v < 0 ? 'neg' : 'muted';
+}
+
+function tableRow(r) {
+  const child = r.key === 'sc_salt' || r.key === 'sc_nonsalt';
+  return `
+    <tr class="${child ? 'is-child' : ''}">
+      <td class="lbl">${r.label}</td>
+      <td>${r.levelBcf.toLocaleString()}</td>
+      <td class="muted">${r.shareOfL48Pct != null ? `${r.shareOfL48Pct.toFixed(1)}%` : '—'}</td>
+      <td class="${signClass(r.wowBcf)}">${signedCell(r.wowBcf)}</td>
+      <td class="${signClass(r.wowRate)}">${signedCell(r.wowRate, 2)}</td>
+      <td class="${signClass(r.fourWeekBcf)}">${signedCell(r.fourWeekBcf)}</td>
+      <td class="muted">${r.normalMeanBcf != null ? `${Math.round(r.normalMeanBcf).toLocaleString()} (${r.normalN})` : '—'}</td>
+      <td class="${signClass(r.vsNormalBcf)}">${signedCell(r.vsNormalBcf)}</td>
+    </tr>
+  `;
+}
+
+function l48Row(analysis) {
+  const { l48, environment: env } = analysis;
+  const wow = windowChange(l48, 1);
+  const four = windowChange(l48, 4);
+  return `
+    <tr>
+      <td class="lbl"><strong>Lower 48</strong></td>
+      <td><strong>${env.valueBcf.toLocaleString()}</strong></td>
+      <td class="muted">100%</td>
+      <td class="${signClass(wow?.deltaBcf)}"><strong>${signedCell(wow ? wow.deltaBcf : null)}</strong></td>
+      <td>${wow ? wow.rate.toFixed(2) : '—'}</td>
+      <td class="${signClass(four?.deltaBcf)}">${signedCell(four ? four.deltaBcf : null)}</td>
+      <td class="muted">${env.normal?.mean != null ? `${Math.round(env.normal.mean).toLocaleString()} (${env.normal.n})` : '—'}</td>
+      <td class="${signClass(env.vsNormalBcf)}">${signedCell(env.vsNormalBcf)}</td>
+    </tr>
+  `;
+}
+
+/* ================================================================== */
+/*  Provenance                                                         */
+/* ================================================================== */
+
+/**
+ * What a reader needs in order to trust the numbers above: how many weeks went
+ * in, whether the additive identities close, and which defects were dropped
+ * rather than averaged away.
+ */
+function appendProvenance(panelEl, analysis) {
+  const body = panelEl.querySelector('.panel-body');
+  if (!body) return;
+  const inv = analysis.invariants;
+  const breaks = inv.saltPlusNonsalt.length + inv.regionsSumL48.length;
+  const el = document.createElement('span');
+  el.className = 'data-provenance';
+  el.innerHTML = [
+    `${analysis.sample.weeks} weeks loaded (${analysis.sample.firstKey} &rarr; ${analysis.sample.lastKey})`,
+    `${inv.checked} periods identity-checked, tolerance &plusmn;${inv.toleranceBcf} Bcf`,
+    breaks === 0
+      ? 'salt + non-salt and regional sums close'
+      : `<span class="data-provenance__flag">${breaks} identity break(s)</span>`,
+    `${analysis.dropped} unparseable row(s) dropped`,
+    analysis.duplicateKeys ? `<span class="data-provenance__flag">${analysis.duplicateKeys} duplicate row(s)</span>` : null,
+    'Norms are calendar-date matched, never week-index matched',
+  ]
+    .filter(Boolean)
+    .join(' &middot; ');
+  body.appendChild(el);
 }

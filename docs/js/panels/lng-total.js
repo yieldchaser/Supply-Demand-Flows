@@ -23,11 +23,13 @@ export function renderLngTotalPanel(panelEl, bundle) {
     return;
   }
 
+  const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'US LNG Exports',
     subtitle: 'EIA · total monthly volume · Bcf',
     sourceKey: 'eia_lng_exports',
     latestPeriod: source.latest_period,
+    draw: () => drawRef.current?.(),
   });
 
   const allRows = getSeries(source.data, 'lng_export_total');
@@ -38,7 +40,8 @@ export function renderLngTotalPanel(panelEl, bundle) {
 
   const rows = allRows.slice(-MONTHS_DISPLAY);
 
-  drawLngBarChart(chartEl, rows);
+  drawRef.current = () => drawLngBarChart(chartEl, rows);
+  drawRef.current();
   renderLngTotalKpis(sidebarEl, allRows);
 }
 

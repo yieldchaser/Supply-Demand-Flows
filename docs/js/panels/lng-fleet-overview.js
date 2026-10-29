@@ -188,12 +188,25 @@ export function renderLngFleetOverview(
       ? `<span class="capacity-creep-tooltip" title="running above stated nameplate — capacity creep or measurement basis">ⓘ</span>`
       : '';
 
+    // A terminal that is currently down must say so on the card itself. The
+    // fleet grid is the one place a reader compares all eight terminals at a
+    // glance, and an outage silently rendered as a low utilization bar reads as
+    // "running soft" rather than "shut in". Cove Point's plant intake sat pinned
+    // at its 15,000 Dth/d floor for 23 days (2026-09-19 .. 2026-10-11) while this
+    // card showed only a short, falling bar.
+    const outageHtml = s.outage
+      ? `<div class="fleet-card__status fleet-card__status--outage" title="${s.outage.detail || 'Terminal not taking gas'}">⚠ ${s.outage.type.toLowerCase().replace(/_/g, ' ')}${
+          s.outage.duration ? ` · ${s.outage.duration}d` : ''
+        }</div>`
+      : '';
+
     card.title = `${t.display} · latest ${s.days ?? '?'} gas days`;
     card.innerHTML = `
       <div class="fleet-card__top">
         <span class="fleet-card__name">${t.display}${proxyBadge}${partialBadge}</span>
         ${wowHtml}
       </div>
+      ${outageHtml}
       <div class="fleet-card__value-row">
         <span class="fleet-card__value num">${valueText}</span>
         <span class="fleet-card__unit">MMcf/d</span>
@@ -217,47 +230,37 @@ export function renderLngFleetOverview(
 
   panelEl.appendChild(grid);
 
-  // ---- Coverage caveats — PROMINENT, above the fine print ----
-  // A measured-but-partial number presented as a terminal total is worse
-  // than an honest proxy. Sabine's caveat renders at the same visual level
-  // as Freeport's KMTP note on the hero panel: its own callout block.
+  // ---- Meter crossings ----
+  // State which meter each number comes from and what share of the plant it
+  // sees. No audit history, no defensiveness: coverage is a fact about the
+  // meter, not an apology.
   const caveats = document.createElement('div');
   caveats.className = 'fleet-caveats';
   const sabineCaveat = document.createElement('p');
   sabineCaveat.className = 'fleet-footnote fleet-footnote--caveat';
   sabineCaveat.innerHTML =
-    '<strong>⚠ Sabine Pass is measured-partial.</strong> Cheniere’s Creole Trail EBB exposes a ' +
-    'consolidated plant-delivery meter (CT200111-D ≈ 1,408 MMcf/d) plus the NGPL lateral — ' +
-    'CTPL’s own view of feedgas it delivers into the plant, ≈ 31% of the 4,500 MMcf/d nameplate. ' +
-    'NGI feeder-gas nominations put Sabine near 3.9 Bcf/d; the remaining ~2.5 Bcf/d is non-CTPL ' +
-    'feedgas (other interconnects, intrastate) not posted publicly. Sabine stays in the fleet ' +
-    'aggregate at its measured CTPL share, clearly labeled partial. (The old "five Gillis feeders ' +
-    '= full terminal" framing was corrected 2026-08-26 — same error class as the Cove Point 139%.)';
+    '<strong>Sabine Pass</strong> — meter CT200111-D at the plant gate, 1,408 MMcf/d (31% of the ' +
+    '4,500 MMcf/d nameplate). The other interconnects and the intrastate feeds are outside this meter.';
   caveats.appendChild(sabineCaveat);
   const freeportCaveat = document.createElement('p');
   freeportCaveat.className = 'fleet-footnote';
   freeportCaveat.innerHTML =
-    '<strong>Freeport</strong> measures interstate feedgas only (52.9% median coverage of 2,100 MMcf/d nameplate; 1,111.5 MMcf/d median over 100-day overlap 2026-05-25 to 2026-09-01; peak 30d sustained 1,538.0 MMcf/d = 73.2%). ' +
-    'The remaining ~988 MMcf/d against nameplate reflects the unposted KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates and unmeasured supplies.';
+    '<strong>Freeport</strong> — Gulf South + TETCO interconnects, 1,111 MMcf/d median (53% of the 2,100 MMcf/d nameplate). ' +
+    'The KMTP intrastate lateral (~400–450 MMcf/d) sits outside this meter.';
   caveats.appendChild(freeportCaveat);
   const cameronCaveat = document.createElement('p');
   cameronCaveat.className = 'fleet-footnote';
   cameronCaveat.innerHTML =
-    '<strong>Cameron</strong> measures Cameron Interstate Pipeline (CIP loc 772300) only (72.9% median coverage of 2,000 MMcf/d nameplate; 1,458.6 MMcf/d median). ' +
-    'CIP operates near capacity at ~96% of its 1.56 Bcf/d pipeline design capacity. The remaining ~27% (~500 MMcf/d) arrives via Columbia Gulf Transmission (TC Energy Cameron Extension, FERC CP15-514), which is not posted on GasNom.';
+    '<strong>Cameron</strong> — Cameron Interstate (CIP 772300), 1,459 MMcf/d median (73% of the 2,000 MMcf/d nameplate). ' +
+    'Columbia Gulf Cameron Extension is outside this meter.';
   caveats.appendChild(cameronCaveat);
   panelEl.appendChild(caveats);
 
-  // ---- Fine print ----
+  // ---- Footer line ----
   const footnote = document.createElement('p');
   footnote.className = 'fleet-footnote';
   footnote.innerText =
-    'Fleet total (12,825.9 MMcf/d median across complete gas days) represents an interstate-visible floor, '
-    + 'not a full physical census. Sabine Pass (~30%), Freeport (~53%), and Cameron (~73%) are measured-partial '
-    + 'at their public interstate delivery meters; unmeasured pipeline laterals (Transco Z3, KMTP, Columbia Gulf) '
-    + 'feed the remainder into the plants. Every terminal above is measured at its terminal or lateral interconnects. '
-    + 'Corpus Christi was promoted to MEASURED 2026-08-25 — Cheniere publishes real Scheduled Quantities at CC200221. '
-    + 'Its TGP Sinton meter (49861) ships as an independent cross-check only. '
-    + 'Gillrina Road NUECES (TGP 47799) is Corpus-metro demand, not terminal-bound feedgas — excluded from all feedgas sums.';
+    'Fleet total 12,826 MMcf/d, median across complete gas days, at terminal and lateral interconnects. '
+    + 'Sabine (~31%), Freeport (~53%) and Cameron (~73%) cover the shares listed above.';
   panelEl.appendChild(footnote);
 }

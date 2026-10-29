@@ -33,6 +33,7 @@ import { renderCycleRevisions } from './lng-cycle-revisions.js';
 
 import { cyclePriority, DOWNTIME_CONF, detectDowntime, buildDailyTotal } from '../util/lng-downtime.js';
 import { formatCsvWithProvenance } from '../util/export-data.js';
+import { registerChartSnapshot } from '../util/chart-snapshot.js';
 
 /** Stacked-area fill colors per feed index (base -> top). */
 const FEED_COLORS = [
@@ -211,6 +212,33 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     }
   }
 
+  // Snapshot the plotted gas days (not the raw cycle rows): the chart's y value
+  // is the latest posted cycle per day, so that is what a reader should get back.
+  registerChartSnapshot(
+    'lng-feedgas-envelope',
+    `${t.id}_feedgas-chart`,
+    dailySeries.map((d) => {
+      const dayCycles = isMultiFeed ? null : rowsByDate[d.dateStr] || {};
+      return {
+        date: d.dateStr,
+        gas_year_day: getGasYearInfo(d.date).dayIndex,
+        flow_mmcf_d: Number(d.value.toFixed(2)),
+        cycle: d.cycle || '',
+        latest_cycle_mmcf_d:
+          !isMultiFeed && dayCycles && dayCycles[latestCycleCode] !== undefined
+            ? Number(dayCycles[latestCycleCode].toFixed(2))
+            : null,
+      };
+    }),
+    {
+      source: t.source,
+      terminal: t.display,
+      signal: isProxy ? 'oac-proxy (design − OAC), inferred' : 'scheduled quantity',
+      latest_cycle: latestCycleCode,
+      nameplate_mmcf_d: nameplate,
+    },
+  );
+
   // 5b. Hero chart (stacked areas for multi-feed + Section 8 event overlays)
   drawHeroChart(chartEl, dailySeries, dottedSeries, nameplate, totalDays, isMultiFeed ? multi : null, downtimeEvents);
 
@@ -310,22 +338,23 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
   // 8. Footnote — from the registry, per terminal
   const footerContainer = document.createElement('div');
   footerContainer.className = 'lng-panel-footnote';
+  // Provenance, stated once. Each line says where the number comes from and
+  // what the meter does not see — no warning glyphs, no second telling of the
+  // same coverage fact (the registry note already carries it).
   const proxyLine = isProxy
-    ? `<p><strong>⚠ Proxy signal:</strong> Cheniere does not publish Scheduled Quantities. Value = Design Capacity − Operationally Available (inferred consumption), not measured feedgas.</p>`
+    ? '<p>Derived from design capacity minus operationally available (inferred consumption): Cheniere publishes no scheduled quantity.</p>'
     : '';
   const latestPeriodText = source && source.latest_period ? source.latest_period : latestData.dateStr;
   const kmtpLine = isMultiFeed
-    ? `<p><strong>⚠ Interstate-visible feedgas only (52.9% median coverage of nameplate).</strong> Gulf South + TETCO baseload intake medians 1,111.5 MMcf/d across the 100-day dual-feed overlap (2026-05-25 to 2026-09-01; peak 30d sustained is 1,538.0 MMcf/d = 73.2% of 2,100 MMcf/d nameplate). The remaining ~988 MMcf/d against nameplate reflects unmeasured feedgas: the KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates / ambient operating margins / additional intrastate supplies.</p>`
+    ? '<p>Gulf South + TETCO interconnects, 52.9% median of the 2,100 MMcf/d nameplate. The KMTP intrastate lateral (~400–450 MMcf/d) sits outside these meters.</p>'
     : '';
-  const covNoteLine = t.coverageNote
-    ? `<p><strong>⚠ Coverage note:</strong> ${t.coverageNote}</p>`
-    : '';
+  const covNoteLine = t.coverageNote ? `<p>${t.coverageNote}</p>` : '';
   footerContainer.innerHTML = `
-    <p><strong>Source:</strong> ${t.methodLine}</p>
+    <p><strong>Meter</strong> ${t.methodLine}</p>
     ${proxyLine}
     ${kmtpLine}
     ${covNoteLine}
-    <p><strong>Last updated:</strong> ${latestPeriodText} · ${totalDays.toLocaleString()} gas days of history</p>
+    <p><strong>Last updated</strong> ${latestPeriodText} · ${totalDays.toLocaleString()} gas days of history</p>
   `;
   panelEl.appendChild(footerContainer);
 }

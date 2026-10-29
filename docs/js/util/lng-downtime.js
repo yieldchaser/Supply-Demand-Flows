@@ -145,6 +145,28 @@ export const DOWNTIME_CONF = {
 export const DEPRESSED_PCT = 0.60;
 export const DEPRESSED_DAYS = 5;
 export const BASELINE_WINDOW = 30;
+// Days with a value at or below the floor's share of the trailing baseline are
+// treated as "meter pinned at its floor" — the same operator state as a posted
+// zero, which the OFFLINE branch catches only when the value is exactly 0.
+// Cove Point's plant-intake meter (10001-D) sat frozen at 15,000 Dth/d
+// (14.6 MMcf/d, 2% of a ~750 MMcf/d nameplate) for 23 consecutive days from
+// 2026-09-19. At 2% it is far below DEPRESSED_PCT already; the floor tag exists
+// so such runs are classified and reported honestly as an outage rather than as
+// a "depressed" blip followed by a phantom recovery ramp.
+export const FLOOR_PCT = 0.05;
+
+/**
+ * True when a day is uninformed for outage purposes: a posted zero, or a meter
+ * pinned at/below the floor share of its baseline.
+ *
+ * @param {{postedZero?: boolean, value: number}} day
+ * @param {number} med trailing baseline
+ * @returns {boolean}
+ */
+export function isZeroClass(day, med) {
+  if (day.postedZero) return true;
+  return med > 0 && day.value <= med * FLOOR_PCT;
+}
 
 /**
  * Trailing median over a window of values.
@@ -325,14 +347,29 @@ export function detectDowntime(daily, conf) {
   }
 
   // 2. Operational evaluation (runs only from firstOpIdx onwards)
+  // The trailing baseline must measure the terminal's OPERATING level, so days
+  // spent at the meter floor are excluded from it. Included, a long outage drags
+  // the 30-day median onto the floor itself (Cove Point: honest baseline 784
+  // MMcf/d, raw median after the 2026-09-19 outage 15 MMcf/d), which both hides
+  // the outage inside its own baseline and makes the eventual recovery read as a
+  // ~50x "RAMPING" event. Floor days are already reported as OFFLINE.
   const values = daily.map((d) => d.value);
   const medians = {};
+  // Two-pass: an absolute floor cutoff on the first pass, then re-median above
+  // the relative floor it reveals, so the quoted baseline is the operating level
+  // rather than a blend of operating and pinned days.
+  const absoluteCut = trailingMedian(values.filter((v) => v > 0)) * FLOOR_PCT;
   for (let i = 0; i < daily.length; i++) {
-    const window = values.slice(Math.max(0, i - BASELINE_WINDOW), i).filter((v) => v > 0);
-    medians[i] = trailingMedian(window, BASELINE_WINDOW);
+    const raw = values.slice(Math.max(0, i - BASELINE_WINDOW), i);
+    const pass1 = raw.filter((v) => v > 0 && v > absoluteCut);
+    const cut = Math.max(absoluteCut, (trailingMedian(pass1) || 0) * FLOOR_PCT);
+    medians[i] = trailingMedian(raw.filter((v) => v > 0 && v > cut), BASELINE_WINDOW);
   }
   const firstWindow = values.slice(0, BASELINE_WINDOW).filter((v) => v > 0);
-  const longTerm = trailingMedian(firstWindow, BASELINE_WINDOW);
+  const longTerm = trailingMedian(
+    firstWindow.filter((v) => v > (trailingMedian(values.filter((x) => x > 0)) || 0) * FLOOR_PCT),
+    BASELINE_WINDOW,
+  );
 
   let offlineRun = [];
   let depressedRun = [];
@@ -345,8 +382,8 @@ export function detectDowntime(daily, conf) {
     const med = medians[i] || longTerm || 0;
     const pct = med > 0 ? v / med : 0;
 
-    // OFFLINE / CARGO_IDLE
-    if (cur.postedZero) {
+    // OFFLINE / CARGO_IDLE — covers posted zeros AND meters pinned at their floor
+    if (isZeroClass(cur, med)) {
       offlineRun.push(cur.dateStr);
       if (offlineRun.length >= conf.zeroDaysThreshold) {
         let qualifies = true;
@@ -369,7 +406,9 @@ export function detectDowntime(daily, conf) {
               date: cur.dateStr,
               type: etype,
               duration: offlineRun.length,
-              detail: `${offlineRun.length} consecutive posted-zeros`,
+              detail: cur.postedZero
+                ? `${offlineRun.length} consecutive posted-zeros`
+                : `${offlineRun.length} consecutive days at meter floor (<=${Math.round(FLOOR_PCT * 100)}% baseline)`,
             });
           }
           lastEventDate[etype] = cur.dateStr;
@@ -380,7 +419,7 @@ export function detectDowntime(daily, conf) {
     }
 
     // DEPRESSED (below 60% baseline for >=5 days)
-    if (cur.posted && v > 0 && med > 0 && pct < DEPRESSED_PCT) {
+    if (cur.posted && v > 0 && med > 0 && pct < DEPRESSED_PCT && !isZeroClass(cur, med)) {
       depressedRun.push(cur.dateStr);
       if (depressedRun.length >= DEPRESSED_DAYS) {
         const lastD = lastEventDate['DEPRESSED'];
@@ -408,7 +447,12 @@ export function detectDowntime(daily, conf) {
     if (i >= rw * 2) {
       const recent = values.slice(i - rw, i + 1).filter((val) => val > 0);
       const older = values.slice(i - 2 * rw, i - rw).filter((val) => val > 0);
-      if (recent.length > 0 && older.length > 0) {
+      // Filtering out zeros would turn a recovery from an outage into a
+      // "sustained baseline rise" (baseline collapsed to ~0, then any flow looks
+      // like a ramp up). A ramp requires an actually-operating older window.
+      const olderOperating =
+        older.length > 0 && med && older.reduce((a, b) => a + b, 0) / older.length >= med * DEPRESSED_PCT;
+      if (recent.length > 0 && olderOperating) {
         const rMean = recent.reduce((a, b) => a + b, 0) / recent.length;
         const oMean = older.reduce((a, b) => a + b, 0) / older.length;
         if (oMean > 0 && rMean > oMean * 1.5) {

@@ -48,11 +48,13 @@ export function renderEuStoragePanel(panelEl, bundle) {
     return;
   }
 
+  const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'European Gas Storage',
     subtitle: '10 countries · % full · 5-year envelope',
     sourceKey: 'gie_agsi',
     latestPeriod: source.latest_period,
+    draw: () => drawRef.current?.(),
   });
 
   /* ── Build per-country series ─────────────────────────────────── */
@@ -104,8 +106,15 @@ export function renderEuStoragePanel(panelEl, bundle) {
     <div class="eu-grid-container" style="margin-top: var(--space-6)"></div>
   `;
 
-  drawEuHeroChart(chartEl.querySelector('.eu-hero-container'), euAggregate);
-  drawCountryGrid(chartEl.querySelector('.eu-grid-container'), countryData);
+  // The hero and the country grid each measure their own container, so both
+  // have to be rebuilt when the column resizes (appended, not re-injected: the
+  // containers persist and their draws clear themselves).
+  const drawAll = () => {
+    drawEuHeroChart(chartEl.querySelector('.eu-hero-container'), euAggregate);
+    drawCountryGrid(chartEl.querySelector('.eu-grid-container'), countryData);
+  };
+  drawRef.current = drawAll;
+  drawAll();
   renderEuKpis(sidebarEl, euAggregate, countryData);
 }
 
@@ -176,9 +185,13 @@ function drawEuHeroChart(container, euAggregate) {
       .attr('stroke-dasharray', '2,4');
   }
 
-  /* Current-year line */
-  const currentYear = new Date().getFullYear();
-  const currentRows = euAggregate.filter((r) => r.period.getFullYear() === currentYear);
+  /* Current-year line — reference year from the data, not the viewer's clock */
+  const currentYear = euAggregate.length
+    ? Math.max(...euAggregate.map((r) => r.period.getFullYear()))
+    : null;
+  const currentRows = currentYear === null
+    ? []
+    : euAggregate.filter((r) => r.period.getFullYear() === currentYear);
 
   if (currentRows.length > 0) {
     const lineCurrent = d3.line()

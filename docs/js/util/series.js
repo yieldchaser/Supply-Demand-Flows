@@ -3,6 +3,8 @@
  * Schema: source | series_id | series_name | period | value | unit | region | ingested_at
  */
 
+import { quantileSorted } from './season.js';
+
 /**
  * Filter rows from a source by series_id, returning chronologically sorted records.
  * @param {Array} rows - bundle.sources[sourceKey].data
@@ -36,30 +38,53 @@ export function groupBySeriesId(rows) {
 }
 
 /**
- * For a weekly series, compute week-of-year statistics for a band overlay.
- * Returns Map<weekNumber, {min, max, mean, p25, p75, count}> across prior years.
+ * Year that a series is "about": the calendar year of its latest observation.
  *
- * Uses all data from non-current years. The `lookbackYears` limit is applied
- * only as a soft cap — if less data is available (e.g., bundle only covers
- * 1 year), all available prior-year data is still used so the envelope isn't
- * empty for weeks not covered by the prior calendar year's window.
+ * The reference year must come from the data, never from the wall clock. A
+ * bundle built in December and read in January used to relabel last week's
+ * storage as "last year", which emptied the envelope and blanked the chart.
  */
-export function computeWeeklyEnvelope(rows, lookbackYears = 5) {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  // Soft lower cutoff — only exclude data older than lookbackYears
-  const cutoff = new Date(currentYear - lookbackYears, 0, 1);
-  // Use all rows from prior calendar years within the lookback window
-  const filtered = rows.filter((r) => {
-    const yr = r.period instanceof Date ? r.period.getFullYear() : new Date(r.period).getFullYear();
-    return yr < currentYear && r.period >= cutoff;
+export function referenceYear(rows) {
+  let max = null;
+  for (const r of rows || []) {
+    const p = r.period instanceof Date ? r.period : new Date(r.period);
+    const t = p.getTime();
+    if (!Number.isFinite(t)) continue;
+    if (max === null || t > max) max = t;
+  }
+  return max === null ? null : new Date(max).getFullYear();
+}
+
+/**
+ * For a weekly series, compute week-of-year statistics for a band overlay.
+ * Returns Map<weekNumber, {min, max, mean, p25, p75, p90, count, n}> across
+ * prior years.
+ *
+ * Two rules the previous version broke:
+ *  - the reference year comes from the series (see `referenceYear`), not from
+ *    `new Date()`;
+ *  - quartiles are interpolated (Hyndman-Fan type 7), because indexing into the
+ *    sorted sample returns an order statistic, not a quartile — with 4 years of
+ *    history `sorted[floor(4*0.25)]` is the *minimum*, not p25.
+ */
+export function computeWeeklyEnvelope(rows, lookbackYears = 5, opts = {}) {
+  const currentYear = opts.referenceYear ?? referenceYear(rows);
+  if (currentYear === null) return new Map();
+  const cutoffYear = currentYear - lookbackYears;
+  const filtered = (rows || []).filter((r) => {
+    const p = r.period instanceof Date ? r.period : new Date(r.period);
+    const yr = p.getFullYear();
+    return Number.isFinite(p.getTime()) && yr < currentYear && yr >= cutoffYear;
   });
 
   const byWeek = new Map();
   for (const r of filtered) {
-    const wk = isoWeek(r.period instanceof Date ? r.period : new Date(r.period));
+    const p = r.period instanceof Date ? r.period : new Date(r.period);
+    const wk = isoWeek(p);
+    const v = Number(r.value);
+    if (!Number.isFinite(v)) continue;
     if (!byWeek.has(wk)) byWeek.set(wk, []);
-    byWeek.get(wk).push(Number(r.value));
+    byWeek.get(wk).push(v);
   }
 
   const envelope = new Map();
@@ -69,9 +94,11 @@ export function computeWeeklyEnvelope(rows, lookbackYears = 5) {
       min: sorted[0],
       max: sorted[sorted.length - 1],
       mean: vals.reduce((s, v) => s + v, 0) / vals.length,
-      p25: sorted[Math.floor(sorted.length * 0.25)],
-      p75: sorted[Math.floor(sorted.length * 0.75)],
+      p25: quantileSorted(sorted, 0.25),
+      p75: quantileSorted(sorted, 0.75),
+      p90: quantileSorted(sorted, 0.90),
       count: vals.length,
+      n: vals.length,
     });
   }
   return envelope;

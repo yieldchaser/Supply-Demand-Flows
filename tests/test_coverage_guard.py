@@ -16,6 +16,15 @@ from scripts.load_registry import REGISTRY_JSON_PATH, load_terminal_registry
 from scripts.task3_validate import TERMINALS, load_terminal_history
 
 
+# A day at or below this share of the terminal's operating median is "at the
+# meter floor" — the same 5% operator state the downtime classifier treats as
+# offline (see FLOOR_PCT in docs/js/util/lng-downtime.js).
+FLOOR_PCT = 0.05
+# Absolute MMcf/d below which a meter is simply not running, regardless of how
+# low its own history is (commissioning pre-gas, dead meter).
+FLOOR_MMCF = 50.0
+
+
 def compute_terminal_coverage_from_curated(
     term_key: str, window_days: int = 60, nameplate: float | None = None
 ) -> dict[str, float]:
@@ -24,18 +33,37 @@ def compute_terminal_coverage_from_curated(
     Applies:
       - Settled cycle rule: SQ only, hourly id{HH}00 excluded, cycle precedence.
       - Feed parity rule: only complete days where all active feeds reported.
+      - Outage exclusion: days pinned at the meter floor carry no information
+        about structural coverage (how much of nameplate the visible meters can
+        see). They are dropped *inside* the window so the sample always means
+        "the last window_days days the terminal was running".
+
+    Without the last rule a long outage hijacks the median: a window that is
+    part healthy and part dead falls with the outage LENGTH, not with any
+    structural loss, so the guard reports "registry stale" and retires the
+    publish job. Cove Point's 23-day outage (2026-09-19) inside a 60-day window
+    measured 84.8% against a 97.1% claim — a coverage regression that never
+    happened.
     """
     hist, conf = load_terminal_history(term_key)
     if not hist:
-        return {"days": 0, "median_mmcf": 0.0, "coverage_pct": 0.0}
+        return {"days": 0, "median_mmcf": 0.0, "coverage_pct": 0.0, "outage_days": 0}
 
     sorted_dates = sorted(hist.keys())
-    # Use trailing complete days (up to window_days)
-    sample_dates = sorted_dates[-window_days:]
-    sample_mmcf = [hist[d]["value"] / 1.025 / 1000.0 for d in sample_dates]
+    all_mmcf = [hist[d]["value"] / 1.025 / 1000.0 for d in sorted_dates]
+    if not all_mmcf:
+        return {"days": 0, "median_mmcf": 0.0, "coverage_pct": 0.0, "outage_days": 0}
 
+    # Floor cutoff from the terminal's operating level. Median ignores the tail
+    # outage because outages are short relative to a terminal's history.
+    floor = max(FLOOR_MMCF, float(pd.Series(all_mmcf).median()) * FLOOR_PCT)
+
+    # Trailing complete days (up to window_days), minused of floor days.
+    sample = [(d, hist[d]["value"] / 1.025 / 1000.0) for d in sorted_dates[-window_days:]]
+    outage_days = sum(1 for _, v in sample if v <= floor)
+    sample_mmcf = [v for _, v in sample if v > floor]
     if not sample_mmcf:
-        return {"days": 0, "median_mmcf": 0.0, "coverage_pct": 0.0}
+        return {"days": 0, "median_mmcf": 0.0, "coverage_pct": 0.0, "outage_days": outage_days}
 
     median_mmcf = float(pd.Series(sample_mmcf).median())
     if nameplate is None:
@@ -46,6 +74,7 @@ def compute_terminal_coverage_from_curated(
         "days": len(sample_mmcf),
         "median_mmcf": median_mmcf,
         "coverage_pct": coverage_pct,
+        "outage_days": outage_days,
     }
 
 
@@ -84,6 +113,79 @@ def test_terminal_coverage_guard_against_curated_parquets() -> None:
     if failures:
         error_msg = "Coverage Anti-Rot Guard detected drift:\n" + "\n".join(f"  - {f}" for f in failures)
         raise AssertionError(error_msg)
+
+
+def test_coverage_guard_excludes_meter_floor_days() -> None:
+    """An outage must not read as structural coverage drift.
+
+    Cove Point's plant-intake meter sat at 15,000 Dth/d (14.6 MMcf/d, ~2% of
+    nameplate) for 23 consecutive days from 2026-09-19. On the real bundle that
+    dragged the raw 60-day median to "84.8%" against a 97.1% claim — 12.3% drift
+    against a 7% tolerance, which retired the publish job for a coverage
+    regression that never happened. Floor days are dropped inside the window, so
+    the sample means "the last N days the terminal was running".
+    """
+    registry = load_terminal_registry()
+    for term_key, reg in registry.items():
+        if not reg["operational"] or term_key not in TERMINALS:
+            continue
+        window = 100 if term_key == "freeport" else 60
+        res = compute_terminal_coverage_from_curated(term_key, window_days=window, nameplate=reg["nameplate"])
+        assert 0 <= res["outage_days"] < window, f"{term_key}: outage_days {res['outage_days']} out of range"
+        assert res["days"] + res["outage_days"] == window, (
+            f"{term_key}: {res['days']} operating + {res['outage_days']} floor days must fill the {window}-day window"
+        )
+        assert res["median_mmcf"] > 0, f"{term_key}: operating sample is empty"
+
+    # Every real terminal currently sits inside its own tolerance (no outage).
+    failures = []
+    for term_key, reg in registry.items():
+        if not reg["operational"] or term_key not in TERMINALS:
+            continue
+        window = 100 if term_key == "freeport" else 60
+        res = compute_terminal_coverage_from_curated(term_key, window_days=window, nameplate=reg["nameplate"])
+        if abs(res["coverage_pct"] - reg["expectedCoveragePct"]) > reg["coverageTolerancePct"]:
+            failures.append(f"{term_key}: {res['coverage_pct']:.1f}% vs claim {reg['expectedCoveragePct']:.1f}%")
+    assert not failures, "outage exclusion must not mask structural drift:\n" + "\n".join(failures)
+
+
+def test_coverage_guard_still_catches_structural_loss() -> None:
+    """The floor exclusion must not blunt the guard: a real structural change
+    still measures as new drift rather than being absorbed.
+
+    Terminals that are actually measured by their visible meters (>= 30% of
+    nameplate) must fail when a visible meter is lost. Golden Pass is excluded:
+    at 12.7% of coverage it cannot clear its own 15% band in either direction,
+    so doubling its nameplate still lands inside tolerance. That is a property
+    of the claim's width, not something the floor exclusion can change.
+    """
+    registry = load_terminal_registry()
+    checked = 0
+    for term_key, reg in registry.items():
+        if not reg["operational"] or term_key not in TERMINALS:
+            continue
+        if reg["expectedCoveragePct"] < 30.0:
+            continue
+        checked += 1
+        window = 100 if term_key == "freeport" else 60
+        lost_visible_meter = compute_terminal_coverage_from_curated(
+            term_key, window_days=window, nameplate=reg["nameplate"] * 2.0
+        )
+        collapsed = abs(lost_visible_meter["coverage_pct"] - reg["expectedCoveragePct"])
+        assert collapsed > reg["coverageTolerancePct"], (
+            f"{term_key}: losing a visible meter only drifted {collapsed:.1f}% "
+            f"(tolerance {reg['coverageTolerancePct']:.1f}%) — guard is blunt"
+        )
+
+        gained_invisible_feed = compute_terminal_coverage_from_curated(
+            term_key, window_days=window, nameplate=reg["nameplate"] * 0.5
+        )
+        absorbed = abs(gained_invisible_feed["coverage_pct"] - reg["expectedCoveragePct"])
+        assert absorbed > reg["coverageTolerancePct"] * 0.5, (
+            f"{term_key}: gaining an invisible feed only moved coverage {absorbed:.1f}% "
+            f"— floor exclusion is absorbing structural change"
+        )
+    assert checked >= 5, f"structural-loss probe covered only {checked} terminals"
 
 
 def test_coverage_guard_rejects_perturbed_flattering_claim() -> None:

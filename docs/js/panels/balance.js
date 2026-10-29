@@ -19,11 +19,13 @@ export function renderBalancePanel(panelEl, bundle) {
     return;
   }
 
+  const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'Supply & Demand Balance',
     subtitle: 'EIA · Monthly US production, consumption, storage flows',
     sourceKey: 'eia_supply',
     latestPeriod: source.latest_period,
+    draw: () => drawRef.current?.(),
   });
 
   // Parse series — values are MMcf, convert to Bcf
@@ -41,7 +43,8 @@ export function renderBalancePanel(panelEl, bundle) {
     SAW: parseSeries('supply_saw'),
   };
 
-  drawBalanceChart(chartEl, groups);
+  drawRef.current = () => drawBalanceChart(chartEl, groups);
+  drawRef.current();
   renderBalanceKpis(sidebarEl, groups);
 }
 

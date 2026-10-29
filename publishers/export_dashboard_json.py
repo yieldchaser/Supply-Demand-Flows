@@ -447,6 +447,143 @@ def prune_to_relevant_meters(df: pd.DataFrame, source_key: str) -> pd.DataFrame:
     return kept
 
 
+#: Which pipeline each EBB loc id belongs to, and which side of the system
+#: balance it sits on when scheduled as a delivery. Used to build
+#: ``coverage_mix`` (see _append_coverage_mix); only ``demand`` legs are
+#: candidates, because taking the demand leg of every meter is the only
+#: choice that never double-counts a single molecule.
+COVERAGE_SIDES: dict[str, tuple[str, str]] = {
+    "24329": ("Gulf South", "demand"),  # Freeport feedgas (demand leg)
+    "772300": ("Cameron Interstate", "demand"),  # Cameron LNG feedgas
+    "772298": ("Cameron Interstate", "supply"),  # Cameron receipts (avoid twin-sum)
+    "79999": ("TETCO", "demand"),  # Freeport / TX coastal delivery
+    "1097217": ("Golden Pass", "demand"),
+    "3592": ("NGPL", "demand"),
+    "49861": ("NGPL", "demand"),
+}
+
+#: cycle -> sort order for deduplicating a gas day across nomination cycles.
+#: Later cycles are the operator's latest word, so they win.
+_CYCLE_RANK = {
+    "timely": 0,
+    "evening": 1,
+    "id1": 2,
+    "id2": 3,
+    "id3": 4,
+    "latec": 5,
+}
+
+#: Meter mean below which a loc id is not worth carrying in coverage_mix.
+COVERAGE_MIN_MMCFD = 25.0
+
+
+def _append_coverage_mix(df: pd.DataFrame, source_key: str) -> pd.DataFrame:
+    """Append real per-day scheduled-delivery aggregation rows for coverage.
+
+    What:
+        The bundle is pruned to LNG-relevant meters. That is correct for feedgas
+        but it silently makes the *market balance* unreachable: US supply is
+        ~100 Bcf/d and the terminal meters are ~13 Bcf/d of the demand side, so
+        a stack built only from the pruned bundle under-reports demand by ~87%.
+        This adds one row per (real pipeline, demand leg, gas day) — the mean of
+        that day's latest posted cycle across loc ids on the same pipeline —
+        under synthetic series ``coverage:{pipeline}:demand``.
+
+    Why not a flag:
+        A row-count flag would be indistinguishable from a prune bug, and the
+        agreement/coverage audits exist precisely to catch thin sources. The
+        synthetic series id names itself as an aggregation, and the unit stays
+        Dth/d with the source's own name so the frontend converts once.
+
+    Failure modes:
+        Missing columns / no configured loc ids -> frame returned unchanged.
+        A drop in aggregate coverage is visible in health.json (see
+        _record_coverage_health) rather than passing quietly.
+    """
+    needed = {"series_id", "period", "value"}
+    if not needed <= set(df.columns):
+        return df
+    row = df.iloc[0] if len(df) else None
+    source_name = str(row["source"]) if row is not None and "source" in df.columns else source_key
+    work = df[df["series_id"].astype(str).str.contains("_sq_")].copy()
+    if work.empty:
+        return df
+    work["loc"] = work["series_id"].astype(str).str.extract(r"_sq_([^_]+)_", expand=False)
+    work = work[work["loc"].isin(COVERAGE_SIDES)]
+    work = work[work["loc"].map(lambda loc: COVERAGE_SIDES[str(loc)][1] == "demand")]
+    if work.empty:
+        return df
+
+    flow = work["series_id"].astype(str).str.extract(r"_sq_[^_]+_([rd])_", expand=False)
+    work = work[flow.fillna("d") == "d"]
+    cycle = work["series_id"].astype(str).str.extract(r"_sq_[^_]+_[rd]_(\w+)$", expand=False)
+    work = work.assign(_rank=cycle.fillna("").map(lambda c: _CYCLE_RANK.get(str(c), -1)))
+
+    period = pd.to_datetime(work["period"])
+    work = work.assign(_day=period.dt.strftime("%Y-%m-%d"))
+    latest = work.sort_values("_rank").drop_duplicates(subset=["loc", "_day"], keep="last")
+
+    out_rows: list[dict[str, Any]] = []
+    for loc, grp in latest.groupby("loc"):
+        pipeline = COVERAGE_SIDES[str(loc)][0]
+        daily = grp.groupby("_day")["value"].sum() / 1000.0  # Dth/d -> MMcf/d
+        if daily.mean() < COVERAGE_MIN_MMCFD:
+            continue
+        for day, mmcf in daily.items():
+            out_rows.append(
+                {
+                    "source": source_name,
+                    "series_id": f"coverage:{pipeline}:demand",
+                    "series_name": f"{pipeline} — scheduled deliveries, demand leg (coverage aggregate)",
+                    "period": day,
+                    "value": round(float(mmcf), 3),
+                    "unit": "MMcf/d",
+                    "region": pipeline,
+                    "ingested_at": str(row["ingested_at"]) if row is not None else "",
+                }
+            )
+    if not out_rows:
+        return df
+    extra = pd.DataFrame(out_rows)
+    for col in df.columns:
+        if col not in extra.columns:
+            extra[col] = None
+    extra = extra[df.columns]
+    merged = pd.concat([df, extra], ignore_index=True)
+    print(f"{source_key}: coverage_mix +{len(extra)} row(s) over {extra.period.nunique()} day(s)")
+    return merged
+
+
+def _record_coverage_health(bundle: dict[str, Any]) -> None:
+    """Write per-pipeline coverage into health so a thin mix is visible.
+
+    What:
+        Sums the latest-day coverage_mix rows across sources and compares each
+        pipeline against the metres each contributes. A pipeline that silently
+        stops contributing shrinks the balance, which is exactly the "what
+        would this look like if it silently did nothing" question in the
+        handoff. Recorded as WARN below 60% of the last 30-day best day.
+    """
+    tested = "coverage_mix"
+    by_pipe: dict[str, list[float]] = {}
+    for entry in bundle["sources"].values():
+        for r in entry.get("data", []):
+            sid = str(r.get("series_id", ""))
+            if not sid.startswith("coverage:"):
+                continue
+            try:
+                by_pipe.setdefault(sid.split(":")[1], []).append(float(r.get("value") or 0.0))
+            except (TypeError, ValueError):
+                continue
+    lines = [f"{p}: {max(v):.0f} MMcf/d peak day" for p, v in sorted(by_pipe.items())]
+    bundle.setdefault("health", {})[tested] = {
+        "source": tested,
+        "status": "ok" if by_pipe else "warn",
+        "last_run": datetime.now(UTC).isoformat(),
+        "detail": "; ".join(lines) if lines else "no coverage aggregates emitted",
+    }
+
+
 def build() -> dict[str, Any]:
     """
     Aggregation logic for building the dashboard bundle.
@@ -470,6 +607,7 @@ def build() -> dict[str, Any]:
                 # configured LNG feedgas meters, with full history.
                 if source_key in EBB_METER_CONFIGS:
                     df = prune_to_relevant_meters(df, source_key)
+                    df = _append_coverage_mix(df, source_key)
                 # Blob-size guard: must never trip silently. If it does,
                 # the relevance config needs revisiting — fail loudly.
                 if len(df) > MAX_ROWS_PER_SOURCE:
@@ -501,6 +639,9 @@ def build() -> dict[str, Any]:
                     bundle["health"][source_key] = json.load(f)
             except Exception as exc:
                 print(f"Error reading {health_path}: {exc}")
+
+    # 2b. Coverage aggregates -> health (loud when the balance disappears).
+    _record_coverage_health(bundle)
 
     # 3. Serialise and Hash
     bundle_json = json.dumps(bundle, separators=(",", ":"), ensure_ascii=False, default=_json_default)

@@ -24,6 +24,13 @@ import { renderBasinEgressPanel } from './panels/basin-egress.js';
 import { renderLngComparisonPanel } from './panels/lng-comparison.js';
 
 import { applyRangeCaveat, computeSeriesDateRange } from './util/range-state.js';
+import { initChartExports } from './util/chart-snapshot.js';
+
+/** Section key → the DOM id of the panel that section renders into. */
+const SECTION_PANEL_ID = {
+  lng: 'panel-lng-fleet',
+  'lng-substitution': 'panel-lng-feed-substitution',
+};
 
 /**
  * Derive the LNG range-caveat's history facts from the actual data in the bundle,
@@ -57,7 +64,11 @@ export async function safeRender(name, renderFn, bundle = null) {
 
     // Prompt Y §04 / Y3: Range exceeding history surfaces honest caveat rather than silent clipping
     if (typeof window !== 'undefined' && window.location) {
-      const panelEl = document.getElementById(`panel-${name}`) || document.getElementById(name);
+      // Not every section key equals its panel id ('lng' renders panel-lng-fleet,
+      // 'lng-substitution' renders panel-lng-feed-substitution, 'basin-egress'
+      // renders panel-basin-egress). Deriving the element from the name alone
+      // left those panels silently caveat-free.
+      const panelEl = document.getElementById(SECTION_PANEL_ID[name] || `panel-${name}`) || document.getElementById(name);
       const seriesInfo = bundle ? getLngCaveatSeriesInfo(bundle) : null;
       applyRangeCaveat(panelEl, name, window.location.search, seriesInfo);
     }
@@ -126,9 +137,20 @@ const SECTIONS = {
 };
 
 async function main() {
+  // One delegated listener turns every panel's [data-chart-export] button into a
+  // download; panels register their plotted points as they draw.
+  initChartExports(document);
+
   // Boot parses CORE sources only (~1 MB combined): header + health strip +
   // the first paint sections. Everything else loads per-section below.
   const bundle = await loadBundle();
+
+  // Hand the live bundle to the page-level chapter export before any awaited
+  // panel work, so a download is never built from a second, possibly newer
+  // fetch than the numbers on screen.
+  if (typeof window !== 'undefined' && window.dispatchEvent) {
+    window.dispatchEvent(new CustomEvent('bluetide:bundle', { detail: bundle }));
+  }
 
   renderHeader(bundle);
   renderHealthStrip(bundle);
@@ -142,6 +164,15 @@ async function main() {
   /**
    * Defer below-the-fold sections until scrolled near viewport or browser is idle.
    * Prevents 10+ MB of non-core shards from blocking initial render.
+   *
+   * Chapters (js/components/chapter-nav.js) changed what "below the fold" means.
+   * A panel inside a hidden chapter is never intersecting, but the idle timer
+   * would still fire and pull its source shard — so opening the LNG chapter also
+   * fetched GIE AGSI, eia_lng_exports and every other shard, and a reader who
+   * only wants feedgas paid for the whole observatory. The idle path now requires
+   * the panel to be in the visible chapter; the scroll path is unchanged, and
+   * when chapter navigation is absent (no JS, or the module failed to load)
+   * everything is 'visible' and the legacy single-scroll behaviour is identical.
    */
   function deferSection(panelId, sourceKeys, sectionName, renderFn) {
     const el = document.getElementById(panelId);
@@ -153,6 +184,25 @@ async function main() {
       lazySection(bundle, sourceKeys, sectionName, renderFn);
     };
 
+    const isInvisible = () => {
+      const chapter = el?.closest?.('[data-chapter]');
+      return Boolean(chapter && chapter.hidden);
+    };
+
+    const executeIfVisible = () => {
+      if (isInvisible()) return;
+      execute();
+    };
+
+    // Selection made after boot: a chapter hidden at idle time gets its panels
+    // when the reader actually opens it.
+    const onChapterChange = () => {
+      if (!isInvisible()) execute();
+    };
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('bluetide:chapter', onChapterChange);
+    }
+
     if (el && typeof IntersectionObserver !== 'undefined') {
       const obs = new IntersectionObserver((entries) => {
         if (entries.some((e) => e.isIntersecting)) {
@@ -162,14 +212,15 @@ async function main() {
       }, { rootMargin: '400px' });
       obs.observe(el);
 
-      // Idle fallback so background panels eventually load without interaction
+      // Idle fallback so background panels eventually load without interaction.
+      // Gated on visibility so tab switching does not prefetch other chapters.
       if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(() => execute(), { timeout: 3500 });
+        requestIdleCallback(executeIfVisible, { timeout: 3500 });
       } else {
-        setTimeout(execute, 2000);
+        setTimeout(executeIfVisible, 2000);
       }
     } else {
-      setTimeout(execute, 50);
+      setTimeout(executeIfVisible, 50);
     }
   }
 
@@ -199,14 +250,24 @@ async function main() {
 
   // Section 5: LNG Feedgas Observatory
   let activeTerminalId;
+  // Whether the LNG section has ever been drawn. It is drawn by the deferred
+  // observer when the chapter first becomes visible, and must not be drawn a
+  // second time by the chapter-change listener below (two fleet renders in one
+  // frame is wasted work, and a double scrollIntoView fights the reader).
+  let lngDrawn = false;
   const fleetEl = document.getElementById('panel-lng-fleet');
   const heroEl = document.getElementById('panel-lng-feedgas');
 
-  function renderLngSection() {
+  /**
+   * Rebuild the whole fleet grid + hero chart for the current selection.
+   *
+   * @param {{scroll?: boolean}} [opts] scroll true only for a reader-initiated
+   *   terminal pick; a chapter change must not yank the viewport.
+   */
+  function renderLngSection({ scroll = false } = {}) {
     const handleSelect = (id) => {
       activeTerminalId = id;
-      renderLngSection();
-      if (heroEl) heroEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      renderLngSection({ scroll: true });
     };
     renderLngFleetOverview(fleetEl, bundle, {
       activeTerminalId,
@@ -214,6 +275,37 @@ async function main() {
     });
     renderLngFeedgasPanel(heroEl, bundle, activeTerminalId, {
       onSelect: handleSelect,
+    });
+    lngDrawn = true;
+    if (scroll && heroEl) heroEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // chapter-nav.js announces a genuine chapter change (`bluetide:chapter-changed`)
+  // separately from the boot-time `bluetide:chapter` dispatch, because the fleet
+  // aggregate and the divergence interlude compute from sources the boot already
+  // parsed: they render once and would otherwise keep showing boot-era numbers
+  // for the rest of the session. Nothing was listening for that event, so the
+  // list of such panels in chapter-nav.js was inert.
+  const chapterRefresh = {
+    'lng-fleet': () => {
+      if (lngDrawn) renderLngSection();
+    },
+    divergence: () => renderDivergencePanel(document.getElementById('panel-divergence'), bundle),
+  };
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('bluetide:chapter-changed', () => {
+      for (const [panelId, refresh] of Object.entries(chapterRefresh)) {
+        const el = document.getElementById(`panel-${panelId}`);
+        // An empty panel has not rendered yet; its deferred observer will do it.
+        // One DOM test covers both 'lng-fleet' and 'lng-feedgas' because the
+        // fleet grid and the hero chart are rendered by the same function.
+        if (!el || !el.childElementCount) continue;
+        try {
+          refresh();
+        } catch (err) {
+          console.error(`[${panelId}] chapter refresh failed:`, err);
+        }
+      }
     });
   }
   deferSection('panel-lng-fleet', SECTIONS.lng, 'lng-fleet', () => renderLngSection());
@@ -237,6 +329,12 @@ async function main() {
   );
 
   renderFooter(bundle);
+
+  // Fire the observer once for the chapter that is visible at boot, so a reader
+  // who lands on #chapter=lng does not wait for a scroll event.
+  if (typeof window !== 'undefined' && window.dispatchEvent) {
+    window.dispatchEvent(new Event('bluetide:chapter'));
+  }
 }
 
 main().catch((err) => {

@@ -33,7 +33,7 @@ test('Y3: checkRangeExceedsHistory includes actual span and source start date', 
   const caveat = checkRangeExceedsHistory(startDateStr, EARLIEST, 'LNG feedgas', DAY_COUNT);
   assert.ok(caveat !== null, 'Caveat must be returned when 1y exceeds history');
   assert.ok(
-    caveat.includes(`showing ${DAY_COUNT} days; this source begins ${EARLIEST}`),
+    caveat.includes(`LNG feedgas starts ${EARLIEST} — ${DAY_COUNT} days shown`),
     `Caveat must state exact span and start date. Got: "${caveat}"`
   );
 });
@@ -43,7 +43,7 @@ test('Y3: LNG range caveat fires for 1y preset and does not fire for 30d preset'
   const { startDateStr: start1y } = computePresetInterval('1y', LATEST);
   const caveat1y = checkRangeExceedsHistory(start1y, EARLIEST, 'LNG feedgas', DAY_COUNT);
   assert.ok(caveat1y !== null);
-  assert.ok(caveat1y.includes(`showing ${DAY_COUNT} days; this source begins ${EARLIEST}`));
+  assert.ok(caveat1y.includes(`LNG feedgas starts ${EARLIEST} — ${DAY_COUNT} days shown`));
 
   // 30d preset is within the source's history -> must NOT fire
   const { startDateStr: start30d } = computePresetInterval('30d', LATEST);
@@ -105,14 +105,14 @@ test('Y3: applyRangeCaveat injects caveat banner for LNG panels when 1y range is
 
     assert.ok(caveatText !== null, 'applyRangeCaveat must return caveat text on 1y range');
     assert.ok(
-      caveatText.includes(`showing ${DAY_COUNT} days; this source begins ${EARLIEST}`),
+      caveatText.includes(`LNG feedgas starts ${EARLIEST} — ${DAY_COUNT} days shown`),
       'Caveat text must state exact span and start date'
     );
 
     const caveatEl = panelEl.querySelector('.panel-caveat--range');
     assert.ok(caveatEl !== null, 'Caveat DOM element must be prepended to panelEl');
     assert.ok(
-      caveatEl.innerHTML.includes(`showing ${DAY_COUNT} days; this source begins ${EARLIEST}`),
+      caveatEl.innerHTML.includes(`LNG feedgas starts ${EARLIEST} — ${DAY_COUNT} days shown`),
       'Caveat element innerHTML must include exact span and start date'
     );
 
@@ -161,7 +161,7 @@ test('Y3: applyRangeCaveat reflects a different start date and day count when se
 
     assert.ok(caveatText !== null);
     assert.ok(
-      caveatText.includes('showing 215 days; this source begins 2025-06-01'),
+      caveatText.includes('LNG feedgas starts 2025-06-01 — 215 days shown'),
       `Caveat must reflect the supplied seriesInfo, not any hardcoded value. Got: "${caveatText}"`
     );
     assert.ok(!caveatText.includes('101 days'), 'Caveat must not contain a stale hardcoded day count');
@@ -214,12 +214,12 @@ test('AA5: 3y and 5y presets compute intervals and trigger honest caveats on sho
   const caveat3y = checkRangeExceedsHistory(int3y.startDateStr, EARLIEST, 'Freeport', DAY_COUNT);
   assert.ok(caveat3y !== null, '3y preset on Freeport must trigger caveat');
   assert.ok(
-    caveat3y.includes(`showing ${DAY_COUNT} days; this source begins ${EARLIEST}`),
-    `Caveat must state exact span and start date. Got: "${caveat3y}"`
+    caveat3y.includes(`Freeport starts ${EARLIEST}`),
+    `Caveat must state the source start date. Got: "${caveat3y}"`
   );
   assert.ok(
-    caveat3y.includes(`Selected window starts ${int3y.startDateStr}, but Freeport history begins ${EARLIEST}`),
-    `Caveat must name requested start and source start. Got: "${caveat3y}"`
+    caveat3y.includes(`${DAY_COUNT} days shown`),
+    `Caveat must state the exact span. Got: "${caveat3y}"`
   );
 });
 

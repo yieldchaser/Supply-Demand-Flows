@@ -1,8 +1,7 @@
 /**
- * Panel Placeholder — renders the shell for each panel with title,
- * subtitle, vintage pill, and unambiguous placeholder content.
- *
- * In B2, these placeholders will be replaced with actual chart components.
+ * Panel Placeholder — panel shell for a source whose data has not arrived yet.
+ * Renders the header, vintage marker and a one-line statement of what the
+ * panel shows once the source posts.
  */
 
 import { classifyVintage } from '../util/format.js';
@@ -50,9 +49,8 @@ export function renderPanelPlaceholder(panelId, { title, subtitle, source, bundl
       </span>
     </div>
     <div class="panel-placeholder">
-      <span class="panel-placeholder__label">Panel content loads in B2</span>
-      <div class="panel-placeholder__rule"></div>
-      <p class="panel-placeholder__desc">This panel will render ${desc}</p>
+      <p class="panel-placeholder__label">${desc}</p>
+      <p class="panel-placeholder__desc">Awaiting first post from ${subtitle.split(' · ')[0]}.</p>
     </div>
   `;
 }

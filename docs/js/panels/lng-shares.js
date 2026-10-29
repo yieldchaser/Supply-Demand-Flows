@@ -39,11 +39,13 @@ export function renderLngSharesPanel(panelEl, bundle) {
     return;
   }
 
+  const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'LNG Destination Shares',
     subtitle: 'Regional allocation of US LNG exports · % of total',
     sourceKey: 'eia_lng_exports',
     latestPeriod: source.latest_period,
+    draw: () => drawRef.current?.(),
   });
 
   // Pull all regional series
@@ -91,7 +93,8 @@ export function renderLngSharesPanel(panelEl, bundle) {
     return entry;
   });
 
-  drawSharesChart(chartEl, aligned, periods);
+  drawRef.current = () => drawSharesChart(chartEl, aligned, periods);
+  drawRef.current();
   renderSharesKpis(sidebarEl, aligned, shareSeries, periods);
 }
 

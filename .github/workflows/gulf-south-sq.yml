@@ -24,8 +24,11 @@ on:
         required: false
         type: string
 
+# The commits below push to main. Without this the workflow's GITHUB_TOKEN is
+# read-only and every push fails; the commits were previously kept alive only by
+# whatever default the repository happened to have.
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: gulf-south-sq-${{ github.event.schedule || 'dispatch' }}
@@ -35,8 +38,6 @@ jobs:
   fetch:
     name: Fetch and commit
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:

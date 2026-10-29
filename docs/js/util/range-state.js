@@ -86,8 +86,7 @@ export function computePresetInterval(preset, anchorDate) {
 export function checkRangeExceedsHistory(reqStartStr, sourceEarliestStr, sourceLabel, daysCount = null) {
   if (!reqStartStr || !sourceEarliestStr) return null;
   if (reqStartStr < sourceEarliestStr) {
-    const spanPrefix = daysCount != null ? `showing ${daysCount} days; this source begins ${sourceEarliestStr}. ` : '';
-    return `${spanPrefix}Selected window starts ${reqStartStr}, but ${sourceLabel} history begins ${sourceEarliestStr}. Display shows available data from ${sourceEarliestStr}.`;
+    return `${sourceLabel} starts ${sourceEarliestStr}${daysCount != null ? ` — ${daysCount} days shown` : ''}.`;
   }
   return null;
 }
@@ -154,8 +153,7 @@ export function applyRangeCaveat(panelEl, name, searchStr = '', seriesInfo = nul
       if (!doc || typeof doc.createElement !== 'function') return null;
       const caveatDiv = doc.createElement('div');
       caveatDiv.className = 'fleet-footnote fleet-footnote--caveat panel-caveat--range';
-      caveatDiv.style.margin = '8px 16px';
-      caveatDiv.innerHTML = `<p><strong>⚠ Range caveat:</strong> ${caveatText}</p>`;
+      caveatDiv.innerHTML = `<p>${caveatText}</p>`;
       const bodyEl =
         panelEl.querySelector('.panel-body') ||
         panelEl.querySelector('.lng-panel-body-wrapper') ||

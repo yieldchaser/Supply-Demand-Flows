@@ -40,6 +40,7 @@ import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { kpiCardHtml } from '../components/kpi-card.js';
 import { cyclePriority } from './lng-fleet-overview.js';
+import { watchColumn } from '../util/responsive-chart.js';
 
 /* ---- terminal / feed definitions ---- */
 const TERMINALS = [
@@ -88,9 +89,12 @@ import {
 
 export function renderLngFeedSubstitutionPanel(panelEl, bundle) {
   // Build chrome with a synthetic source key (we read several sources)
+  const drawRef = { current: null };
+  // Redraw hook attached after the tab strip exists; this panel's draw clears
+  // the chart column, so attaching early would delete the tabs on first layout.
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
-    title: 'Section 7 · Feed Substitution at Multi-Feed Terminals',
-    subtitle: 'Routing vs demand — share shift at constant total = re-routing, not lost volume',
+    title: 'Feed Substitution',
+    subtitle: 'Share shift at a constant total is re-routing, not lost volume',
     sourceKey: 'gulf_south',
     latestPeriod: bundle.sources?.gulf_south?.latest_period || '',
   });
@@ -105,7 +109,8 @@ export function renderLngFeedSubstitutionPanel(panelEl, bundle) {
     btn.onclick = () => {
       tabBar.querySelectorAll('.subst-tab').forEach((b) => b.classList.remove('subst-tab--active'));
       btn.classList.add('subst-tab--active');
-      renderTerminal(chartEl, sidebarEl, footEl, bundle, t);
+      drawRef.current = () => renderTerminal(chartEl, sidebarEl, footEl, bundle, t);
+      drawRef.current();
     };
     tabBar.appendChild(btn);
   });
@@ -116,7 +121,9 @@ export function renderLngFeedSubstitutionPanel(panelEl, bundle) {
   chartEl.parentNode.insertBefore(tabBar, chartEl);
   chartEl.parentNode.appendChild(footEl);
 
-  renderTerminal(chartEl, sidebarEl, footEl, bundle, TERMINALS[0]);
+  drawRef.current = () => renderTerminal(chartEl, sidebarEl, footEl, bundle, TERMINALS[0]);
+  drawRef.current();
+  watchColumn(chartEl, () => drawRef.current?.());
 }
 
 function renderTerminal(chartEl, sidebarEl, footEl, bundle, terminal) {
@@ -142,7 +149,7 @@ function renderTerminal(chartEl, sidebarEl, footEl, bundle, terminal) {
       </div>`;
     const honest = document.createElement('p');
     honest.className = 'subst-honesty';
-    honest.textContent = '⚠ ' + terminal.honesty;
+    honest.textContent = terminal.honesty;
     footEl.appendChild(honest);
     return;
   }
@@ -155,7 +162,7 @@ function renderTerminal(chartEl, sidebarEl, footEl, bundle, terminal) {
 
   const honest = document.createElement('p');
   honest.className = 'subst-honesty';
-  honest.textContent = '⚠ ' + terminal.honesty;
+  honest.textContent = terminal.honesty;
   footEl.appendChild(honest);
 }
 

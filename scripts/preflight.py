@@ -291,9 +291,11 @@ def run_coverage_guard_check() -> tuple[bool, list[dict[str, Any]]]:
             "nameplate": reg["nameplate"],
             "claimed_pct": claimed_pct,
             "measured_pct": measured_pct,
+            "outage_days": cov_res.get("outage_days", 0),
             "drift_pct": drift,
             "tolerance_pct": tolerance,
-            "status": "PASS" if passed else "FAIL",
+            "status": ("PASS" if passed else "FAIL")
+            + (f" (floor days excluded: {cov_res.get('outage_days', 0)})" if cov_res.get("outage_days") else ""),
         })
 
     return all_ok, results

@@ -18,8 +18,12 @@ const MIME = {
 http.createServer((req, res) => {
   let urlPath = decodeURIComponent(req.url.split('?')[0]);
   if (urlPath.endsWith('/')) urlPath += 'index.html';
-  const filePath = path.join(ROOT, urlPath);
-  if (!filePath.startsWith(path.resolve(ROOT))) {
+  // Resolve the root first: comparing an absolute filePath against the raw
+  // relative ROOT ('docs') rejected every request with 403, so this dev server
+  // could never serve a page used for local panel verification.
+  const base = path.resolve(ROOT);
+  const filePath = path.join(base, urlPath);
+  if (filePath !== base && !filePath.startsWith(base + path.sep)) {
     res.writeHead(403);
     return res.end();
   }

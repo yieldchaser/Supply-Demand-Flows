@@ -23,6 +23,7 @@
 import * as d3 from 'd3';
 import { renderPanelChrome } from '../components/panel-base.js';
 import { getSeries } from '../util/series.js';
+import { redrawOnResize } from '../util/responsive-chart.js';
 
 /** All 15 known basins with display labels. */
 const BASINS = [
@@ -227,11 +228,13 @@ export function renderBasinScatter(panelEl, bundle) {
     panelEl.innerHTML = '<div class="panel-error"><p>Baker Hughes rig data is currently unavailable.</p></div>';
     return;
   }
+  const drawRef = { current: null };
   const { chartEl } = renderPanelChrome(panelEl, {
     title:        'Rigs vs 4-Week Momentum',
     subtitle:     'Bubble size = 12-month avg · fill = gas share',
     sourceKey:    'baker_hughes_weekly',
     latestPeriod: bundle.sources.baker_hughes_weekly.latest_period,
+    draw:         () => drawRef.current?.(),
   });
   panelEl.querySelector('.panel-sidebar').style.display = 'none';
   chartEl.style.gridColumn = '1 / -1';
@@ -246,8 +249,11 @@ export function renderBasinScatter(panelEl, bundle) {
   const CHART_HEIGHT = 380;
   const margin = { top: 32, right: 24, bottom: 44, left: 52 };
 
-  // Use a small fixed-width for viewBox; scales will stretch via viewBox
-  const VB_WIDTH = 780;
+  // Author the viewBox at the column's real width. A hardcoded 780 was
+  // stretched to ~1300 by CSS, which scaled the 13px axis labels to 21px.
+  const draw = () => {
+  chartEl.innerHTML = '';
+  const VB_WIDTH = Math.max(chartEl.getBoundingClientRect().width || 780, 360);
   const width  = VB_WIDTH - margin.left - margin.right;
   const height = CHART_HEIGHT - margin.top - margin.bottom;
 
@@ -352,6 +358,9 @@ export function renderBasinScatter(panelEl, bundle) {
     .attr('text-anchor', 'middle').attr('font-size', 10)
     .style('fill', 'rgba(255,255,255,0.45)')
     .text('4-week Δ rigs');
+  };
+  drawRef.current = draw;
+  draw();
 }
 
 // ─────────────────────────────────────────────────────────
@@ -367,11 +376,13 @@ export function renderBasinShare(panelEl, bundle) {
     panelEl.innerHTML = '<div class="panel-error"><p>Baker Hughes rig data is currently unavailable.</p></div>';
     return;
   }
+  const drawRef = { current: null };
   const { chartEl } = renderPanelChrome(panelEl, {
     title:        'Gas-Rig Share by Basin',
     subtitle:     '24-month evolution · top 6 gas basins',
     sourceKey:    'baker_hughes_weekly',
     latestPeriod: bundle.sources.baker_hughes_weekly.latest_period,
+    draw:         () => drawRef.current?.(),
   });
   panelEl.querySelector('.panel-sidebar').style.display = 'none';
   chartEl.style.gridColumn = '1 / -1';
@@ -424,7 +435,12 @@ export function renderBasinShare(panelEl, bundle) {
   const CHART_HEIGHT = 380;
   const LEGEND_W = 110;
   const margin = { top: 32, right: LEGEND_W + 16, bottom: 44, left: 36 };
-  const VB_WIDTH = 780;
+
+  // Same as the scatter above: measured width, not a hardcoded 780 that CSS
+  // then stretched (which scaled every label with it).
+  const draw = () => {
+  chartEl.innerHTML = '';
+  const VB_WIDTH = Math.max(chartEl.getBoundingClientRect().width || 780, 360);
   const width  = VB_WIDTH - margin.left - margin.right;
   const height = CHART_HEIGHT - margin.top - margin.bottom;
 
@@ -496,6 +512,10 @@ export function renderBasinShare(panelEl, bundle) {
       .style('fill', 'rgba(255,255,255,0.72)')
       .text(b.label);
   });
+  };
+
+  draw();
+  redrawOnResize(chartEl, draw, { width: chartEl.getBoundingClientRect().width });
 }
 
 // ─────────────────────────────────────────────────────────

@@ -207,10 +207,14 @@ export function classifyVintage(sourceKey, latestPeriod) {
       ? ` · Next print in ${daysUntilNext}d`
       : ` · Next print overdue by ${-daysUntilNext}d`);
 
+  // State the schedule, not just a warning. A reader seeing an old print needs
+  // to know whether the source held back or our pipeline missed it: the due
+  // date answers that in one clause.
+  const dueStr = nextExpectedPublishDate.toISOString().slice(0, 10);
   const labelText =
-    freshness === 'fresh' ? `LATEST · ${formatAgeShort(ageDays)}` :
-    freshness === 'stale' ? `STALE · ${-daysUntilNext}d overdue` :
-    `OVERDUE · ${-daysUntilNext}d`;
+    freshness === 'fresh' ? `Updated ${formatAgeShort(ageDays)} ago` :
+    freshness === 'stale' ? `Due ${dueStr} · no print` :
+    `Due ${dueStr} · ${-daysUntilNext}d ago`;
 
   return { ageDays, daysUntilNext, freshness, tooltip, labelText };
 }

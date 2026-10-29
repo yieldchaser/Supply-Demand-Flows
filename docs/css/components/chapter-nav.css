@@ -1,0 +1,191 @@
+/* Chapter navigation — top-level tabs for the observatory.
+   Additive only: without JS the `.chapter` wrapper is a plain block and every
+   chapter renders in the legacy single-scroll order. */
+
+.chapter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding: 8px var(--space-4, 16px);
+  margin: 0 auto var(--space-4, 16px);
+  max-width: 1400px;
+  background: var(--bg-0, #0a0e14);
+  border-bottom: 1px solid var(--rule, rgba(255, 255, 255, 0.08));
+}
+
+.chapter-bar[hidden] {
+  display: none;
+}
+
+.chapter-bar__track {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chapter-bar__track::-webkit-scrollbar {
+  display: none;
+}
+
+.chapter-tab {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 14px 9px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+  font-family: var(--font-sans, Inter, sans-serif);
+  text-align: left;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.chapter-tab:hover {
+  color: var(--text-primary, #e5e7eb);
+  border-bottom-color: var(--rule-strong, rgba(255, 255, 255, 0.16));
+}
+
+.chapter-tab:focus-visible {
+  outline: 2px solid var(--blue-flame-deep, #38bdf8);
+  outline-offset: 2px;
+}
+
+.chapter-tab.is-active {
+  background: transparent;
+  border-bottom-color: var(--text-primary, #e5e7eb);
+  color: var(--text-primary, #e5e7eb);
+}
+
+.chapter-tab__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.chapter-tab__blurb {
+  font-size: 10px;
+  color: var(--text-tertiary, #6b7280);
+  white-space: nowrap;
+}
+
+.chapter-tab.is-active .chapter-tab__blurb {
+  color: var(--text-secondary, #9ca3af);
+}
+
+/* The export is a link, not a button: with no border, radius or fill it reads
+   as part of the line it sits on, which is all a convenience download deserves. */
+.chapter-export {
+  margin-left: auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 0 0 2px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary, #6b7280);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  text-underline-offset: 3px;
+}
+
+.chapter-export:hover {
+  color: var(--text-primary, #e5e7eb);
+  text-decoration: underline;
+}
+
+.chapter-export:focus-visible {
+  outline: none;
+  color: var(--text-primary, #e5e7eb);
+  text-decoration: underline;
+}
+
+.chapter-export__label {
+  font-size: 10.5px;
+}
+
+/* Per-chart "download plotted points" control (rendered by panel-base into the
+   right-hand header slot only when the chart registered a snapshot). */
+.chart-export-btn {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  padding: 0;
+  color: var(--text-tertiary, #6b7280);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  text-underline-offset: 3px;
+}
+
+.chart-export-btn:hover,
+.chart-export-btn:focus-visible {
+  color: var(--text-primary, #e5e7eb);
+  text-decoration: underline;
+  outline: none;
+}
+
+.chapter[hidden] {
+  display: none;
+}
+
+/* A chapter is the grid *container*, not a grid item.
+   `main.dashboard` is a two-column grid, and each chapter lays its panels out
+   itself — full-width panels stack, and `.deep-grid` gives side-by-side pairs.
+   Without this, a chapter becomes a single grid item occupying the left
+   column only: every panel stacked in half the page with the right half empty.
+   Sources are additive, so a chapter still renders as a plain block for
+   no-JS and single-column mobile. */
+.dashboard > .chapter {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+/* Panels already carry their own margins inside `.deep-grid`; keep the gap
+   rhythm from doubling up. */
+.dashboard > .chapter > .deep-grid {
+  margin: 0;
+}
+
+/* Section headers sit under the tab bar, not over the panels. */
+.dashboard > .chapter > .section-header {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .chapter-bar {
+    padding: 6px 10px;
+  }
+
+  .chapter-tab {
+    padding: 6px 10px;
+  }
+
+  .chapter-tab__blurb {
+    display: none;
+  }
+
+  .chapter-export {
+    padding: 4px 8px;
+  }
+
+  .chapter-export__label {
+    display: none;
+  }
+}

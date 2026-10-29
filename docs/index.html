@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/components/lng-panel.css">
   <link rel="stylesheet" href="css/components/basin-egress.css">
+  <link rel="stylesheet" href="css/components/chapter-nav.css">
 
   <script type="importmap">
   {
@@ -40,80 +41,192 @@
     <!-- populated by js/components/health-strip.js -->
   </nav>
 
-  <main class="dashboard">
-    <section class="panel" id="panel-storage" data-panel="storage"></section>
-    <section class="panel" id="panel-balance" data-panel="balance"></section>
-    <section class="panel" id="panel-rigs" data-panel="rigs"></section>
-    <section class="panel" id="panel-basins" data-panel="basins"></section>
+  <!-- Chapter tabs. Populated by js/components/chapter-nav.js, which also hides
+       the inactive chapters. Without JS every chapter below stays visible, so the
+       page still works from top to bottom. -->
+  <nav class="chapter-bar" id="chapter-nav" aria-label="Observatory chapters" hidden></nav>
+
+  <main class="dashboard chapter-root">
+    <div class="chapter" data-chapter="overview">
+      <section class="panel" id="panel-storage" data-panel="storage"></section>
+      <section class="panel" id="panel-balance" data-panel="balance"></section>
+      <section class="panel" id="panel-rigs" data-panel="rigs"></section>
+      <section class="panel" id="panel-basins" data-panel="basins"></section>
+      <div class="panel panel--interlude" id="panel-divergence"></div>
+    </div>
+
+    <div class="chapter" data-chapter="basins">
+      <header class="section-header">
+        <h2>Basin Momentum · deep dive</h2>
+        <p>15 US basins · gas/oil split · 24-month perspective</p>
+      </header>
+      <div class="panel" id="panel-basin-table"></div>
+      <div class="deep-grid">
+        <div class="panel" id="panel-basin-scatter"></div>
+        <div class="panel" id="panel-basin-share"></div>
+      </div>
+      <div class="panel panel--slim" id="panel-basin-extremes"></div>
+    </div>
+
+    <div class="chapter" data-chapter="lng">
+      <header class="section-header">
+        <h2>LNG Feedgas Observatory</h2>
+        <p>Real-time scheduled quantities at US LNG export terminals</p>
+      </header>
+      <div class="panel panel--fleet" id="panel-lng-fleet" data-panel="lng-fleet"></div>
+      <div class="panel" id="panel-lng-feedgas" data-panel="lng-feedgas"></div>
+      <div class="panel" id="panel-lng-comparison" data-panel="lng-comparison"></div>
+    </div>
+
+    <div class="chapter" data-chapter="flows">
+      <header class="section-header">
+        <h2>Basin Egress — Haynesville Take-Away</h2>
+        <p>Scheduled flows out of the Haynesville via Gulf South · the supply-side read</p>
+      </header>
+      <div class="panel" id="panel-basin-egress" data-panel="basin-egress"></div>
+
+      <header class="section-header">
+        <h2>Feed Substitution at Multi-Feed Terminals</h2>
+        <p>Routing vs demand — a share flip at constant total is re-routing, not lost volume</p>
+      </header>
+      <div class="panel" id="panel-lng-feed-substitution" data-panel="lng-substitution"></div>
+    </div>
+
+    <div class="chapter" data-chapter="reliability">
+      <header class="section-header">
+        <h2>Terminal Downtime / Turnaround Indicator</h2>
+        <p>Operational outages, cargo-driven idle, and commissioning ramps — false-positive guarded</p>
+      </header>
+      <div class="panel" id="panel-lng-downtime" data-panel="lng-downtime"></div>
+    </div>
+
+    <div class="chapter" data-chapter="macro">
+      <header class="section-header">
+        <h2>US LNG Exports · EIA Monthly</h2>
+        <p>Where US LNG goes · destination shares · 36-month perspective</p>
+      </header>
+      <div class="panel" id="panel-lng-total"></div>
+      <div class="panel" id="panel-lng-shares"></div>
+
+      <header class="section-header">
+        <h2>European Storage Context · GIE AGSI+</h2>
+        <p>10 countries · daily updates · 5-year history</p>
+      </header>
+      <div class="panel" id="panel-eu-storage"></div>
+    </div>
   </main>
 
-  <section class="section section--interlude">
-    <div class="panel panel--interlude" id="panel-divergence"></div>
-  </section>
-
-  <section class="section section--deep">
-    <header class="section-header">
-      <h2>Basin Momentum · deep dive</h2>
-      <p>15 US basins · gas/oil split · 24-month perspective</p>
-    </header>
-    <div class="panel" id="panel-basin-table"></div>
-    <div class="deep-grid">
-      <div class="panel" id="panel-basin-scatter"></div>
-      <div class="panel" id="panel-basin-share"></div>
-    </div>
-    <div class="panel panel--slim" id="panel-basin-extremes"></div>
-  </section>
-
-  <section class="section section--deep">
-    <header class="section-header">
-      <h2>European Storage Context · GIE AGSI+</h2>
-      <p>10 countries · daily updates · 5-year history</p>
-    </header>
-    <div class="panel" id="panel-eu-storage"></div>
-  </section>
-  <section class="section section--deep">
-    <header class="section-header">
-      <h2>US LNG Exports · EIA Monthly</h2>
-      <p>Where US LNG goes · destination shares · 36-month perspective</p>
-    </header>
-    <div class="panel" id="panel-lng-total"></div>
-    <div class="panel" id="panel-lng-shares"></div>
-  </section>
-
-  <section class="section section--deep">
-    <header class="section-header">
-      <h2>Section 5 · LNG Feedgas Observatory</h2>
-      <p>Real-time scheduled quantities at US LNG export terminals</p>
-    </header>
-    <div class="panel panel--fleet" id="panel-lng-fleet" data-panel="lng-fleet"></div>
-    <div class="panel" id="panel-lng-feedgas" data-panel="lng-feedgas"></div>
-    <div class="panel" id="panel-lng-comparison" data-panel="lng-comparison"></div>
-  </section>
-
-  <section class="section section--deep">
-    <header class="section-header">
-      <h2>Section 6 · Basin Egress — Haynesville Take-Away</h2>
-      <p>Scheduled flows out of the Haynesville via Gulf South · the supply-side read</p>
-    </header>
-    <div class="panel" id="panel-basin-egress" data-panel="basin-egress"></div>
-  </section>
-
-  <section class="section section--deep">
-    <header class="section-header">
-      <h2>Section 7 · Feed Substitution at Multi-Feed Terminals</h2>
-      <p>Routing vs demand — a share flip at constant total is re-routing, not lost volume</p>
-    </header>
-    <div class="panel" id="panel-lng-feed-substitution" data-panel="lng-substitution"></div>
-  </section>
-
-  <section class="section section--deep">
-    <header class="section-header">
-      <h2>Section 8 · Terminal Downtime / Turnaround Indicator</h2>
-      <p>Operational outages, cargo-driven idle, and commissioning ramps — false-positive guarded</p>
-    </header>
-    <div class="panel" id="panel-lng-downtime" data-panel="lng-downtime"></div>
-  </section>
-
   <footer class="site-footer"></footer>
+  <script type="module">
+    // Un-hide the export slot as soon as the chapter bar exists. index.html
+    // authored `#chapter-nav` hidden (no-JS fallback); the bar builder replaces
+    // its children but never its own attributes, so without this the export
+    // button would be mounted inside an invisible container and the only way to
+    // download anything would be to guess the URL.
+    document.getElementById('chapter-nav')?.removeAttribute('hidden');
+
+    // Chapter tabs are enhancement only. If the module fails for any reason the
+    // page keeps its full single-scroll layout with every chapter visible.
+    import('./js/components/chapter-nav.js')
+      .then((m) => m.initChapters(document, window))
+      .catch((err) => console.error('[chapters] navigation unavailable, showing all sections:', err));
+
+    // Chapter data export: "download what you are looking at".
+    //
+    // The chapter's raw bundle rows plus the view models it renders. Lazy-loaded
+    // on first click so the reader pays nothing when they only want to read, and
+    // a failure here (module 404, blob blocked) must never break navigation —
+    // hence the catch that reports rather than throws.
+    (function chapterExport() {
+      const nav = document.getElementById('chapter-nav');
+      if (!nav) return;
+      let button = null;
+      let chaptersMod = null;
+      let exportMod = null;
+      let loaderMod = null;
+      // The live bundle is main.js's, handed over on `bluetide:bundle` (see
+      // main.js). Booting a second one here would export a different vintage
+      // than the screen, and would fetch the CORE shards the chapter does not
+      // read at all. The fallback is only for a page whose boot did not run.
+      let liveBundle = null;
+      window.addEventListener('bluetide:bundle', (ev) => {
+        liveBundle = ev.detail || null;
+      });
+
+      const currentChapter = () => {
+        const active = nav.querySelector('.chapter-tab.is-active');
+        const id = active && active.dataset.chapterId;
+        const list = (chaptersMod && chaptersMod.CHAPTERS) || [];
+        return list.find((c) => c.id === id) || list[0] || null;
+      };
+
+      function placeButton() {
+        if (!chaptersMod || !button) return;
+        const track = nav.querySelector('.chapter-bar__track');
+        if (track && !track.contains(button)) track.appendChild(button);
+      }
+
+      function refreshLabel() {
+        const c = currentChapter();
+        if (c && button) chaptersMod.syncExportButton(button, c.label);
+      }
+
+      async function onClick() {
+        const chapter = currentChapter();
+        if (!chapter) return;
+        // Derived blocks need the loaded sources too, so build them after the
+        // chapter's shards are in hand rather than inside the fetch below.
+        if (!exportMod) exportMod = await import('./js/util/chapter-export.js');
+        if (!loaderMod) loaderMod = import('./js/data/bundle-loader.js');
+        const bundle = liveBundle || (await (await loaderMod).loadBundle());
+        // Only this chapter's sources, on top of what the panels already parsed.
+        const { ensureChapterSources } = await import('./js/util/chapter-sources.js');
+        const report = await ensureChapterSources(bundle, await loaderMod, chapter);
+        // Derived blocks: the view models the chapter's panels render, shipped
+        // next to the rows that produced them.
+        // A chapter without a registered derivation still exports its raw rows.
+        const derived = {};
+        if (chapter.id === 'overview' || chapter.id === 'macro') {
+          const { buildDivergenceModel, divergenceExport } = await import('./js/panels/divergence.js');
+          derived[chapter.id] = () => divergenceExport(buildDivergenceModel(bundle));
+        }
+        if (chapter.id === 'lng') {
+          const { fleetExport } = await import('./js/util/fleet-export.js');
+          derived.lng = () => fleetExport(bundle);
+        }
+        if (chapter.id === 'reliability') {
+          const { downtimeExport } = await import('./js/util/downtime-export.js');
+          derived.reliability = () => downtimeExport(bundle);
+        }
+        const payload = exportMod.buildChapterExport(bundle, chapter, derived, new Date(), report);
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = exportMod.exportFilename(chapter.id);
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      import('./js/components/chapter-nav.js')
+        .then((m) => {
+          chaptersMod = m;
+          button = m.buildExportButton((currentChapter() || { label: 'current' }).label);
+          button.addEventListener('click', () => {
+            onClick().catch((err) => console.error('[chapter-export] download failed:', err));
+          });
+          placeButton();
+          refreshLabel();
+          window.addEventListener('bluetide:chapter', () => {
+            placeButton();
+            refreshLabel();
+          });
+        })
+        .catch((err) => console.error('[chapter-export] unavailable:', err));
+    })();
+  </script>
 </body>
 </html>

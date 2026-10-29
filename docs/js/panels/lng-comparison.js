@@ -314,13 +314,13 @@ function renderComparisonSidebar(container, comp, mode) {
   // Caveat block
   let caveatHtml = '';
   if (comp.caveats.length > 0) {
+    // A footnote, not a warning banner: these are facts about which meters
+    // exist, not incidents. A left rule and small type keep them off the
+    // reader's line of sight while they are still on the page.
     caveatHtml = `
-      <div style="margin-top: 16px; padding: 10px; background: rgba(251, 191, 36, 0.08); border-left: 3px solid #fbbf24; border-radius: 4px; font-size: 11px; line-height: 1.4; color: var(--text-muted);">
-        <strong style="color: #fbbf24;">⚠ Coverage Caveats:</strong>
-        <ul style="margin: 4px 0 0 16px; padding: 0;">
-          ${comp.caveats.map((c) => `<li>${c}</li>`).join('')}
-        </ul>
-      </div>
+      <dl class="cmp-coverage">
+        ${comp.caveats.map((c) => `<dd>${c}</dd>`).join('')}
+      </dl>
     `;
   }
 

@@ -74,44 +74,18 @@
   50%      { opacity: 0.4; }
 }
 
-/* === Panel — Glass Card === */
+/* === Panel — flat section, no card === */
+/* Panels are separated by a hairline rule, not by a box. Nothing here glows,
+   rounds, blurs or lifts on hover: the data is the only thing that moves. */
 .panel {
-  background: var(--surface-glass);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-lg);
-  padding: var(--space-8);
-  box-shadow: var(--shadow-panel);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  padding: var(--space-6) 0 var(--space-8);
   position: relative;
-  isolation: isolate;
   overflow-x: hidden; /* prevent internal content overflow on narrow viewports */
   max-width: 100%;
-  transition: box-shadow var(--dur-slow) var(--ease-out),
-              border-color var(--dur-slow) var(--ease-out);
-}
-
-.panel:hover {
-  border-color: var(--border-glass-strong);
-  box-shadow: var(--shadow-panel), var(--shadow-glow-blue);
-}
-
-/* Gradient border overlay */
-.panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg,
-    rgba(125, 211, 252, 0.15) 0%,
-    transparent 40%,
-    transparent 60%,
-    rgba(125, 211, 252, 0.08) 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
 }
 
 /* === Panel Header === */
@@ -128,6 +102,39 @@
   gap: var(--space-1);
 }
 
+/* Right rail: optional chart download + vintage pill, stacked when both exist. */
+.panel-header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Per-chart "download what you see" button. Quiet until hovered: it is a
+   convenience beside the vintage pill, not a primary action. */
+.chart-export-btn {
+  appearance: none;
+  padding: 2px var(--space-2);
+  background: transparent;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.chart-export-btn:hover,
+.chart-export-btn:focus-visible {
+  color: var(--blue-flame);
+  border-color: var(--blue-flame);
+  background: rgba(125, 211, 252, 0.08);
+  outline: none;
+}
+
 .panel-header__title {
   font-size: var(--fs-xl);
   font-weight: 600;
@@ -139,32 +146,26 @@
   color: var(--text-secondary);
 }
 
-/* === Vintage Pill === */
+/* === Vintage marker — plain text, no pill === */
 .vintage-pill {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-full);
+  gap: 6px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background var(--dur-fast) var(--ease-out);
-}
-
-.vintage-pill:hover {
-  background: rgba(255, 255, 255, 0.07);
 }
 
 .vintage-pill__dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
@@ -177,24 +178,20 @@
 .health-pill {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-full);
+  gap: 6px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   text-decoration: none;
-  transition: background var(--dur-fast) var(--ease-out),
-              border-color var(--dur-fast) var(--ease-out);
   cursor: pointer;
 }
 
 .health-pill:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: var(--border-glass-strong);
-  text-decoration: none;
   color: var(--text-primary);
+  text-decoration: none;
 }
 
 .health-pill__dot {
@@ -215,19 +212,20 @@
   color: var(--text-tertiary);
 }
 
-/* === KPI Card === */
+/* === KPI — a column of figures, not a card === */
 .kpi-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  padding: var(--space-5) var(--space-5);
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--rule);
+  border-radius: 0;
+  padding: var(--space-1) var(--space-4) var(--space-1) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  transition: background var(--dur-base) var(--ease-out);
+  gap: var(--space-1);
 }
-.kpi-card:hover {
-  background: rgba(255, 255, 255, 0.05);
+.kpi-card:first-child {
+  border-left: 0;
+  padding-left: 0;
 }
 .kpi-card__label {
   font-size: var(--fs-xs);
@@ -261,43 +259,29 @@
   line-height: 1.4;
 }
 
-/* === Panel Placeholder === */
+/* === Panel Placeholder — says what is missing, nothing else === */
 .panel-placeholder {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  min-height: 200px;
-  gap: var(--space-3);
-  padding: var(--space-10) var(--space-8);
+  gap: var(--space-1);
+  padding: var(--space-6) 0;
   color: var(--text-tertiary);
-  text-align: center;
+  text-align: left;
 }
 
 .panel-placeholder__label {
   font-size: var(--fs-sm);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 500;
   color: var(--text-secondary);
-}
-
-.panel-placeholder__rule {
-  width: 180px;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--border-glass-strong) 50%,
-    transparent 100%
-  );
 }
 
 .panel-placeholder__desc {
   font-size: var(--fs-sm);
   color: var(--text-tertiary);
-  max-width: 320px;
-  line-height: 1.6;
+  max-width: 560px;
+  line-height: 1.5;
 }
 
 /* === Footer === */
@@ -380,12 +364,25 @@
 }
 
 .panel-chart svg {
+  /* Charts are authored into a viewBox measured from the container at draw
+     time. Stretching that box to whatever width the column has since become
+     rescales axis labels, ticks and strokes with it: a chart authored 200x60
+     renders 115px tall instead of 60, and one authored at a narrow width
+     renders as a huge, blurry plot with an empty letterbox band. Pin the
+     intrinsic height so `height: auto` keeps the drawing's own aspect ratio,
+     and let `max-width` letterbox horizontally rather than vertically. */
   width: 100%;
   height: auto;
   display: block;
 }
 
 .panel-sidebar {
+  /* KPIs are the takeaway; the chart is the evidence. `.panel-body` is a
+     single-column flex column at every width, so the sidebar otherwise sits
+     below the plot and its reading is buried under a full screen of chart.
+     Every panel uses `renderPanelChrome`, which emits chart-then-sidebar, so
+     one `order` lifts the KPIs above the plot everywhere. */
+  order: -1;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-4);
@@ -552,21 +549,17 @@
 }
 
 .basin-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-5);
-  transition: background var(--dur-base) var(--ease-out),
-              border-color var(--dur-base) var(--ease-out);
+  background: none;
+  border: 0;
+  border-left: 2px solid var(--rule-strong);
+  border-radius: 0;
+  padding: 2px 0 2px var(--space-4);
 }
-.basin-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--border-glass-strong);
-}
-.basin-card--accel { border-color: rgba(125, 211, 252, 0.25); }
-.basin-card--decel { border-color: rgba(245, 158, 11, 0.25); }
-.basin-card--flat  { /* default border */ }
-.basin-card--empty { opacity: 0.5; }
+.basin-card--accel { border-left-color: var(--blue-flame-deep); }
+.basin-card--decel { border-left-color: var(--color-warning); }
+.basin-card--flat  { border-left-color: var(--rule-strong); }
+.basin-card--empty { border-left-color: var(--rule); }
+.basin-card--empty .basin-card__value { color: var(--text-tertiary); }
 
 .basin-card__head {
   display: flex;
@@ -659,13 +652,10 @@
 }
 
 .section-header h2 {
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-xl);
   font-weight: 600;
-  letter-spacing: -0.02em;
-  background: linear-gradient(135deg, var(--blue-flame), var(--blue-flame-deep));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
 .section-header p {
@@ -792,17 +782,16 @@
 }
 
 .eu-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  transition: background var(--dur-base) var(--ease-out);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  padding: var(--space-3) 0 var(--space-2);
 }
-.eu-card:hover { background: rgba(255, 255, 255, 0.05); }
 
-.eu-card--low  { border-color: rgba(239, 78,  92, 0.3); }
-.eu-card--mid  { border-color: rgba(245, 158, 11, 0.3); }
-.eu-card--high { border-color: rgba(125, 211, 252, 0.3); }
+.eu-card--low  { border-top-color: rgba(239, 78, 92, 0.6); }
+.eu-card--mid  { border-top-color: rgba(245, 158, 11, 0.6); }
+.eu-card--high { border-top-color: var(--rule-strong); }
 
 .eu-card__head {
   display: flex;
@@ -1047,3 +1036,79 @@ button:focus-visible,
   }
 }
 
+
+/* === Data Table (regional/storage readouts built from a shared renderer) === */
+.panel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-xs);
+}
+.panel-table caption {
+  text-align: left;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  padding-bottom: var(--space-2);
+  caption-side: top;
+}
+.panel-table th {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-align: right;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+.panel-table th:first-child,
+.panel-table td:first-child {
+  text-align: left;
+}
+.panel-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: right;
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.panel-table td.lbl {
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+}
+.panel-table td.muted,
+.panel-table td .muted {
+  color: var(--text-tertiary);
+}
+.panel-table tr.is-child td.lbl {
+  padding-left: var(--space-5);
+  color: var(--text-tertiary);
+}
+.panel-table td.pos { color: var(--color-bullish-supply); }
+.panel-table td.neg { color: var(--color-bearish-supply); }
+.panel-table__note {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  padding-top: var(--space-2);
+  display: block;
+  font-family: var(--font-sans);
+}
+
+/* Provenance / sample-size footnote shared by data panels. */
+.data-provenance {
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: var(--space-2);
+  margin-top: var(--space-2);
+  display: block;
+}
+.data-provenance__flag {
+  color: var(--color-warning);
+}

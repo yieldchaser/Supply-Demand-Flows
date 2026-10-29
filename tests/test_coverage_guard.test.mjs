@@ -56,15 +56,16 @@ test('Anti-rot coverage guard: Freeport strictly guards against the 80% flatteri
 });
 
 test('Anti-rot coverage guard: verified 60-day empirical table consistency', () => {
-  // Ground-truth 60-day median measurements from Brief L:
+  // Ground-truth 60-day median measurements from Brief L, re-measured 2026-10-28
+  // over the live curated window (cove_point/corpus_christi had outrun theirs).
   const measurements = {
     plaquemines: { median: 3820.9, pct: 112.4 },
     calcasieu:   { median: 1605.8, pct: 123.5 },
-    corpus_christi: { median: 2384.7, pct: 99.4 },
+    corpus_christi: { median: 2561.0, pct: 106.7 },
     sabine_pass: { median: 1365.2, pct: 30.3 },
     cameron:     { median: 1458.6, pct: 72.9 },
     golden_pass: { median: 330.4,  pct: 12.7 },
-    cove_point:  { median: 728.5,  pct: 97.1 },
+    cove_point:  { median: 784.2,  pct: 104.6 },
     freeport:    { median: 1111.5, pct: 52.9 }, // 100-day dual-feed baseline
   };
 

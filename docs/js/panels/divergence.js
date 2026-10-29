@@ -26,16 +26,23 @@ const GAUGE_MAX = 30;
 /*  Entry point                                    */
 /* ─────────────────────────────────────────────── */
 
-export function renderDivergencePanel(panelEl, bundle) {
+/**
+ * Compute the transatlantic divergence view model.
+ *
+ * Pure: no DOM. Exported so the chapter export can ship the exact numbers the
+ * card shows next to the rows that produced them, and so the model can be
+ * exercised without a browser.
+ *
+ * @param {Object} bundle
+ * @returns {{usLatest: any, us_signal: (number|null), euLatest: any, eu_signal: (number|null),
+ *   spread: number, needlePct: number, regime: any} | null} null when either
+ *   side is unavailable
+ */
+export function buildDivergenceModel(bundle) {
   const usSource = bundle.sources?.eia_storage;
   const euSource = bundle.sources?.gie_agsi;
+  if (!usSource?.data?.length || !euSource?.data?.length) return null;
 
-  if (!usSource?.data?.length || !euSource?.data?.length) {
-    panelEl.innerHTML = '<div class="panel-error">Storage data unavailable for transatlantic comparison.</div>';
-    return;
-  }
-
-  // === US: extract storage series and compute current vs 5y avg ===
   // Extract Lower 48 total per period (max of 8 region rows = the aggregate).
   // Same workaround as storage.js — see Phase 2 backlog: fix transformer to
   // emit region-tagged rows so we don't need this trick.
@@ -71,6 +78,45 @@ export function renderDivergencePanel(panelEl, bundle) {
   const spread      = (us_signal ?? 0) - (eu_signal ?? 0);
   const needlePct   = Math.max(0, Math.min(100, ((spread - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN)) * 100));
   const regime      = classifyRegime(us_signal ?? 0, eu_signal ?? 0);
+
+  return { usLatest, us_signal, euLatest, eu_signal, spread, needlePct, regime };
+}
+
+/**
+ * Compact, JSON-safe projection of the model for downloads.
+ *
+ * Dates become ISO day strings and the classification pair travels with the
+ * numbers, so a reader can tell *why* the card said bullish without reopening
+ * the thresholds in source.
+ *
+ * @param {ReturnType<typeof buildDivergenceModel>} model
+ * @returns {Object|null}
+ */
+export function divergenceExport(model) {
+  if (!model) return null;
+  const day = (d) => (d?.period instanceof Date ? d.period.toISOString().slice(0, 10) : null);
+  return {
+    basis:
+      'US: % deviation of latest weekly total from the 5y same-ISO-week mean. ' +
+      'EU: capacity-weighted % full (10 AGSI countries) minus same-week 5y mean, in percentage points. ' +
+      'Spread = US% − EUpp.',
+    thresholds: { us_loose: 3, us_tight: -3, eu_loose: 5, eu_tight: -5, gauge: [GAUGE_MIN, GAUGE_MAX] },
+    us: { period: day(model.usLatest), bcf: model.usLatest?.value ?? null, signal_pct: model.us_signal },
+    eu: { period: day(model.euLatest), full_pct: model.euLatest?.value ?? null, signal_pp: model.eu_signal },
+    spread_pp: model.spread,
+    regime: { label: model.regime.label, kind: model.regime.kind, detail: model.regime.detail },
+  };
+}
+
+export function renderDivergencePanel(panelEl, bundle) {
+  const model = buildDivergenceModel(bundle);
+
+  if (!model) {
+    panelEl.innerHTML = '<div class="panel-error">Storage data unavailable for transatlantic comparison.</div>';
+    return;
+  }
+
+  const { usLatest, us_signal, euLatest, eu_signal, spread, needlePct, regime } = model;
 
   /* ── Date label (prefer EU daily freshness) ───────────────────── */
   const displayDate = (euLatest ?? usLatest)?.period.toLocaleDateString('en-US', {
