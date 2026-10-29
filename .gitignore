@@ -59,3 +59,14 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# Byte-identical vendor snapshots (archive_synmax_public.py fallback copies)
+data/vendor/
+# DuckDB scratch store
+*.sqlite
+
+# Working scratch: probe scripts and screenshots are not artifacts of the site
+scratch/
+logs/
+.tmp/
+screenshots/
