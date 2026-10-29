@@ -908,6 +908,16 @@
   margin-top: var(--space-1);
 }
 
+/* Provenance of the seasonal normal: period + how many years actually fed it. */
+.divergence-side__note {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
 /* --- Gauge --- */
 .divergence-gauge {
   display: flex;
@@ -940,6 +950,12 @@
   transform: translateX(-50%);
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
   transition: left var(--dur-slow) var(--ease-out);
+}
+
+/* No spread to point at: park the needle at centre, visibly inert. */
+.divergence-gauge__needle--unknown {
+  opacity: 0.25;
+  box-shadow: none;
 }
 
 .divergence-gauge__labels {

@@ -10,7 +10,9 @@
  */
 
 import * as d3 from 'd3';
-import { getSeries, computeWeeklyEnvelope, isoWeek } from '../util/series.js';
+import { getSeries } from '../util/series.js';
+import { seasonalEnvelope, envelopeLookup, dayOnly } from '../util/season.js';
+import { seasonWeekOf } from '../util/storage-analysis.js';
 
 /* ─────────────────────────────────────────────── */
 /*  Constants                                      */
@@ -56,30 +58,42 @@ export function buildDivergenceModel(bundle) {
     value,
   })).sort((a, b) => a.period - b.period);
 
-  const usEnvelope = computeWeeklyEnvelope(usSeries, 5);
-  const usLatest = usSeries[usSeries.length - 1];
-  const usWk = isoWeek(usLatest.period);
-  const usEnv = usEnvelope.get(usWk);
-  const us_signal = usEnv && usEnv.mean > 0
-    ? ((usLatest.value - usEnv.mean) / usEnv.mean) * 100
+  // Same week-of-season axis as the storage panel (see util/season.js): the ISO
+  // week of a Friday label steps by one more than the mean between neighbouring
+  // weeks, so an ISO lookup returned a "+2.5% vs normal" that became "-0.1%" one
+  // week later. Season weeks are measured from each year's own first observation.
+  const usEnv     = seasonalEnvelope(usSeries, { anchor: dayOnly(usSeries[usSeries.length - 1].period) });
+  const usLatest  = usSeries[usSeries.length - 1];
+  const usWk      = seasonWeekOf(usSeries, usLatest.period);
+  const usNormal  = envelopeLookup(usEnv, usWk);
+  const us_signal = usNormal && usNormal.mean > 0
+    ? ((usLatest.value - usNormal.mean) / usNormal.mean) * 100
     : null;
 
   /* ── EU: capacity-weighted aggregate current vs 5y avg ────────── */
   const { euAggSeries, euLatest } = _buildEuAggregate(euSource.data);
 
-  const euEnvelope = computeWeeklyEnvelope(euAggSeries, 5);
-  const euWk       = euLatest ? isoWeek(euLatest.period) : null;
-  const euEnv      = euWk ? euEnvelope.get(euWk) : null;
+  const euEnv     = euLatest ? seasonalEnvelope(euAggSeries, { anchor: dayOnly(euLatest.period) }) : null;
+  const euWk      = euLatest ? seasonWeekOf(euAggSeries, euLatest.period) : null;
+  const euNormal  = euLatest ? envelopeLookup(euEnv, euWk) : null;
 
   // eu_signal: pp deviation from seasonal mean (positive = above avg = loose)
-  const eu_signal = (euLatest && euEnv) ? euLatest.value - euEnv.mean : null;
+  const eu_signal = (euLatest && euNormal) ? euLatest.value - euNormal.mean : null;
 
   /* ── Spread + gauge ───────────────────────────────────────────── */
-  const spread      = (us_signal ?? 0) - (eu_signal ?? 0);
-  const needlePct   = Math.max(0, Math.min(100, ((spread - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN)) * 100));
-  const regime      = classifyRegime(us_signal ?? 0, eu_signal ?? 0);
+  // A missing side is unknown, not zero: pretending EU is "at normal" when its
+  // envelope failed turned a data gap into a confident regime call.
+  const spread      = (us_signal != null && eu_signal != null) ? us_signal - eu_signal : null;
+  const needlePct   = spread == null
+    ? 50
+    : Math.max(0, Math.min(100, ((spread - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN)) * 100));
+  const regime      = classifyRegime(us_signal, eu_signal);
 
-  return { usLatest, us_signal, euLatest, eu_signal, spread, needlePct, regime };
+  return {
+    usLatest, us_signal, euLatest, eu_signal, spread, needlePct, regime,
+    usNormal: usNormal ? { weekOfSeason: usWk, n: usNormal.count, mean: usNormal.mean } : null,
+    euNormal: euNormal ? { weekOfSeason: euWk, n: euNormal.count, mean: euNormal.mean } : null,
+  };
 }
 
 /**
@@ -97,10 +111,11 @@ export function divergenceExport(model) {
   const day = (d) => (d?.period instanceof Date ? d.period.toISOString().slice(0, 10) : null);
   return {
     basis:
-      'US: % deviation of latest weekly total from the 5y same-ISO-week mean. ' +
-      'EU: capacity-weighted % full (10 AGSI countries) minus same-week 5y mean, in percentage points. ' +
-      'Spread = US% − EUpp.',
+      'US: % deviation of latest weekly total from the same week-of-season mean over the trailing 5 years. ' +
+      'EU: capacity-weighted % full (10 AGSI countries) minus the same week-of-season 5y mean, in percentage points. ' +
+      'Spread = US% − EUpp. Weeks are counted from each year\'s first observation, not ISO week numbers.',
     thresholds: { us_loose: 3, us_tight: -3, eu_loose: 5, eu_tight: -5, gauge: [GAUGE_MIN, GAUGE_MAX] },
+    normal: { us: model.usNormal, eu: model.euNormal },
     us: { period: day(model.usLatest), bcf: model.usLatest?.value ?? null, signal_pct: model.us_signal },
     eu: { period: day(model.euLatest), full_pct: model.euLatest?.value ?? null, signal_pp: model.eu_signal },
     spread_pp: model.spread,
@@ -117,6 +132,13 @@ export function renderDivergencePanel(panelEl, bundle) {
   }
 
   const { usLatest, us_signal, euLatest, eu_signal, spread, needlePct, regime } = model;
+
+  /* ── Sample size of each seasonal normal ("5y avg" is a window, not a promise) */
+  const normalNote = (row, normal) => {
+    if (!row) return 'no observation';
+    const period = row.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return normal ? `${period} · normal n=${normal.n}` : `${period} · no normal`;
+  };
 
   /* ── Date label (prefer EU daily freshness) ───────────────────── */
   const displayDate = (euLatest ?? usLatest)?.period.toLocaleDateString('en-US', {
@@ -135,22 +157,23 @@ export function renderDivergencePanel(panelEl, bundle) {
         <!-- US side -->
         <div class="divergence-side divergence-side--us">
           <div class="divergence-side__label">US</div>
-          <div class="divergence-side__value num ${us_signal != null && us_signal >= 0 ? 'is-loose' : 'is-tight'}">
+          <div class="divergence-side__value num ${us_signal == null ? '' : us_signal >= 0 ? 'is-loose' : 'is-tight'}">
             ${us_signal != null
               ? (us_signal >= 0 ? '+' : '') + us_signal.toFixed(1) + '%'
               : 'n/a'}
           </div>
           <div class="divergence-side__sub">vs 5y avg</div>
+          <div class="divergence-side__note">${normalNote(usLatest, model.usNormal)}</div>
         </div>
 
         <!-- Gauge -->
         <div class="divergence-gauge">
           <div class="divergence-gauge__bar">
-            <div class="divergence-gauge__needle" style="left: ${needlePct.toFixed(2)}%"></div>
+            <div class="divergence-gauge__needle${spread == null ? ' divergence-gauge__needle--unknown' : ''}" style="left: ${needlePct.toFixed(2)}%"></div>
           </div>
           <div class="divergence-gauge__labels">
             <span class="divergence-gauge__edge divergence-gauge__edge--left">US loose</span>
-            <span class="divergence-gauge__spread num">${spread.toFixed(1)} pp spread</span>
+            <span class="divergence-gauge__spread num">${spread == null ? 'n/a' : `${spread.toFixed(1)} pp spread`}</span>
             <span class="divergence-gauge__edge divergence-gauge__edge--right">EU tight</span>
           </div>
         </div>
@@ -158,12 +181,13 @@ export function renderDivergencePanel(panelEl, bundle) {
         <!-- EU side -->
         <div class="divergence-side divergence-side--eu">
           <div class="divergence-side__label">EU</div>
-          <div class="divergence-side__value num ${eu_signal != null && eu_signal >= 0 ? 'is-loose' : 'is-tight'}">
+          <div class="divergence-side__value num ${eu_signal == null ? '' : eu_signal >= 0 ? 'is-loose' : 'is-tight'}">
             ${eu_signal != null
               ? (eu_signal >= 0 ? '+' : '') + eu_signal.toFixed(1) + ' pp'
               : 'n/a'}
           </div>
           <div class="divergence-side__sub">vs 5y avg</div>
+          <div class="divergence-side__note">${normalNote(euLatest, model.euNormal)}</div>
         </div>
       </div>
 
@@ -218,6 +242,16 @@ function _buildEuAggregate(rows) {
 /* ================================================================== */
 
 function classifyRegime(us_signal, eu_signal) {
+  // A side with no envelope has no verdict: `null > 3` and `null < -3` are both
+  // false, so the fall-through used to print "Neutral transatlantic balance"
+  // over a half-missing comparison.
+  if (us_signal == null || eu_signal == null) return {
+    label: 'Comparison incomplete',
+    detail: 'One side has no seasonal normal for its latest period, so the spread is not comparable yet.',
+    icon: '❓',
+    kind: 'neutral',
+  };
+
   const us_loose = us_signal > 3;   // US well above seasonal norm
   const us_tight = us_signal < -3;  // US well below seasonal norm
   const eu_loose = eu_signal > 5;   // EU well above seasonal norm
