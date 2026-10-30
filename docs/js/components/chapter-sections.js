@@ -636,17 +636,25 @@ function hydrateChapters(doc) {
         // own chrome: its .panel-body lives one level deeper.
         ...safeQuery(panelEl, ':scope > .panel-body .panel-body'),
       ];
+      // The panel's own section, and the body it lives in. Every host is inside
+      // *some* section — the panels themselves are — so "is this block in a
+      // section?" is true of unplaced blocks too and would stop every lift.
+      // What marks a block as already placed is that it sits in the body of a
+      // section that is not this panel's own (a declared section it was fed
+      // into on an earlier pass); the identity check below is what separates
+      // the two, since both bodies share `.chapter-section__body`.
+      const ownSection = panelEl.closest('.chapter-section');
+      const ownBody = ownSection
+        ? ownSection.querySelector(':scope > .chapter-section__body')
+        : null;
       hosts.forEach((host) => {
         if (!host) return;
-        // A panel may itself live inside a declared section (one section can
-        // own a panel and still be fed by tagged blocks), and that is not a
-        // reason to skip it: the block loop below already ignores anything that
-        // sits in a chapter section body, so the host only has to be walked.
         Array.from(host.children).forEach((child) => {
           if (!(child instanceof HTMLElement)) return;
           if (child.classList.contains('panel-chart') || child.classList.contains('panel-sidebar')) return;
           if (child.id && child.id.startsWith('panel-')) return;
-          if (child.closest && child.closest('.chapter-section')) return;
+          const placedIn = child.parentElement && child.parentElement.closest('.chapter-section');
+          if (placedIn && placedIn !== ownSection && ownBody && !ownBody.contains(child)) return;
           const sectionId = declaredSection(child);
           if (!sectionId) return;
           const target = chapterEl.querySelector(
@@ -659,7 +667,10 @@ function hydrateChapters(doc) {
             return;
           }
           target.appendChild(child);
-          child.classList.add('chapter-lifted');
+          // `chapter-lifted` is what settlePanel counts; `panel-lifted` records
+          // that the block travels on with its panel when the chapter is
+          // re-split, so a lift is never mistaken for authored panel content.
+          child.classList.add('chapter-lifted', 'panel-lifted');
           moved += 1;
           // An emptied wrapper would otherwise keep its flex gap. A column that
           // wraps the chart and sidebar is never removed: those are the panel's
@@ -669,7 +680,11 @@ function hydrateChapters(doc) {
             parent !== panelEl &&
             !parent.childElementCount &&
             !parent.classList.contains('panel-chart') &&
-            !parent.classList.contains('panel-sidebar')
+            !parent.classList.contains('panel-sidebar') &&
+            // An emptied .panel-body is the panel's own chrome — the tab layer
+            // looks it up to render into — not a block's wrapper. Removing it
+            // leaves a panel that can never draw again.
+            !parent.classList.contains('panel-body')
           ) parent.remove();
         });
       });
