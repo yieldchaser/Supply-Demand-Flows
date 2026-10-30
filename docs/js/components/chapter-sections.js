@@ -627,15 +627,13 @@ function hydrateChapters(doc) {
     const chapterId = chapterEl.getAttribute('data-chapter');
 
     Array.from(chapterEl.querySelectorAll('.panel')).forEach((panelEl) => {
-        // Blocks a panel appended directly to itself, and blocks it appended to
-        // its own chart/sidebar columns, are lifted the same way.
-      const hosts = [
-        panelEl,
-        ...safeQuery(panelEl, ':scope > .panel-body, :scope > * > .panel-body'),
-        // A panel body that is itself a wrapper (the LNG terminals) carries its
-        // own chrome: its .panel-body lives one level deeper.
-        ...safeQuery(panelEl, ':scope > .panel-body .panel-body'),
-      ];
+      // Blocks a panel appended directly to itself, and blocks it appended inside
+      // its own chrome wrapper (the LNG terminal panels draw through a
+      // `.lng-panel-body-wrapper`, which is `display: contents`), are lifted the
+      // same way. `panelBody` is the outermost body of the panel's own chrome:
+      // the one holding the `.panel-header`, or — before a panel has drawn — the
+      // first one.
+      const panelBody = ownChromeBody(panelEl);
       // The panel's own section, and the body it lives in. Every host is inside
       // *some* section — the panels themselves are — so "is this block in a
       // section?" is true of unplaced blocks too and would stop every lift.
@@ -647,12 +645,31 @@ function hydrateChapters(doc) {
       const ownBody = ownSection
         ? ownSection.querySelector(':scope > .chapter-section__body')
         : null;
+      // A block that is still where its panel put it is never taken for a
+      // placed one, even when the panel has been moved under another section
+      // since it drew: the chapter is split once, before any panel renders, but
+      // the panels it owns can be re-parented later.
+      const isInsideOwnChrome = (el) => {
+        if (panelEl.contains(el)) return true;
+        return !!panelBody && panelBody.contains(el);
+      };
+      const hosts = [panelEl];
+      const seenHosts = new Set(hosts);
+      safeQuery(panelEl, '.panel-body').forEach((body) => {
+        if (seenHosts.has(body) || body.classList.contains('panel-chart') || body.classList.contains('panel-sidebar')) return;
+        seenHosts.add(body);
+        hosts.push(body);
+      });
       hosts.forEach((host) => {
         if (!host) return;
         Array.from(host.children).forEach((child) => {
           if (!(child instanceof HTMLElement)) return;
           if (child.classList.contains('panel-chart') || child.classList.contains('panel-sidebar')) return;
           if (child.id && child.id.startsWith('panel-')) return;
+          // `isInsideOwnChrome` also covers an untagged block, so the check
+          // below only has to decide between a placed block and this panel's
+          // own, untagged content.
+          if (isInsideOwnChrome(child)) return;
           const placedIn = child.parentElement && child.parentElement.closest('.chapter-section');
           if (placedIn && placedIn !== ownSection && ownBody && !ownBody.contains(child)) return;
           const sectionId = declaredSection(child);
@@ -749,6 +766,18 @@ function syncSectionState(chapterEl) {
 /**
  * `querySelectorAll` that yields an empty list instead of throwing (a selector
  * engine that rejects `:scope`, an element detached mid-pass).
+ *
+ * @param {Element} el
+ * @param {string} selector
+ * @returns {Element[]}
+ */
+function ownChromeBody(panelEl) {
+  const bodies = safeQuery(panelEl, '.panel-body');
+  return bodies.find((body) => body.querySelector(':scope > .panel-header')) || bodies[0] || null;
+}
+
+/**
+ * Selector helper used above.
  *
  * @param {Element} el
  * @param {string} selector
