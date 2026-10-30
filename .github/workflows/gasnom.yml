@@ -36,11 +36,11 @@ jobs:
       matrix:
         slug: [goldenpass, cameron, SABINE, portarthurpipeline]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -98,7 +98,7 @@ jobs:
           echo "status=$STATUS" >> $GITHUB_OUTPUT
 
       - name: Upload raw payloads
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gasnom-raw-${{ matrix.slug }}
           path: data/raw/gasnom/
@@ -107,7 +107,7 @@ jobs:
 
       - name: Upload health payload
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gasnom-health-${{ matrix.slug }}
           path: data/health/gasnom_${{ matrix.slug }}.json
@@ -122,11 +122,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -137,7 +137,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Download all raw payloads
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: gasnom-raw-*
           path: data/raw/gasnom/
@@ -145,7 +145,7 @@ jobs:
 
       - name: Download all health payloads
         if: always()
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: gasnom-health-*
           path: data/health/
