@@ -205,11 +205,15 @@ async function main() {
   renderHeader(bundle);
   renderHealthStrip(bundle);
 
-  // EIA & Baker Hughes core panels — render immediately using pre-fetched core sources
-  safeRender('storage', () => renderStoragePanel(document.getElementById('panel-storage'), bundle), bundle);
-  safeRender('balance', () => renderBalancePanel(document.getElementById('panel-balance'), bundle), bundle);
-  safeRender('rigs', () => renderRigsPanel(document.getElementById('panel-rigs'), bundle), bundle);
-  safeRender('basins', () => renderBasinsPanel(document.getElementById('panel-basins'), bundle), bundle);
+  // EIA & Baker Hughes core panels — render immediately using pre-fetched core sources.
+  // Sequential, because safeRender is async: it awaits the render before folding
+  // method notes and lifting section blocks, and firing them unawaited left the
+  // first paint's storage/balance blocks in their panels with their sections
+  // empty. Each render is synchronous, so this costs one microtask per panel.
+  await safeRender('storage', () => renderStoragePanel(document.getElementById('panel-storage'), bundle), bundle);
+  await safeRender('balance', () => renderBalancePanel(document.getElementById('panel-balance'), bundle), bundle);
+  await safeRender('rigs', () => renderRigsPanel(document.getElementById('panel-rigs'), bundle), bundle);
+  await safeRender('basins', () => renderBasinsPanel(document.getElementById('panel-basins'), bundle), bundle);
 
   /**
    * Defer below-the-fold sections until scrolled near viewport or browser is idle.
