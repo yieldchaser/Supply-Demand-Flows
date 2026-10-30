@@ -373,8 +373,36 @@ describe('season-to-date render', () => {
     const block = body.children.find((c) => String(c.innerHTML).includes('Season to date'));
     assert.ok(block, 'no season-to-date block was inserted');
     const html = block.innerHTML;
-    assert.ok(html.includes(`n=${analysis.seasonToDate.n}`), 'sample size not printed');
+    // The sample size is stated as the list of prior years itself ("2025 … ·
+    // 2024 …"), not as a bare `n=`, so a reader does not have to decode a
+    // variable name to know what the range was measured against.
+    assert.equal(
+      analysis.seasonToDate.prior.length,
+      analysis.seasonToDate.n,
+      'prior list and n disagree',
+    );
+    for (const p of analysis.seasonToDate.prior) {
+      assert.ok(html.includes(String(p.year)), `prior year ${p.year} not named`);
+    }
     assert.ok(html.includes('Bcf'), 'net change not printed');
+    // The badge says in words what it compared this season against, so a
+    // two-year ordering cannot read like a thirty-year one and a bare
+    // "MID-RANGE" never appears without its sample.
+    const standing = seasonToDateStanding(analysis.seasonToDate);
+    const n = analysis.seasonToDate.n;
+    const expected =
+      n === 0
+        ? 'NO PRIOR YEARS'
+        : standing === 'largest'
+          ? `ABOVE ALL ${n} YEAR${n === 1 ? '' : 'S'}`
+          : standing === 'smallest'
+            ? `BELOW ALL ${n} YEAR${n === 1 ? '' : 'S'}`
+            : n === 1
+              ? 'ONLY 1 YEAR'
+              : `MIDDLE OF ${n} YEARS`;
+    assert.ok(html.includes(expected), `badge does not state its sample: ${expected}`);
+    assert.ok(!/\bMID-RANGE\b/.test(html), 'a bare MID-RANGE badge came back');
+    assert.ok(!html.includes('panel-subchart__body"'), 'the prose block lost its size-to-text body class');
     assert.ok(html.includes('not a forecast') || !analysis.seasonRest, 'arithmetic repeat not labelled');
     // The blocks below the hero chart are readings of their own and say which
     // section owns them; a block that lost its tag would stack back under the

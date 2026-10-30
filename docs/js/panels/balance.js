@@ -358,7 +358,7 @@ function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
     const missing = KNOWN_LEGS.filter(({ key }) => latest[key] == null).map(({ key }) => LEG_LABELS[key]);
     wrap.innerHTML = `
       ${head('—', '', `${latest.days}-day month`)}
-      <div class="panel-subchart__body panel-subchart__body--auto">
+      <div class="panel-subchart__body panel-subchart__body--prose">
         <span class="panel-table__note">${monthLabel(latest.period)} is missing
         ${missing.join(', ') || 'a leg'}, so the identity is not printed for it rather than
         assumed to close. The chart ends at the newest month where production and

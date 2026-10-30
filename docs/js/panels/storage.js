@@ -705,7 +705,7 @@ function appendRegionTable(panelEl, analysis) {
       </div>
       <span class="panel-subchart__subtitle">${change.nBuild} built · ${change.nDraw} drew</span>
     </div>
-    <div class="panel-subchart__body">
+    <div class="panel-subchart__body panel-subchart__body--auto">
       <table class="panel-table">
         <caption>Level, week-over-week change and same-week normal by EIA region. (n) is the number of prior years that actually contributed.</caption>
         <thead>
@@ -837,11 +837,26 @@ function appendSeasonToDate(panelEl, analysis) {
 
   const priorText = std.n === 0
     ? 'No prior year has a date-matched window for this period, so there is nothing to compare against.'
-    : `Same window, prior years (n=${std.n}): ${std.prior
-        .map((p) => `${p.year} ${signed(p.netChangeBcf)}`)
+    : `Same window in prior years: ${std.prior
+        .map((p) => `${p.year} ${signed(p.netChangeBcf)} Bcf`)
         .join(' \u00b7 ')}. Range ${signed(std.priorMinBcf)} to ${signed(std.priorMaxBcf)} Bcf.`;
 
   const direction = seasonToDateStanding(std);
+
+  // The badge is a word the reader should not have to decode: it spells out
+  // what was compared and how many years went into it, so a two-year ordering
+  // never reads like a 30-year one. n=1 orders nothing, so it says so.
+  const years = std.n === 1 ? '1 YEAR' : `${std.n} YEARS`;
+  const badge =
+    std.n === 0
+      ? 'NO PRIOR YEARS'
+      : direction === 'largest'
+        ? `ABOVE ALL ${years}`
+        : direction === 'smallest'
+          ? `BELOW ALL ${years}`
+          : std.n === 1
+            ? 'ONLY 1 YEAR'
+            : `MIDDLE OF ${years}`;
 
   const rest = analysis.seasonRest;
   const restText = rest
@@ -857,11 +872,11 @@ function appendSeasonToDate(panelEl, analysis) {
       <div class="panel-subchart__title-group">
         <span class="panel-subchart__title">Season to date</span>
         <span class="panel-subchart__hero num">${signed(std.netChangeBcf)} Bcf</span>
-        <span class="panel-subchart__badge panel-subchart__badge--neutral">${direction.toUpperCase()}</span>
+        <span class="panel-subchart__badge panel-subchart__badge--neutral" title="This season's net change against the same calendar window in prior years">${badge}</span>
       </div>
       <span class="panel-subchart__subtitle">${fmtDay(std.start)} \u2192 ${fmtDay(std.end)} \u00b7 net ${verb}</span>
     </div>
-    <div class="panel-subchart__body">
+    <div class="panel-subchart__body panel-subchart__body--prose">
       <span class="panel-table__note">${priorText}${restText ? `<br>${restText}` : ''}</span>
     </div>
   `;

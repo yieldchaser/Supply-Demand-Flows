@@ -468,6 +468,15 @@
   height: auto;
 }
 
+/* Prose companions (a stated figure and why it matters) have no chart to give
+   them a height, so they size to their text instead of leaving a 140px well of
+   empty surface under two lines of type. */
+.panel-subchart__body--prose {
+  height: auto;
+  min-height: 0;
+  max-width: 78ch;
+}
+
 /* === Chart Tooltip === */
 /* Opaque, not frosted: a tooltip has to stay legible over dense line work, and
    a blur behind it both obscures the point being read and costs a composite
