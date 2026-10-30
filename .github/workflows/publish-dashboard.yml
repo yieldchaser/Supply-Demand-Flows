@@ -68,7 +68,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # The storage/divergence tests import `registerHooks` from node:module
+          # to stub out d3, which needs Node >= 22.15.
+          node-version: '22'
 
       - name: Run JS unit tests
         run: node --test tests/*.test.mjs
