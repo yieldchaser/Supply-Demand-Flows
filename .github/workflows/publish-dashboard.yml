@@ -72,14 +72,16 @@ jobs:
           # to stub out d3, which needs Node >= 22.15.
           node-version: '22'
 
+      # The bundle is a gitignored build artifact, so the tests that pin panel
+      # figures against it need it built first.
+      - name: Build dashboard bundle
+        run: python -m publishers.export_dashboard_json
+
       - name: Run JS unit tests
         run: node --test tests/*.test.mjs
 
       - name: Run preflight observatory audit
         run: python scripts/preflight.py
-
-      - name: Build dashboard bundle
-        run: python -m publishers.export_dashboard_json
 
       - name: Commit bundle
         run: |
