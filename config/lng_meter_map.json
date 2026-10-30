@@ -13,32 +13,32 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-10-30T01:26:52Z",
+    "last_inventory_run": "2026-10-30T08:52:45Z",
     "total_locations_seen": 777,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1879946.0
+        "scheduled_quantity_dth": 1869433.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 952557.0
+        "scheduled_quantity_dth": 958608.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 812561.0
+        "scheduled_quantity_dth": 812187.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 567689.0
+        "scheduled_quantity_dth": 568435.0
       },
       {
         "loc_id": 23365,
@@ -50,19 +50,19 @@
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 491555.0
+        "scheduled_quantity_dth": 486425.0
       },
       {
         "loc_id": 22128,
         "loc_name": "Clarke County (To Destin)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 350628.0
+        "scheduled_quantity_dth": 357619.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 348129.0
+        "scheduled_quantity_dth": 348128.0
       },
       {
         "loc_id": 23700,
@@ -74,7 +74,7 @@
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 297831.0
+        "scheduled_quantity_dth": 279582.0
       }
     ]
   }
