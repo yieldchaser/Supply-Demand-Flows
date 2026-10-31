@@ -122,6 +122,83 @@ async def test_baker_hughes_download_too_small_raises_error(clean_baker_dir: Non
     assert "download too small" in result["error"]
 
 
+def test_fetch_does_not_override_browser_headers() -> None:
+    """Regression: custom nav headers desync the TLS fingerprint.
+
+    The origin's edge resets HTTP/2 streams when profile, User-Agent and the
+    explicit header set disagree. Navigation must rely on curl_cffi's
+    browser-accurate defaults, so no header is overridden.
+    """
+    html = Path("tests/fixtures/baker_hughes_page.html").read_bytes()
+
+    with patch("scrapers.baker_hughes.rigs.cffi_requests.Session") as mock_session_cls:
+        session = MagicMock()
+        mock_session_cls.return_value.__enter__.return_value = session
+
+        def side_effect(url, **kwargs):
+            resp = MagicMock()
+            resp.content = html if "na-rig-count" in url else b"X" * 2000
+            return resp
+
+        session.get.side_effect = side_effect
+
+        import asyncio
+
+        from scrapers.baker_hughes.rigs import _fetch_and_download
+
+        asyncio.run(asyncio.to_thread(_fetch_and_download))
+
+    assert (
+        session.headers.update.call_count == 0
+    ), "Navigation must not override curl_cffi's impersonated headers"
+
+
+@pytest.mark.asyncio
+async def test_fetch_retries_next_profile_after_transport_reset(clean_baker_dir: None) -> None:
+    """Regression: curl (92) HTTP/2 reset must not fail the run on first attempt."""
+    html = Path("tests/fixtures/baker_hughes_page.html").read_bytes()
+    calls: list[str] = []
+
+    class FakeResponse:
+        def __init__(self, content: bytes) -> None:
+            self.content = content
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class FakeSession:
+        def __init__(self, impersonate: str) -> None:
+            self.impersonate = impersonate
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc) -> None:
+            return None
+
+        def get(self, url, **kwargs):
+            calls.append(self.impersonate)
+            if self.impersonate == "safari17_0":
+                raise RuntimeError(
+                    "Failed to perform, curl: (92) HTTP/2 stream 1 was not closed "
+                    "cleanly: INTERNAL_ERROR (err 2)."
+                )
+            return FakeResponse(html if "na-rig-count" in url else b"X" * 2000)
+
+    from scrapers.baker_hughes.rigs import run as run_rigs_fixed
+
+    with (
+        patch("scrapers.baker_hughes.rigs.cffi_requests.Session", FakeSession),
+        patch("scrapers.baker_hughes.rigs.RETRY_BACKOFF_SECONDS", 0.0),
+    ):
+        result = await run_rigs_fixed()
+
+    assert result["status"] == "ok", result
+    # Retried the first profile, then moved on to the next one.
+    assert calls.count("safari17_0") == 2
+    assert "safari17_2_ios" in calls
+
+
 def test_select_current_weekly_link_raises_when_no_match() -> None:
     html = b'<html><a href="/static-files/wrong" title="Archive 2013"></a></html>'
     with pytest.raises(ScraperError) as exc:

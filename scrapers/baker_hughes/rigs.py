@@ -9,7 +9,24 @@ Why curl_cffi and not httpx/requests:
   curl_cffi wraps libcurl with Chrome/Firefox fingerprint impersonation
   for the same result from Python.
 
-Selector strategy (last verified: 2026-04-20):
+Why a Safari fingerprint (last verified: 2026-10-31):
+  Since ~September 2026 the origin's edge resets every Chrome-fingerprinted
+  connection at the HTTP/2 layer:
+      curl: (92) HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)
+  This is deterministic (not transient): every chrome*/edge* profile fails,
+  and it is not a header problem — overriding or omitting any header does not
+  help. The safari17_0 profile passes the same edge and fetches the report.
+  IMPORTANT: do not send a Chrome User-Agent string with the Safari profile,
+  and do not send headers the browser would not send (e.g. an explicit
+  ``Referer`` on the landing-page navigation) — the fingerprint/UA mismatch is
+  what trips the reset. curl_cffi already sends a browser-accurate header set
+  for the impersonated profile, so we leave navigation headers alone.
+
+  If the Safari profile starts failing too, probe other profiles with
+  ``curl_cffi.requests.get(URL, impersonate=<profile>)`` before changing the
+  selector — the parse layer is rarely the thing that breaks here.
+
+Selector strategy (last verified: 2026-10-20):
   Baker Hughes publishes ~4 static-files links on /na-rig-count, all with
   UUIDs that change weekly. We identify the "current weekly" file by:
     - href contains "static-files"
@@ -26,6 +43,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -43,13 +61,11 @@ RAW_DIR = Path("data/raw/baker_hughes")
 LANDING_URL = "https://rigcount.bakerhughes.com/na-rig-count"
 BASE_URL = "https://rigcount.bakerhughes.com"
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Referer": LANDING_URL,
-}
+# Browser profiles tried in order. Safari first — Chrome-family fingerprints
+# currently get their HTTP/2 stream reset by the origin's edge (see module doc).
+IMPERSONATE_PROFILES = ("safari17_0", "safari17_2_ios", "chrome124")
+ATTEMPTS_PER_PROFILE = 2
+RETRY_BACKOFF_SECONDS = 5.0
 
 TIMEOUT_SECONDS = 30.0
 
@@ -93,19 +109,18 @@ def _select_current_weekly_link(html: bytes) -> str:
     return href if href.startswith("http") else BASE_URL + href
 
 
-def _fetch_and_download() -> bytes:
-    """Sync helper - warms session, scrapes landing page, downloads file."""
-    with cffi_requests.Session(impersonate="chrome124") as session:
-        session.headers.update(HEADERS)
-
-        # Step 1: warm session on landing page
+def _fetch_once(impersonate: str) -> bytes:
+    """One full landing-page + download pass with a single browser profile."""
+    with cffi_requests.Session(impersonate=impersonate) as session:
+        # Navigation step: no custom headers. curl_cffi already applies the
+        # profile's browser-accurate header set; overriding them desyncs the
+        # fingerprint and the edge resets the stream.
         r = session.get(LANDING_URL, timeout=TIMEOUT_SECONDS)
         r.raise_for_status()
 
-        # Step 2: select current weekly link
         download_url = _select_current_weekly_link(r.content)
 
-        # Step 3: download (same session = cookies preserved + Referer)
+        # Same session so cookies from the landing page are preserved.
         r2 = session.get(download_url, timeout=TIMEOUT_SECONDS)
         r2.raise_for_status()
 
@@ -116,6 +131,38 @@ def _fetch_and_download() -> bytes:
             )
 
         return r2.content
+
+
+def _fetch_and_download() -> bytes:
+    """Sync helper - retries transient transport failures across profiles.
+
+    The origin's edge intermittently resets connections (curl error 92/56/35)
+    and occasionally 403s. A single weekly run must not fail on that, so each
+    profile is retried a couple of times and then the next profile is tried.
+    """
+    errors: list[str] = []
+    for impersonate in IMPERSONATE_PROFILES:
+        for attempt in range(1, ATTEMPTS_PER_PROFILE + 1):
+            try:
+                content = _fetch_once(impersonate)
+                if attempt > 1 or impersonate != IMPERSONATE_PROFILES[0]:
+                    logger.info(
+                        f"Baker Hughes fetch succeeded with {impersonate} (attempt {attempt})"
+                    )
+                return content
+            except ScraperError:
+                # Selector failures will not be fixed by retrying — surface now.
+                raise
+            except Exception as e:
+                msg = f"{impersonate} attempt {attempt}: {type(e).__name__}: {e}"
+                logger.warning(f"Baker Hughes fetch failed - {msg}")
+                errors.append(msg)
+                if attempt < ATTEMPTS_PER_PROFILE:
+                    time.sleep(RETRY_BACKOFF_SECONDS * attempt)
+
+    raise ScraperError(
+        "Baker Hughes fetch failed on every profile after retries: " + " | ".join(errors)
+    )
 
 
 async def run() -> dict:
