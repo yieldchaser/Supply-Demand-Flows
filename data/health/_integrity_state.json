@@ -1,18 +1,18 @@
 {
   "gulf_south": {
-    "rows": 693682,
-    "distinct_periods": 158,
-    "distinct_series": 4490,
-    "max_period": "2026-10-29",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
+    "rows": 699644,
+    "distinct_periods": 160,
+    "distinct_series": 4494,
+    "max_period": "2026-10-31",
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
     "consecutive_flat": 0
   },
   "gie_agsi": {
-    "rows": 85040,
-    "distinct_periods": 2126,
+    "rows": 85120,
+    "distinct_periods": 2128,
     "distinct_series": 40,
-    "max_period": "2026-10-27",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
+    "max_period": "2026-10-29",
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
     "consecutive_flat": 0
   },
   "baker_hughes": {
@@ -20,79 +20,79 @@
     "distinct_periods": 148,
     "distinct_series": 660,
     "max_period": "2026-10-30",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
-    "consecutive_flat": 0
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
+    "consecutive_flat": 1
   },
   "eia_storage": {
     "rows": 3680,
     "distinct_periods": 460,
     "distinct_series": 8,
     "max_period": "2026-10-23",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
-    "consecutive_flat": 0
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
+    "consecutive_flat": 1
   },
   "eia_lng_exports": {
     "rows": 3168,
     "distinct_periods": 67,
     "distinct_series": 52,
     "max_period": "2026-07-01",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
-    "consecutive_flat": 0
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
+    "consecutive_flat": 1
   },
   "eia_supply": {
     "rows": 474,
     "distinct_periods": 79,
     "distinct_series": 6,
     "max_period": "2026-07",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
-    "consecutive_flat": 0
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
+    "consecutive_flat": 1
   },
   "gasnom": {
-    "rows": 881936,
-    "distinct_periods": 1153,
+    "rows": 882464,
+    "distinct_periods": 1154,
     "distinct_series": 1246,
-    "max_period": "2026-10-30",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
+    "max_period": "2026-10-31",
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
     "consecutive_flat": 0
   },
   "quorum": {
-    "rows": 120830,
-    "distinct_periods": 2053,
+    "rows": 120884,
+    "distinct_periods": 2054,
     "distinct_series": 120,
-    "max_period": "2026-10-30",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
+    "max_period": "2026-10-31",
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
     "consecutive_flat": 0
   },
   "bhe": {
-    "rows": 21036,
-    "distinct_periods": 668,
+    "rows": 21228,
+    "distinct_periods": 670,
     "distinct_series": 120,
-    "max_period": "2026-10-29",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
+    "max_period": "2026-10-31",
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
     "consecutive_flat": 0
   },
   "cheniere": {
-    "rows": 14652,
-    "distinct_periods": 158,
+    "rows": 14850,
+    "distinct_periods": 160,
     "distinct_series": 330,
-    "max_period": "2026-10-29",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
+    "max_period": "2026-10-31",
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
     "consecutive_flat": 0
   },
   "enbridge": {
-    "rows": 250760,
-    "distinct_periods": 1164,
+    "rows": 251048,
+    "distinct_periods": 1165,
     "distinct_series": 216,
-    "max_period": "2026-10-30",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
+    "max_period": "2026-10-31",
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
     "consecutive_flat": 0
   },
   "kinder_morgan": {
-    "rows": 1078,
-    "distinct_periods": 67,
+    "rows": 1106,
+    "distinct_periods": 69,
     "distinct_series": 24,
-    "max_period": "2026-10-30",
-    "checked_at": "2026-10-31T19:48:29.914992+00:00",
+    "max_period": "2026-11-01",
+    "checked_at": "2026-10-31T20:37:49.119237+00:00",
     "consecutive_flat": 0
   }
 }
