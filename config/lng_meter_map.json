@@ -13,50 +13,50 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-11-03T22:28:12Z",
+    "last_inventory_run": "2026-11-04T00:02:55Z",
     "total_locations_seen": 780,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1511873.0
+        "scheduled_quantity_dth": 1522550.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1051045.0
+        "scheduled_quantity_dth": 1048744.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 571787.0
+        "scheduled_quantity_dth": 570104.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 505124.0
+        "scheduled_quantity_dth": 508649.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 485277.0
+        "scheduled_quantity_dth": 489372.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 448441.0
+        "scheduled_quantity_dth": 453279.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 306842.0
+        "scheduled_quantity_dth": 331772.0
       },
       {
         "loc_id": 22128,
@@ -68,13 +68,13 @@
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 270675.0
+        "scheduled_quantity_dth": 266982.0
       },
       {
-        "loc_id": 24255,
-        "loc_name": "Methanex Geismer 2",
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 197360.0
+        "scheduled_quantity_dth": 203128.0
       }
     ]
   }
