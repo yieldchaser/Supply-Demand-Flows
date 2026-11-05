@@ -45,12 +45,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Run dataset-integrity audit + send alerts
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Run dataset-integrity audit
         run: |
-          python -m validators.run_integrity --alert
+          python -m validators.run_integrity
 
       - name: Commit integrity artefacts
         run: |

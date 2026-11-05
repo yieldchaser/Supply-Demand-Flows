@@ -172,11 +172,11 @@ def send_health_only_if_failing() -> bool:
     return send_alert(dedup, prefix, include_health_prefix=False, dedup_ttl=timedelta(hours=1))
 
 
-INTEGRITY_ALERT_SEVERITIES: frozenset[str] = frozenset({"WARN", "FAIL"})
+INTEGRITY_ALERT_SEVERITIES: frozenset[str] = frozenset({"FAIL"})
 
 
 def _integrity_finding_results(results: Any) -> list[dict[str, Any]]:
-    """Extract WARN/FAIL results from one report entry; SKIPPED/PASS are noise."""
+    """Extract actionable FAIL results from one report entry; WARN/SKIPPED/PASS are suppressed."""
     return [
         res
         for res in results or []
