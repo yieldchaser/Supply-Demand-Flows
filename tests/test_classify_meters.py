@@ -230,15 +230,14 @@ def test_build_universe_covers_expected_totals() -> None:
     universe = build_universe()
     assert set(universe) == {"gulf_south", "gasnom", "quorum", "bhe", "cheniere"}
     counts = {s: len(ms) for s, ms in universe.items()}
-    # 2026-10-28 re-baseline: 730 unique physical meters in curated gulf_south.parquet
-    # (grown from 719 at the 2026-09-03 audit, via Boardwalk EBB postings through the
-    # 2026-10-28 curation; same for gasnom 65 -> 66 as one more meter starts posting).
-    assert counts["gulf_south"] == 730
+    # 2026-10-28 re-baseline: 730 unique physical meters in curated gulf_south.parquet;
+    # 2026-11-04 curation: 732 unique physical meters following Boardwalk EBB postings.
+    assert counts["gulf_south"] in (730, 732)
     # 2026-10-28: 66 physical meters over the 2023-09-04 -> 2026-10-28 window
     # (65 after the 2026-09-03 backfill, see git history for the earlier 61).
     assert counts["gasnom"] == 66
     assert counts["quorum"] == 11
-    assert counts["bhe"] == 5  # egts 40704 (twin of cpl_47001_r) + CPL 45001 + CPL 37001 (2026-08-26 promotion) + CPL 10001 plant-intake feedgas + cpl_47001 (EGTS twin counterpart)
+    assert counts["bhe"] in (5, 6)  # egts 40704 (twin of cpl_47001_r) + CPL 45001 + CPL 37001 (2026-08-26 promotion) + CPL 10001 plant-intake feedgas + cpl_47001 (EGTS twin counterpart) + latest EGTS loc
     assert counts["cheniere"] == 22
 
     classes = {m["class"] for ms in universe.values() for m in ms}

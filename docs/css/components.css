@@ -1195,7 +1195,7 @@
   flex-wrap: wrap;
 }
 
-.divergence-card__icon   { font-size: var(--fs-base); }
+.divergence-card__icon   { display: inline-flex; align-items: center; justify-content: center; vertical-align: -1px; }
 .divergence-card__regime { font-weight: 600; color: var(--text-primary); }
 .divergence-card__detail { color: var(--text-secondary); }
 

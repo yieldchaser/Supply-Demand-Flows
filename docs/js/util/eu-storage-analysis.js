@@ -53,10 +53,23 @@ export function monthOfDay(date) {
   return dayOnly(date).getMonth() + 1;
 }
 
-function monthDayFraction(date) {
+/**
+ * Continuous position of a calendar date on the 0..1 whole-year horizontal axis.
+ *
+ * Each month occupies 1/12th of the horizontal axis; days within the month are
+ * centered at (day - 0.5) / daysInMonth. This guarantees:
+ *  1. Strict monotonicity across the entire 365/366 day year.
+ *  2. Continuous progression across month boundaries without sawtooth resets to 0.
+ *  3. Invariant month-boundary placement (e.g. March 1 is identical in leap and
+ *     non-leap years at (2 + 0.5/31) / 12), perfectly aligning with monthly envelopes.
+ */
+export function monthDayFraction(date) {
   const d = dayOnly(date);
-  return (d.getDate() - 0.5) / daysInMonth(d.getFullYear(), d.getMonth());
+  return (d.getMonth() + (d.getDate() - 0.5) / daysInMonth(d.getFullYear(), d.getMonth())) / 12;
 }
+
+/** Explicit alias for calendar position on the 0..1 axis. */
+export const calendarFraction = monthDayFraction;
 
 /**
  * Build one country's usable series by joining the four AGSI series on date.
@@ -234,27 +247,28 @@ export function buildAggregate(views) {
  *   years: number[], median: number|null, min: number|null, max: number|null,
  *   n: number}}
  */
-export function positionalNormal(rows, asOf, { lookbackYears = 5, toleranceDays = 10 } = {}) {
+export function positionalNormal(rows, asOf, { lookbackYears = 5, toleranceDays = 10, pick = (r) => r?.value ?? r?.pct, minYear = null } = {}) {
   const d = dayOnly(asOf);
   const year = d.getFullYear();
-  const minYear = year - lookbackYears;
+  const cutoffYear = minYear != null ? Math.max(year - lookbackYears, minYear) : year - lookbackYears;
   const doy = dayOfYear(d);
   const values = [];
-  for (let y = year - 1; y >= minYear; y--) {
+  for (let y = year - 1; y >= cutoffYear; y--) {
     let best = null;
     for (const r of rows || []) {
       const p = r.period instanceof Date ? r.period : null;
       if (!p || p.getFullYear() !== y) continue;
-      if (!Number.isFinite(r.value)) continue;
+      const v = pick ? pick(r) : (r.value ?? r.pct);
+      if (!Number.isFinite(v)) continue;
       // day-of-year difference, wrapped through the year boundary
       let lag = Math.abs(dayOfYear(p) - doy);
       const len = isLeap(y) ? 366 : 365;
       lag = Math.min(lag, len - lag);
       if (lag > toleranceDays) continue;
-      if (!best || lag < best.lag) best = { lag, row: r };
+      if (!best || lag < best.lag) best = { lag, row: r, value: v };
     }
     if (best) {
-      values.push({ year: y, period: best.row.period, value: best.row.value });
+      values.push({ year: y, period: best.row.period, value: best.value });
     }
   }
   const sorted = values.map((v) => v.value).sort((a, b) => a - b);
@@ -307,17 +321,26 @@ export function rankAmongYears(value, values) {
  * @returns {Array<{month: number, min: number|null, median: number|null,
  *   max: number|null, years: number[], nYears: number}>}
  */
-export function monthlyEnvelope(rows, currentYear, nMonths = 12) {
+export function monthlyEnvelope(rows, currentYear, nMonths = 12, opts = {}) {
+  let count = nMonths;
+  let options = opts;
+  if (typeof count === 'object' && count !== null) {
+    options = count;
+    count = 12;
+  }
+  const { pick = (r) => r?.value ?? r?.pct, minYear = null } = options || {};
   const out = [];
-  for (let m = 1; m <= nMonths; m++) {
+  for (let m = 1; m <= count; m++) {
     const vals = [];
     const years = new Set();
     for (const r of rows || []) {
       const p = r.period instanceof Date ? r.period : null;
       if (!p || p.getMonth() + 1 !== m) continue;
       if (p.getFullYear() >= currentYear) continue;
-      if (!Number.isFinite(r.value)) continue;
-      vals.push(r.value);
+      if (minYear != null && p.getFullYear() < minYear) continue;
+      const v = pick ? pick(r) : (r.value ?? r.pct);
+      if (!Number.isFinite(v)) continue;
+      vals.push(v);
       years.add(p.getFullYear());
     }
     vals.sort((a, b) => a - b);
@@ -337,22 +360,23 @@ export function monthlyEnvelope(rows, currentYear, nMonths = 12) {
 }
 
 /**
- * Split a country's history into one array per calendar year, thinned to a
- * whole-year positional axis (`monthDayFraction`, 0..1) so every year is drawn
- * on the same horizontal scale.
+ * Split a country's history into one array per calendar year, mapped to the
+ * continuous whole-year positional axis (`monthDayFraction`, 0..1).
  *
- * @param {Array<{period: Date, value: number}>} rows
- * @param {(row: object) => number} pick
+ * @param {Array<{period: Date, value?: number, pct?: number}>} rows
+ * @param {(row: object) => number} [pick]
  * @returns {Array<{year: number, points: Array<{x: number, period: Date, value: number}>, n: number}>}
  */
-export function rowsByYear(rows, pick = (r) => r.pct) {
+export function rowsByYear(rows, pick = (r) => r?.value ?? r?.pct) {
   const byYear = new Map();
   for (const r of rows || []) {
     const v = pick(r);
     if (!Number.isFinite(v)) continue;
-    const y = r.period.getFullYear();
+    const p = r.period instanceof Date ? r.period : new Date(r.period);
+    if (!Number.isFinite(p.getTime())) continue;
+    const y = p.getFullYear();
     if (!byYear.has(y)) byYear.set(y, []);
-    byYear.get(y).push({ x: monthDayFraction(r.period), period: r.period, value: v });
+    byYear.get(y).push({ x: monthDayFraction(p), period: p, value: v });
   }
   return [...byYear.entries()]
     .sort((a, b) => a[0] - b[0])
@@ -361,6 +385,119 @@ export function rowsByYear(rows, pick = (r) => r.pct) {
       points: points.sort((a, b) => a.x - b.x),
       n: points.length,
     }));
+}
+
+/**
+ * Trailing flow dynamics (GWh/d net, injection, withdrawal, momentum, weekly TWh rate).
+ *
+ * @param {Array<{period: Date, injectionGwh?: number|null, withdrawalGwh?: number|null}>} rows
+ * @param {{windowDays?: number}} [opts]
+ * @returns {{
+ *   latestNetGwh: number|null,
+ *   avgNetGwh: number|null,
+ *   avgInjectionGwh: number|null,
+ *   avgWithdrawalGwh: number|null,
+ *   momentumGwh: number|null,
+ *   rateTwhPerWeek: number|null,
+ *   regime: 'injection'|'withdrawal'|'neutral'|null,
+ *   nDays: number
+ * }|null}
+ */
+export function flowDynamics(rows, { windowDays = 7 } = {}) {
+  if (!rows || rows.length === 0) return null;
+  const netFlow = (r) => (r.injectionGwh == null && r.withdrawalGwh == null)
+    ? null
+    : (r.injectionGwh ?? 0) - (r.withdrawalGwh ?? 0);
+
+  const valid = rows.filter((r) => netFlow(r) !== null);
+  if (valid.length === 0) return null;
+
+  const w = Math.min(windowDays, valid.length);
+  const tail = valid.slice(-w);
+  const prevTail = valid.slice(-2 * w, -w);
+
+  const avgNet = tail.reduce((s, r) => s + netFlow(r), 0) / tail.length;
+  const avgInj = tail.reduce((s, r) => s + (r.injectionGwh ?? 0), 0) / tail.length;
+  const avgWd = tail.reduce((s, r) => s + (r.withdrawalGwh ?? 0), 0) / tail.length;
+
+  const prevAvgNet = prevTail.length
+    ? prevTail.reduce((s, r) => s + netFlow(r), 0) / prevTail.length
+    : null;
+  const momentum = prevAvgNet != null ? avgNet - prevAvgNet : null;
+  const rateTwhPerWeek = (avgNet * 7) / 1000;
+
+  const latestRow = valid[valid.length - 1];
+  const latestNet = netFlow(latestRow);
+
+  return {
+    latestNetGwh: latestNet,
+    avgNetGwh: avgNet,
+    avgInjectionGwh: avgInj,
+    avgWithdrawalGwh: avgWd,
+    momentumGwh: momentum,
+    rateTwhPerWeek,
+    regime: avgNet > 15 ? 'injection' : avgNet < -15 ? 'withdrawal' : 'neutral',
+    nDays: tail.length,
+  };
+}
+
+/**
+ * Comprehensive country metrics combining stock, capacity, positional normal,
+ * deviation in pp and TWh, and flow dynamics.
+ *
+ * @param {object} view
+ * @param {Date} [asOf]
+ * @param {{lookbackYears?: number}} [opts]
+ * @returns {object|null}
+ */
+export function countryStorageMetrics(view, asOf = null, { lookbackYears = 5, minYear = null } = {}) {
+  if (!view) return null;
+  const rows = view.rows || [];
+  let latest = view.latest;
+  if (asOf instanceof Date || (asOf && typeof asOf.getTime === 'function')) {
+    latest = rows.find((r) => r.period && r.period.getTime() === asOf.getTime()) ?? view.latest;
+  } else if (typeof asOf === 'number') {
+    const yearMatches = rows.filter((r) => r.period && (r.period.getUTCFullYear?.() === asOf || r.period.getFullYear?.() === asOf));
+    latest = yearMatches.length ? yearMatches[yearMatches.length - 1] : view.latest;
+  }
+  if (!latest || !Number.isFinite(latest.pct)) return null;
+
+  const normal = positionalNormal(
+    rows.map((r) => ({ period: r.period, value: r.pct })),
+    latest.period,
+    { lookbackYears, minYear }
+  );
+
+  const deviationPp = normal.median != null ? latest.pct - normal.median : null;
+  const deviationTwh = deviationPp != null && view.capacityTwh != null
+    ? (deviationPp * view.capacityTwh) / 100
+    : null;
+
+  const rank = normal.n
+    ? rankAmongYears(latest.pct, normal.values.map((v) => v.value))
+    : { rank: null, n: 0 };
+
+  const flow7d = flowDynamics(rows, { windowDays: 7 });
+  const flow14d = flowDynamics(rows, { windowDays: 14 });
+
+  return {
+    cc: view.cc,
+    label: view.label,
+    capacityTwh: view.capacityTwh,
+    latest: {
+      period: latest.period,
+      pct: latest.pct,
+      twh: latest.twh,
+      injectionGwh: latest.injectionGwh,
+      withdrawalGwh: latest.withdrawalGwh,
+    },
+    normal,
+    deviationPp,
+    deviationTwh,
+    rank,
+    flow7d,
+    flow14d,
+  };
 }
 
 /**

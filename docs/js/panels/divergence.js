@@ -254,9 +254,9 @@ function classifyRegime(us_signal, eu_signal) {
   // false, so the fall-through used to print "Neutral transatlantic balance"
   // over a half-missing comparison.
   if (us_signal == null || eu_signal == null) return {
-    label: 'Comparison incomplete',
-    detail: 'One side has no seasonal normal for its latest period, so the spread is not comparable yet.',
-    icon: '❓',
+    label: 'Comparison Incomplete',
+    detail: 'Seasonal normal unavailable for current period; transatlantic spread undefined.',
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
     kind: 'neutral',
   };
 
@@ -266,33 +266,33 @@ function classifyRegime(us_signal, eu_signal) {
   const eu_tight = eu_signal < -5;  // EU well below seasonal norm
 
   if (us_loose && eu_tight) return {
-    label: 'Bullish for US LNG exports',
-    detail: 'US storage comfortable while European storage entered injection season anomalously low.',
-    icon: '🚀',
+    label: 'Favorable US LNG Export Arbitrage',
+    detail: 'US storage in seasonal surplus while European storage entered injection season depressed.',
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>',
     kind: 'bullish',
   };
   if (us_tight && eu_tight) return {
-    label: 'Global gas stress',
-    detail: 'Both regions entering season with depleted storage. Watch for price acceleration on either side of the Atlantic.',
-    icon: '⚠️',
+    label: 'Transatlantic Inventory Deficit',
+    detail: 'Depleted storage inventories across both basins; upward pressure on global gas benchmarks.',
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
     kind: 'warning',
   };
   if (us_loose && eu_loose) return {
-    label: 'Slack global market',
-    detail: 'Storage comfortable on both sides. Spreads compressed; volatility likely subdued near-term.',
-    icon: '😴',
+    label: 'Global Inventory Surplus',
+    detail: 'Inventories elevated across both basins; compressed transatlantic arbitrage and subdued spread volatility.',
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>',
     kind: 'neutral',
   };
   if (us_tight && eu_loose) return {
-    label: 'Reverse flow pressure',
-    detail: 'US storage tight while European storage healthy. Atypical configuration — watch for export curtailment risk.',
-    icon: '🔄',
+    label: 'Inverted Transatlantic Spread',
+    detail: 'US storage tight while European storage healthy; heightened sensitivity to export netbacks and curtailment risk.',
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>',
     kind: 'warning',
   };
   return {
-    label: 'Neutral transatlantic balance',
-    detail: 'Neither region is meaningfully out of seasonal norms. Watch the spread for early regime shifts.',
-    icon: '⚖️',
+    label: 'Balanced Transatlantic Inventories',
+    detail: 'Inventories within seasonal norms across both regions; transatlantic spread stable.',
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="9" x2="19" y2="9"></line><line x1="5" y1="15" x2="19" y2="15"></line></svg>',
     kind: 'neutral',
   };
 }

@@ -22,7 +22,7 @@ export function renderCycleRevisions(container, cycleData, opts = {}) {
 
   const sub = document.createElement('p');
   sub.className = 'revisions-subtitle';
-  sub.innerText = "Today's gas day flow adjustments across publication windows";
+  sub.innerText = "Gas Day scheduled quantity adjustments across nomination cycles";
   container.appendChild(sub);
 
   // Platform limitation note (optional): some EBB platforms only publish a
@@ -87,7 +87,9 @@ export function renderCycleRevisions(container, cycleData, opts = {}) {
     .style('fill', (d, i) => i === latestIndex ? 'var(--blue-flame)' : 'none')
     .style('stroke', 'var(--blue-flame)')
     .style('stroke-width', '1.5px')
-    .style('fill-opacity', 0.85);
+    .style('fill-opacity', 0.85)
+    .append('title')
+    .text(d => `${d.cycle} Cycle: ${d.value.toFixed(0)} MMcf/d scheduled quantity`);
 
   // Cycle labels
   g.selectAll('.rev-label')
@@ -105,7 +107,7 @@ export function renderCycleRevisions(container, cycleData, opts = {}) {
 
   // Values + Deltas
   cycleData.forEach((d, i) => {
-    const valText = `${d.value.toFixed(0)} MMcf`;
+    const valText = `${d.value.toFixed(0)} MMcf/d`;
     let deltaText = '';
     let deltaClass = 'rev-delta--neutral';
 

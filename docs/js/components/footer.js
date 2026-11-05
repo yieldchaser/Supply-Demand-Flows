@@ -19,7 +19,7 @@ export function renderFooter(bundle) {
       <div class="footer-left">
         <span>Blue Tide</span>
         <span class="footer-left__sep">·</span>
-        <span>Data: EIA, Baker Hughes</span>
+        <span>Data: EIA, Baker Hughes, GIE AGSI+, Pipeline EBBs</span>
         <span class="footer-left__sep">·</span>
         <a href="https://github.com/yieldchaser/Supply-Demand-Flows"
            target="_blank" rel="noopener noreferrer">GitHub</a>

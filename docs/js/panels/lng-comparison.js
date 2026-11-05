@@ -27,6 +27,12 @@ const TERMINAL_COLORS = {
   golden_pass: '#94a3b8',    // slate
 };
 
+function checkIcon(isChecked) {
+  return isChecked
+    ? '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="vertical-align: -1px; margin-right: 3px;" aria-hidden="true"><path d="M13.485 1.929a1 1 0 0 1 .086 1.41l-7.5 8.5a1 1 0 0 1-1.45.044l-3.5-3.5a1 1 0 0 1 1.414-1.414L5.27 9.197l6.805-7.712a1 1 0 0 1 1.41-.086z"/></svg>'
+    : '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align: -1px; margin-right: 3px; opacity: 0.5;" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2"/></svg>';
+}
+
 /**
  * Render the Multi-Terminal Comparison Panel.
  *
@@ -102,7 +108,7 @@ export function renderLngComparisonPanel(panelEl, bundle) {
       ? `<span style="font-size: 9px; opacity: 0.8; margin-left: 4px;">(${term.expectedCoveragePct}% cov)</span>`
       : '';
     btn.className = `chip ${isChecked ? 'chip--active' : ''}`;
-    btn.innerHTML = `${isChecked ? '☑' : '☐'} ${term.display} ${badge}`;
+    btn.innerHTML = `${checkIcon(isChecked)} ${term.display} ${badge}`;
     btn.onclick = () => {
       if (selectedTerminals.includes(id)) {
         if (selectedTerminals.length > 1) {
@@ -122,7 +128,8 @@ export function renderLngComparisonPanel(panelEl, bundle) {
   const exportBtn = document.createElement('button');
   exportBtn.className = 'chip chip--export';
   exportBtn.style.marginLeft = 'auto';
-  exportBtn.innerHTML = '📥 Export Comparison CSV';
+  const dlIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: -1px;" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+  exportBtn.innerHTML = `${dlIcon}Export Comparison CSV`;
   exportBtn.onclick = () => {
     const comp = buildTerminalComparison(bundle, selectedTerminals);
     const rows = comp.dates.map((d) => {
@@ -172,7 +179,7 @@ export function renderLngComparisonPanel(panelEl, bundle) {
         ? `<span style="font-size: 9px; opacity: 0.8; margin-left: 4px;">(${term.expectedCoveragePct}% cov)</span>`
         : '';
       b.className = `chip ${isChecked ? 'chip--active' : ''}`;
-      b.innerHTML = `${isChecked ? '☑' : '☐'} ${term.display} ${badge}`;
+      b.innerHTML = `${checkIcon(isChecked)} ${term.display} ${badge}`;
     });
 
     const comp = buildTerminalComparison(bundle, selectedTerminals);

@@ -167,7 +167,7 @@ export function renderLngFleetOverview(
     }
 
     const proxyBadge = isProxy
-      ? `<span class="fleet-proxy-badge" title="Inferred proxy: Design Capacity − OAC. Cheniere does not publish Scheduled Quantities.">ⓘ</span>`
+      ? `<span class="fleet-proxy-badge" title="Inferred proxy: Design Capacity − OAC. Cheniere does not publish Scheduled Quantities."><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>`
       : '';
     // TASK 3 (2026-08-26): measured-partial terminals MUST wear a prominent
     // badge naming the invisible fraction — same visual weight as Freeport's
@@ -181,7 +181,7 @@ export function renderLngFleetOverview(
       ? `<span class="fleet-partial-badge" title="${t.coverageNote || 'Measured-partial: only a share of terminal feedgas is publicly visible.'}">partial ▲</span>`
       : '';
     const creepBadge = s.ok && s.utilPct >= 100
-      ? `<span class="capacity-creep-tooltip" title="running above stated nameplate — capacity creep or measurement basis">ⓘ</span>`
+      ? `<span class="capacity-creep-tooltip" title="Operating above stated nameplate capacity: capacity creep or measurement basis"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>`
       : '';
 
     // A terminal that is currently down must say so on the card itself. The
@@ -191,7 +191,7 @@ export function renderLngFleetOverview(
     // at its 15,000 Dth/d floor for 23 days (2026-09-19 .. 2026-10-11) while this
     // card showed only a short, falling bar.
     const outageHtml = s.outage
-      ? `<div class="fleet-card__status fleet-card__status--outage" title="${s.outage.detail || 'Terminal not taking gas'}">⚠ ${s.outage.type.toLowerCase().replace(/_/g, ' ')}${
+      ? `<div class="fleet-card__status fleet-card__status--outage" title="${s.outage.detail || 'Terminal not taking gas'}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px; vertical-align: -1px;" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>${s.outage.type.toLowerCase().replace(/_/g, ' ')}${
           s.outage.duration ? ` · ${s.outage.duration}d` : ''
         }</div>`
       : '';

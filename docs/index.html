@@ -20,6 +20,8 @@
   <link rel="stylesheet" href="css/components/basin-egress.css">
   <link rel="stylesheet" href="css/components/chapter-nav.css">
   <link rel="stylesheet" href="css/components/chapter-sections.css">
+  <link rel="stylesheet" href="css/components/eu-storage.css">
+  <link rel="stylesheet" href="css/components/storage-panel.css">
 
   <script type="importmap">
   {
@@ -58,7 +60,6 @@
       <section class="panel" id="panel-balance" data-panel="balance"></section>
       <section class="panel" id="panel-rigs" data-panel="rigs"></section>
       <section class="panel" id="panel-basins" data-panel="basins"></section>
-      <div class="panel panel--interlude" id="panel-divergence"></div>
     </div>
 
     <div class="chapter" data-chapter="basins">
@@ -83,10 +84,14 @@
       <div class="panel" id="panel-lng-downtime" data-panel="lng-downtime"></div>
     </div>
 
+    <div class="chapter" data-chapter="europe">
+      <div class="panel panel--interlude" id="panel-divergence"></div>
+      <div class="panel" id="panel-eu-storage"></div>
+    </div>
+
     <div class="chapter" data-chapter="macro">
       <div class="panel" id="panel-lng-total"></div>
       <div class="panel" id="panel-lng-shares"></div>
-      <div class="panel" id="panel-eu-storage"></div>
     </div>
   </main>
 
@@ -160,7 +165,7 @@
         // next to the rows that produced them.
         // A chapter without a registered derivation still exports its raw rows.
         const derived = {};
-        if (chapter.id === 'overview' || chapter.id === 'macro') {
+        if (chapter.id === 'europe' || chapter.id === 'overview' || chapter.id === 'macro') {
           const { buildDivergenceModel, divergenceExport } = await import('./js/panels/divergence.js');
           derived[chapter.id] = () => divergenceExport(buildDivergenceModel(bundle));
         }

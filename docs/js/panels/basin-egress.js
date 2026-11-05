@@ -232,11 +232,12 @@ function trailingMean(arr, n) {
 
 /**
  * Gas-year info matching lng-feedgas.getGasYearInfo (Feb 1 → Jan 31).
+ * Kept for gas-year reference calculations.
  *
  * @param {Date} date
  * @returns {{gasYear: number, dayIndex: number}}
  */
-function getGasYearInfo(date) {
+export function getGasYearInfo(date) {
   const y = date.getFullYear();
   const m = date.getMonth();
   let gasYear;
@@ -290,18 +291,22 @@ export function renderBasinEgressPanel(panelEl, bundle) {
   bodyEl.className = 'basin-egress-wrapper';
   panelEl.appendChild(bodyEl);
 
+  const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(bodyEl, {
     title: 'Haynesville · Basin Egress',
     subtitle: 'Take-away flows via Gulf South · supply-side counterpart to LNG feedgas',
     sourceKey: BASIN_SOURCE,
     latestPeriod: source.latest_period,
+    draw: () => drawRef.current?.(),
   });
 
   // ── KPI strip ──
   renderKpiStrip(sidebarEl, daily);
 
   // ── Stacked corridor area chart (chart column) ──
-  drawCorridorChart(chartEl, daily);
+  const draw = () => drawCorridorChart(chartEl, daily);
+  drawRef.current = draw;
+  draw();
 
   // ── Corridor table (full width under chart) ──
   const tableEl = document.createElement('div');
@@ -403,14 +408,18 @@ function renderKpiStrip(sidebarEl, daily) {
 }
 
 /**
- * Stacked corridor area chart over the current gas year, LNG-panel visual
- * language: gas-year dayIndex x-axis, month ticks, muted gridlines, callout.
+ * Stacked corridor area chart over available data range:
+ * uses d3.scaleTime() spanning from the earliest observation to latest,
+ * eliminating the artificial Feb-May blank void caused by fixed-gas-year alignment.
  *
  * @param {HTMLElement} container
- * @param {Array<{dateStr: string, date: Date, byCorridor: Object<string, number>, highTotal: number}>} daily
+ * @param {Array<{dateStr: string, date: Date, byCorridor: Object<string, number>, highTotal: number, oacLevelByCorridor?: Object<string, number>}>} daily
  */
-function drawCorridorChart(container, daily) {
+export function drawCorridorChart(container, daily) {
   container.innerHTML = '';
+  container.style.position = 'relative';
+
+  if (!daily || daily.length === 0) return;
 
   const rect = container.getBoundingClientRect();
   const margin = { top: 24, right: 32, bottom: 40, left: 56 };
@@ -427,16 +436,16 @@ function drawCorridorChart(container, daily) {
 
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-  daily.forEach((d) => {
-    const info = getGasYearInfo(d.date);
-    d.gasYear = info.gasYear;
-    d.dayIndex = info.dayIndex;
-  });
-  const currentGasYear = d3.max(daily, (d) => d.gasYear);
-  const currentYearRows = daily.filter((d) => d.gasYear === currentGasYear);
+  const [minDate, maxDate] = d3.extent(daily, (d) => d.date);
+  if (!minDate || !maxDate) return;
 
-  const x = d3.scaleLinear().domain([0, 365]).range([0, width]);
-  const maxVal = d3.max(currentYearRows, (d) => dth_to_mmcf(d.highTotal)) || 0;
+  // Domain starts cleanly from first observation; pad slightly if single-point
+  const xDomain = minDate.getTime() === maxDate.getTime()
+    ? [new Date(minDate.getTime() - 86400000), new Date(maxDate.getTime() + 86400000)]
+    : [minDate, maxDate];
+
+  const x = d3.scaleTime().domain(xDomain).range([0, width]);
+  const maxVal = d3.max(daily, (d) => dth_to_mmcf(d.highTotal)) || 0;
   const yMax = Math.max(maxVal * 1.15, dth_to_mmcf(1)); // guard empty
   const y = d3.scaleLinear().domain([0, yMax]).range([height, 0]);
 
@@ -455,26 +464,26 @@ function drawCorridorChart(container, daily) {
 
   // One stacked band per corridor (registry order = bottom to top).
   const activeCorridors = CORRIDORS.filter(
-    (c) => currentYearRows.some((r) => (r.byCorridor[c.key] || 0) > 0)
+    (c) => daily.some((r) => (r.byCorridor[c.key] || 0) > 0)
   );
   const cum = new Map();
   activeCorridors.forEach((corridor, fi) => {
     const lower = new Map(cum);
     const upper = new Map();
-    currentYearRows.forEach((row) => {
-      const prev = cum.get(row.dayIndex) || 0;
+    daily.forEach((row) => {
+      const prev = cum.get(row.dateStr) || 0;
       const raw = row.byCorridor[corridor.key] || 0;
-      upper.set(row.dayIndex, prev + dth_to_mmcf(raw));
+      upper.set(row.dateStr, prev + dth_to_mmcf(raw));
     });
     const color = CORRIDOR_COLORS[fi % CORRIDOR_COLORS.length];
     const areaGen = d3
       .area()
-      .x((d) => x(d))
-      .y0((d) => y(lower.get(d) || 0))
-      .y1((d) => y(upper.get(d) || 0))
+      .x((d) => x(d.date))
+      .y0((d) => y(lower.get(d.dateStr) || 0))
+      .y1((d) => y(upper.get(d.dateStr) || 0))
       .curve(d3.curveMonotoneX);
     g.append('path')
-      .datum([...upper.keys()].sort((a, b) => a - b))
+      .datum(daily)
       .attr('d', areaGen)
       .attr('fill', color.area)
       .attr('stroke', color.line)
@@ -486,11 +495,11 @@ function drawCorridorChart(container, daily) {
   // Total line + latest callout.
   const totalLineGen = d3
     .line()
-    .x((d) => x(d.dayIndex))
+    .x((d) => x(d.date))
     .y((d) => y(dth_to_mmcf(d.highTotal)))
     .curve(d3.curveMonotoneX);
   g.append('path')
-    .datum(currentYearRows)
+    .datum(daily)
     .attr('d', totalLineGen)
     .attr('fill', 'none')
     .style('stroke', 'var(--blue-flame)')
@@ -498,10 +507,9 @@ function drawCorridorChart(container, daily) {
     .attr('stroke-linecap', 'round');
 
   // ── Posted-capacity (OAC) level lines — top 5 corridors by latest OAC. ──
-  // The genuinely NEW signal: posted-capacity swings are maintenance /
-  // constraint events invisible in the flow stack. Rendered as thin dashed
-  // lines in each corridor's color, on the same gas-year axis.
-  const oacRanked = [...currentYearRows]
+  // Posted-capacity swings are maintenance / constraint events invisible
+  // in the flow stack. Rendered as thin dashed lines in each corridor's color.
+  const oacRanked = [...daily]
     .reverse()
     .map((r) => r.oacLevelByCorridor || {})
     .find((o) => Object.keys(o).length > 0);
@@ -512,27 +520,30 @@ function drawCorridorChart(container, daily) {
     topOacCorridors.forEach((corridorKey, oi) => {
       const corridor = CORRIDORS.find((c) => c.key === corridorKey);
       if (!corridor) return;
-      const pts = currentYearRows
+      const pts = daily
         .filter((r) => r.oacLevelByCorridor && r.oacLevelByCorridor[corridorKey] !== undefined)
-        .map((r) => ({ dayIndex: r.dayIndex, v: r.oacLevelByCorridor[corridorKey] }));
+        .map((r) => ({ date: r.date, v: r.oacLevelByCorridor[corridorKey] }));
       if (pts.length < 2) return;
       const lineGen = d3
         .line()
-        .x((d) => x(d.dayIndex))
+        .x((d) => x(d.date))
         .y((d) => y(dth_to_mmcf(d.v)))
         .curve(d3.curveMonotoneX);
+      const cIdx = Math.max(0, activeCorridors.findIndex((c) => c.key === corridorKey));
+      const strokeColor = (CORRIDOR_COLORS[cIdx % CORRIDOR_COLORS.length] || CORRIDOR_COLORS[0]).line;
       g.append('path')
         .datum(pts)
         .attr('d', lineGen)
         .attr('fill', 'none')
-        .attr('stroke', CORRIDOR_COLORS[activeCorridors.findIndex((c) => c.key === corridorKey) % CORRIDOR_COLORS.length].line)
+        .attr('stroke', strokeColor)
         .attr('stroke-opacity', 0.85 - oi * 0.12)
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '4 4');
       // Small label at line end.
       const lastPt = pts[pts.length - 1];
+      const capLabelX = Math.min(x(lastPt.date) + 6, width - 42);
       g.append('text')
-        .attr('x', x(lastPt.dayIndex) + 6)
+        .attr('x', capLabelX)
         .attr('y', y(dth_to_mmcf(lastPt.v)) + 3)
         .attr('font-size', '7.5px')
         .attr('font-family', 'var(--font-mono)')
@@ -551,21 +562,29 @@ function drawCorridorChart(container, daily) {
       .text('dashed = posted capacity level (top 5 corridors)');
   }
 
-  const lastRow = currentYearRows[currentYearRows.length - 1];
+  const lastRow = daily[daily.length - 1];
   if (lastRow) {
+    const lastX = x(lastRow.date);
     const lastY = y(dth_to_mmcf(lastRow.highTotal));
     g.append('circle')
-      .attr('cx', x(lastRow.dayIndex))
+      .attr('cx', lastX)
       .attr('cy', lastY)
       .attr('r', 6)
       .style('fill', 'var(--blue-flame)')
       .style('stroke', '#0c0f16')
       .style('stroke-width', '2px');
+
+    const calloutWidth = 96;
+    const calloutX = lastX + 12 + calloutWidth > width
+      ? lastX - calloutWidth - 12
+      : lastX + 12;
+
     const callout = g
       .append('g')
-      .attr('transform', `translate(${x(lastRow.dayIndex) + 12}, ${lastY - 10})`);
+      .attr('class', 'latest-callout')
+      .attr('transform', `translate(${calloutX}, ${lastY - 10})`);
     callout.append('rect')
-      .attr('x', -4).attr('y', -11).attr('width', 92).attr('height', 15)
+      .attr('x', -4).attr('y', -11).attr('width', calloutWidth).attr('height', 15)
       .attr('rx', 3)
       .style('fill', 'rgba(15, 23, 42, 0.85)')
       .style('stroke', 'rgba(125, 211, 252, 0.3)')
@@ -580,22 +599,23 @@ function drawCorridorChart(container, daily) {
       .text(`${dth_to_mmcf(lastRow.highTotal).toFixed(0)} MMcf/d egress`);
   }
 
-  // Month ticks (Feb..Jan), mobile-thinned.
+  // Month ticks from actual data range, mobile-thinned.
   const isMobile = width < 500;
-  const months = ['Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan'];
-  const start = new Date(currentGasYear, 1, 1);
-  months.forEach((m, offset) => {
-    if (isMobile && offset % 2 !== 0) return;
-    const d = new Date(currentGasYear + (1 + offset >= 12 ? 1 : 0), (1 + offset) % 12, 1);
-    const dayIdx = Math.floor((d.getTime() - start.getTime()) / 86400000);
+  const monthInterval = isMobile ? 2 : 1;
+  const ticks = x.ticks(d3.timeMonth.every(monthInterval));
+
+  ticks.forEach((tickDate) => {
+    const tx = x(tickDate);
+    if (tx < 0 || tx > width - 15) return;
+    const label = d3.timeFormat(tickDate.getMonth() === 0 ? "%b '%y" : '%b')(tickDate);
     g.append('text')
-      .attr('x', x(dayIdx))
+      .attr('x', tx)
       .attr('y', height + 22)
       .attr('text-anchor', 'middle')
       .attr('font-size', '10px')
       .attr('font-family', 'var(--font-sans)')
       .style('fill', 'var(--chart-label)')
-      .text(m);
+      .text(label);
   });
 
   // Y ticks in MMcf/d.
@@ -631,6 +651,94 @@ function drawCorridorChart(container, daily) {
       .style('fill', 'rgba(255,255,255,0.65)')
       .text(corridor.label);
   });
+
+  // Interactive tooltip + hover inspector
+  setupEgressHover(svg, g, x, width, height, margin, daily, activeCorridors);
+}
+
+/**
+ * Interactive hover crosshair and rich tooltip for the corridor egress chart.
+ *
+ * @param {d3.Selection} svg
+ * @param {d3.Selection} g
+ * @param {d3.ScaleTime} x
+ * @param {number} width
+ * @param {number} height
+ * @param {{top: number, right: number, bottom: number, left: number}} margin
+ * @param {Array<Object>} daily
+ * @param {Array<Object>} activeCorridors
+ */
+function setupEgressHover(svg, g, x, width, height, margin, daily, activeCorridors) {
+  const host = d3.select(svg.node().parentNode);
+  const tooltip = host.append('div').attr('class', 'chart-tooltip').style('opacity', 0);
+
+  const crosshair = g.append('line')
+    .attr('y1', 0).attr('y2', height)
+    .attr('stroke', 'rgba(255,255,255,0.25)')
+    .attr('stroke-dasharray', '2,2')
+    .style('opacity', 0);
+
+  const timestamps = daily.map((d) => d.date.getTime());
+
+  g.append('rect')
+    .attr('width', width).attr('height', height)
+    .attr('fill', 'none').style('pointer-events', 'all')
+    .on('mousemove', function (event) {
+      const [mx] = d3.pointer(event);
+      const date = x.invert(mx);
+      const idx = d3.bisectCenter(timestamps, date.getTime());
+      const row = daily[Math.max(0, Math.min(idx, daily.length - 1))];
+      if (!row) return;
+
+      const rx = x(row.date);
+      crosshair.attr('x1', rx).attr('x2', rx).style('opacity', 1);
+
+      const svgNode = svg.node();
+      const svgRect = svgNode.getBoundingClientRect();
+      const vbWidth = width + margin.left + margin.right;
+      const scaleX = svgRect.width / vbWidth;
+      const tooltipX = (margin.left + rx) * scaleX + 14;
+      const tooltipW = 210;
+      const posX = tooltipX + tooltipW > svgRect.width
+        ? (margin.left + rx) * scaleX - tooltipW - 14
+        : tooltipX;
+
+      const dateStr = row.date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      const corridorRows = activeCorridors
+        .map((c) => {
+          const val = dth_to_mmcf(row.byCorridor[c.key] || 0);
+          if (val <= 0) return '';
+          return `
+            <div class="tt-row">
+              <span class="tt-label">${c.label.split(' (')[0]}</span>
+              <span class="num">${val.toFixed(0)} MMcf/d</span>
+            </div>`;
+        })
+        .filter(Boolean)
+        .join('');
+
+      tooltip
+        .style('opacity', 1)
+        .style('left', `${Math.max(4, posX)}px`)
+        .style('top', '12px')
+        .html(`
+          <div class="tt-date">${dateStr}</div>
+          ${corridorRows}
+          <div class="tt-row tt-row--accent">
+            <span class="tt-label">High-Confidence Total</span>
+            <span class="num">${dth_to_mmcf(row.highTotal).toFixed(0)} MMcf/d</span>
+          </div>
+        `);
+    })
+    .on('mouseleave', () => {
+      crosshair.style('opacity', 0);
+      tooltip.style('opacity', 0);
+    });
 }
 
 /**

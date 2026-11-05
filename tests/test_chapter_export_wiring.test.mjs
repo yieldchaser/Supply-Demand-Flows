@@ -31,7 +31,8 @@ test('chapter export: every chapter declares bundle provenance', () => {
   // The declared keys must be the keys the exporters actually read, or the
   // downloaded file would claim provenance it does not contain.
   assert.ok(CHAPTERS.find((c) => c.id === 'lng').sources.includes('gulf_south'), 'LNG reads Gulf South rows');
-  assert.ok(CHAPTERS.find((c) => c.id === 'macro').sources.includes('gie_agsi'), 'Macro reads GIE rows');
+  assert.ok(CHAPTERS.find((c) => c.id === 'europe').sources.includes('gie_agsi'), 'Europe reads GIE rows');
+  assert.ok(CHAPTERS.find((c) => c.id === 'macro').sources.includes('eia_lng_exports'), 'Macro reads EIA LNG export rows');
 });
 
 test('chapter export: the download button renders and relabels per chapter', () => {

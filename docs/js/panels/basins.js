@@ -82,7 +82,7 @@ function renderBasinCardHtml(basin, series) {
   }[basin.gasFlavor] || '';
 
   return `
-    <div class="basin-card ${momentumClass}">
+    <div class="basin-card ${momentumClass}" title="${basin.label} · Latest: ${latest.value} rigs (${delta4w >= 0 ? '+' : ''}${delta4w} vs 4-week prior)">
       <div class="basin-card__head">
         <span class="basin-card__name">${basin.label}</span>
         ${flavorBadge}

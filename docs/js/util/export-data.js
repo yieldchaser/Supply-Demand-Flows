@@ -21,7 +21,7 @@
  */
 export function formatCsvWithProvenance(title, rows, meta = {}) {
   const lines = [];
-  lines.push(`# Blue Tide Natural Gas Observatory -- Data Export`);
+  lines.push(`# Blue Tide Natural Gas Observatory — Data Export`);
   lines.push(`# Series: ${title}`);
   lines.push(`# Exported: ${new Date().toISOString()}`);
   if (meta.terminal) lines.push(`# Terminal: ${meta.terminal}`);

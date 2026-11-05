@@ -93,7 +93,9 @@ function drawLngBarChart(container, rows) {
     .attr('fill-opacity', 0.75)
     .attr('rx', 2)
     .on('mouseover', function() { d3.select(this).attr('fill-opacity', 1); })
-    .on('mouseout',  function() { d3.select(this).attr('fill-opacity', 0.75); });
+    .on('mouseout',  function() { d3.select(this).attr('fill-opacity', 0.75); })
+    .append('title')
+    .text(d => `${d.period.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}: ${d.value.toFixed(1)} Bcf (${(d.value / 30.4).toFixed(1)} Bcf/d equivalent)`);
 
   // 12-month moving average overlay
   const MA_N = 12;

@@ -33,12 +33,13 @@
 
 /** @type {ReadonlyArray<Chapter>} */
 export const CHAPTERS = Object.freeze([
-  { id: 'overview', label: 'Overview', blurb: 'Storage, supply/demand balance, rigs', sources: ['eia_storage', 'eia_supply', 'baker_hughes_weekly', 'gie_agsi'] },
+  { id: 'overview', label: 'Overview', blurb: 'Storage, supply/demand balance, rigs', sources: ['eia_storage', 'eia_supply', 'baker_hughes_weekly'] },
   { id: 'basins', label: 'Basins', blurb: 'Basin momentum, shares, extremes', sources: ['baker_hughes_weekly'] },
   { id: 'lng', label: 'LNG Feedgas', blurb: 'Fleet, hero terminal, comparison', sources: ['quorum', 'gulf_south', 'enbridge', 'gasnom', 'bhe', 'cheniere', 'kinder_morgan'] },
   { id: 'flows', label: 'Flows & Routing', blurb: 'Egress and feed substitution', sources: ['gulf_south', 'enbridge', 'bhe', 'cheniere', 'kinder_morgan'] },
   { id: 'reliability', label: 'Reliability', blurb: 'Downtime, outages, turnarounds', sources: ['gulf_south', 'enbridge', 'bhe', 'cheniere', 'kinder_morgan'] },
-  { id: 'macro', label: 'Macro & Europe', blurb: 'EIA exports, GIE storage, divergence', sources: ['eia_lng_exports', 'gie_agsi'] },
+  { id: 'europe', label: 'Europe', blurb: '10 countries, 5-yr norms, daily flows', sources: ['gie_agsi', 'eia_storage'] },
+  { id: 'macro', label: 'Macro & Trade', blurb: 'EIA export totals & destination shares', sources: ['eia_lng_exports'] },
 ]);
 
 const STORAGE_KEY = 'bluetide:chapter';

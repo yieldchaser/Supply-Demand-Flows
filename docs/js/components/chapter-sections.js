@@ -99,13 +99,6 @@ export const SECTION_ORDER = Object.freeze({
       blurb: 'Horizontal gas and oil rigs · the leading supply signal',
       panels: ['panel-rigs', 'panel-basins'],
     },
-    {
-      id: 'overview-divergence',
-      label: 'Transatlantic',
-      title: 'Transatlantic Storage Divergence',
-      blurb: 'US vs European storage tightness on one scale',
-      panels: ['panel-divergence'],
-    },
   ],
 
   basins: [
@@ -196,6 +189,30 @@ export const SECTION_ORDER = Object.freeze({
     },
   ],
 
+  europe: [
+    {
+      id: 'europe-divergence',
+      label: 'Transatlantic',
+      title: 'Transatlantic Storage Divergence',
+      blurb: 'US vs European storage tightness on one scale',
+      panels: ['panel-divergence'],
+    },
+    {
+      id: 'europe-storage',
+      label: 'European storage',
+      title: 'European Gas Storage',
+      blurb: '10 countries · daily updates · multi-year history',
+      panels: ['panel-eu-storage'],
+    },
+    {
+      id: 'europe-method',
+      label: 'Method note',
+      title: 'Methodology & Capacities',
+      blurb: 'Resolved capacities, aggregate weighting and the limits of the sample',
+      panels: ['panel-eu-storage'],
+    },
+  ],
+
   macro: [
     {
       id: 'exports-total',
@@ -210,20 +227,6 @@ export const SECTION_ORDER = Object.freeze({
       title: 'Destination Shares',
       blurb: 'Regional allocation of US LNG exports · % of total',
       panels: ['panel-lng-shares'],
-    },
-    {
-      id: 'europe-storage',
-      label: 'European storage',
-      title: 'European Storage Context · GIE AGSI+',
-      blurb: '10 countries · daily updates · multi-year history',
-      panels: ['panel-eu-storage'],
-    },
-    {
-      id: 'europe-method',
-      label: 'Method note',
-      title: 'How the European Figures Are Built',
-      blurb: 'Resolved capacities, aggregate weighting and the limits of the sample',
-      panels: ['panel-eu-storage'],
     },
   ],
 
@@ -260,7 +263,7 @@ function fallbackLabel(panelEl) {
  * @returns {string}
  */
 export function sectionDomId(chapterId, sectionId) {
-  return `sec-${chapterId}-${sectionId.replace(/^(overview|basin|flows|reliability|macro|lng)-/, '')}`;
+  return `sec-${chapterId}-${sectionId.replace(/^(overview|basin|flows|reliability|macro|lng|europe)-/, '')}`;
 }
 
 /**

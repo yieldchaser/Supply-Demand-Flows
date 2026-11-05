@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -499,8 +500,8 @@ def test_workflow_run_steps_have_valid_syntax() -> None:
                 if run_block and isinstance(run_block, str):
                     # Basic quote/brace matching
                     assert run_block.strip(), f"Empty run step in {yml_path.name}:{job_name}"
-                    if bash_path:
-                        # If bash is available, run bash -n
+                    if bash_path and sys.platform != "win32":
+                        # If bash is available (on POSIX systems), run bash -n
                         proc = subprocess.run(
                             [bash_path, "-n", "-c", run_block],
                             capture_output=True,

@@ -338,11 +338,22 @@ export function detectDowntime(daily, conf) {
 
   // Pre-operational span is recorded as ONE continuous NOT_YET_OPERATIONAL event.
   if (firstOpIdx > 0) {
+    const dur = firstOpIdx;
+    const sDate = daily[0].dateStr;
+    const eDate = daily[firstOpIdx - 1].dateStr;
+    const nameplate = conf.nameplate || 0;
     events.push({
-      date: daily[firstOpIdx - 1].dateStr,
+      startDate: sDate,
+      endDate: eDate,
+      date: eDate,
       type: 'NOT_YET_OPERATIONAL',
-      duration: firstOpIdx,
-      detail: `pre-first-gas commissioning (${firstOpIdx} days)`,
+      duration: dur,
+      volumeImpact: nameplate,
+      volumeImpactBcf: nameplate ? (nameplate / 1000).toFixed(3) : '0.000',
+      reductionBasis: 'commissioning_pre_first_gas',
+      marketImpact: 'Pre-operational / Neutral to Commercial Grid',
+      cause: 'Pre-Commercial Commissioning',
+      detail: `pre-first-gas commissioning (${dur} days)`,
     });
   }
 
@@ -397,18 +408,37 @@ export function detectDowntime(daily, conf) {
           const etype = conf.cargoZero ? 'CARGO_IDLE' : 'OFFLINE';
           const lastD = lastEventDate[etype];
           const isCont = lastD && (new Date(cur.dateStr) - new Date(lastD)) / 86400000 === 1;
+          const dur = offlineRun.length;
+          const startD = offlineRun[0];
+          const baseVal = med || conf.nameplate || 0;
+          const volImpact = Math.round(baseVal);
+          const volBcf = (volImpact / 1000).toFixed(3);
+          const cause = conf.cargoZero ? 'Loading Berth Idle' : 'Unplanned Outage';
+          const detailStr = cur.postedZero
+            ? `${dur} consecutive posted-zeros`
+            : `${dur} consecutive days at meter floor (<=${Math.round(FLOOR_PCT * 100)}% baseline)`;
           if (isCont) {
             const last = events[events.length - 1];
-            last.duration = offlineRun.length;
+            last.duration = dur;
             last.date = cur.dateStr;
+            last.endDate = cur.dateStr;
+            last.detail = detailStr;
+            last.volumeImpact = volImpact;
+            last.volumeImpactBcf = volBcf;
           } else {
             events.push({
+              startDate: startD,
+              endDate: cur.dateStr,
               date: cur.dateStr,
               type: etype,
-              duration: offlineRun.length,
-              detail: cur.postedZero
-                ? `${offlineRun.length} consecutive posted-zeros`
-                : `${offlineRun.length} consecutive days at meter floor (<=${Math.round(FLOOR_PCT * 100)}% baseline)`,
+              duration: dur,
+              volumeImpact: volImpact,
+              volumeImpactBcf: volBcf,
+              reductionBasis: 'baseline_minus_cap (trailing 30-day median)',
+              marketImpact: 'Bearish Domestic Hub / Surplus to Grid',
+              cause,
+              baseline: Math.round(baseVal),
+              detail: detailStr,
             });
           }
           lastEventDate[etype] = cur.dateStr;
@@ -424,16 +454,37 @@ export function detectDowntime(daily, conf) {
       if (depressedRun.length >= DEPRESSED_DAYS) {
         const lastD = lastEventDate['DEPRESSED'];
         const isCont = lastD && (new Date(cur.dateStr) - new Date(lastD)) / 86400000 === 1;
+        const dur = depressedRun.length;
+        const startD = depressedRun[0];
+        const baseVal = med || conf.nameplate || 0;
+        const curDepSlice = daily.slice(Math.max(0, i - dur + 1), i + 1);
+        const avgFlow = curDepSlice.reduce((a, b) => a + b.value, 0) / curDepSlice.length;
+        const volImpact = Math.max(0, Math.round(baseVal - avgFlow));
+        const volBcf = (volImpact / 1000).toFixed(3);
+        const cause = 'Turnaround / Flow Curtailment';
+        const detailStr = `below ${Math.round(DEPRESSED_PCT * 100)}% baseline (${dur}d)`;
         if (isCont) {
           const last = events[events.length - 1];
-          last.duration = depressedRun.length;
+          last.duration = dur;
           last.date = cur.dateStr;
+          last.endDate = cur.dateStr;
+          last.volumeImpact = volImpact;
+          last.volumeImpactBcf = volBcf;
+          last.detail = detailStr;
         } else {
           events.push({
+            startDate: startD,
+            endDate: cur.dateStr,
             date: cur.dateStr,
             type: 'DEPRESSED',
-            duration: depressedRun.length,
-            detail: `below ${Math.round(DEPRESSED_PCT * 100)}% baseline (${depressedRun.length}d)`,
+            duration: dur,
+            volumeImpact: volImpact,
+            volumeImpactBcf: volBcf,
+            reductionBasis: 'baseline_minus_cap (trailing 30-day median)',
+            marketImpact: 'Bearish Domestic Hub / Surplus to Grid',
+            cause,
+            baseline: Math.round(baseVal),
+            detail: detailStr,
           });
         }
         lastEventDate['DEPRESSED'] = cur.dateStr;
@@ -460,16 +511,36 @@ export function detectDowntime(daily, conf) {
           if (rampRun.length >= rw) {
             const lastD = lastEventDate['RAMPING'];
             const isCont = lastD && (new Date(cur.dateStr) - new Date(lastD)) / 86400000 === 1;
+            const dur = rampRun.length;
+            const startD = rampRun[0];
+            const curRampSlice = daily.slice(Math.max(0, i - dur + 1), i + 1);
+            const avgFlow = curRampSlice.reduce((a, b) => a + b.value, 0) / curRampSlice.length;
+            const volGain = Math.round(avgFlow);
+            const volBcf = (volGain / 1000).toFixed(3);
+            const cause = 'Commercial Ramp / Expansion';
+            const detailStr = 'baseline rising';
             if (isCont) {
               const last = events[events.length - 1];
-              last.duration = rampRun.length;
+              last.duration = dur;
               last.date = cur.dateStr;
+              last.endDate = cur.dateStr;
+              last.volumeImpact = volGain;
+              last.volumeImpactBcf = volBcf;
+              last.detail = detailStr;
             } else {
               events.push({
+                startDate: startD,
+                endDate: cur.dateStr,
                 date: cur.dateStr,
                 type: 'RAMPING',
-                duration: rampRun.length,
-                detail: 'baseline rising',
+                duration: dur,
+                volumeImpact: volGain,
+                volumeImpactBcf: volBcf,
+                reductionBasis: 'ramp_capacity_addition',
+                marketImpact: 'Bullish Domestic Hub / Demand Expansion',
+                cause,
+                baseline: Math.round(med || 0),
+                detail: detailStr,
               });
             }
             lastEventDate['RAMPING'] = cur.dateStr;
@@ -545,38 +616,148 @@ export function buildDowntimeViewModel(bundle, key) {
 }
 
 /**
- * Render the event list table + honesty footnote markup.
+ * HTML escaper helper for clean markup rendering.
+ *
+ * @param {string} str
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Standard professional market terminology for downtime event causes.
+ *
+ * @param {string} type
+ * @returns {string}
+ */
+export function defaultCause(type) {
+  switch (type) {
+    case 'OFFLINE': return 'Unplanned Outage / Total Interruption';
+    case 'CARGO_IDLE': return 'Loading Berth Hold / Idle';
+    case 'DEPRESSED': return 'Turnaround / Flow Curtailment';
+    case 'RAMPING': return 'Commercial Ramp / Expansion';
+    case 'NOT_YET_OPERATIONAL': return 'Pre-Commercial Commissioning';
+    default: return 'Operational Event';
+  }
+}
+
+/**
+ * Render the event list cards, table, and coverage disclosure markup.
  * Pure string generator; free of DOM.
+ *
+ * @param {Array<Object>} events
+ * @param {Object} conf
+ * @returns {string}
  */
 export function renderEventListHtml(events, conf) {
-  let tableHtml = '';
   if (!events || !events.length) {
     const emptyMsg = conf.label === 'Sabine Pass'
       ? 'No downtime events — terminal runs flat at ~31% nameplate (measured-partial). Correct behavior.'
       : 'No downtime events in the measured window.';
-    tableHtml = `<p class="downtime-events__empty">${emptyMsg}</p>`;
-  } else {
-    tableHtml = `
-      <table class="downtime-table">
-        <thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>Detail</th></tr></thead>
-        <tbody>
-          ${events.map((e) => `
-            <tr>
-              <td class="num">${e.date}</td>
-              <td><span class="badge badge--${e.type.toLowerCase()}">${e.type}</span></td>
-              <td class="num">${e.duration}d</td>
-              <td>${e.detail}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>`;
+    return `
+      <div class="downtime-events">
+        <div class="downtime-events__header">
+          <h3 class="downtime-events__title">${escapeHtml(conf.label)} · 0 events (full history)</h3>
+        </div>
+        <p class="downtime-events__empty">${emptyMsg}</p>
+      </div>
+      <p class="downtime-honesty"><span class="downtime-honesty__tag">Coverage Disclosure</span> ${escapeHtml(conf.honesty)}</p>
+    `;
   }
+
+  // Generate interactive event cards (Enercast style)
+  const cardsHtml = events.map((e, idx) => {
+    const sDate = e.startDate || e.date;
+    const eDate = e.endDate || e.date;
+    const dateRange = sDate === eDate ? sDate : `${sDate} → ${eDate}`;
+    const volStr = e.volumeImpact !== undefined && e.volumeImpact !== null
+      ? `${Number(e.volumeImpact).toLocaleString()} MMcf/d (${e.volumeImpactBcf || (e.volumeImpact / 1000).toFixed(3)} Bcf/d)`
+      : (conf.nameplate ? `~${Number(conf.nameplate).toLocaleString()} MMcf/d` : 'Unquantified');
+    const causeStr = e.cause || defaultCause(e.type);
+
+    return `
+      <div class="downtime-card downtime-card--${e.type.toLowerCase()}" data-event-idx="${idx}">
+        <div class="downtime-card__header">
+          <span class="badge badge--${e.type.toLowerCase()}">${e.type}</span>
+          <span class="downtime-card__dur">${e.duration}d duration</span>
+        </div>
+        <div class="downtime-card__metrics">
+          <div class="downtime-card__metric">
+            <span class="downtime-card__metric-label">Window</span>
+            <span class="downtime-card__metric-val mono">${dateRange}</span>
+          </div>
+          <div class="downtime-card__metric">
+            <span class="downtime-card__metric-label">Capacity Impact</span>
+            <span class="downtime-card__metric-val mono">${volStr}</span>
+          </div>
+        </div>
+        <div class="downtime-card__cause">${escapeHtml(causeStr)}</div>
+        <div class="downtime-card__detail">${escapeHtml(e.detail)}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Generate structured table rows
+  const tableRowsHtml = events.map((e, idx) => {
+    const sDate = e.startDate || e.date;
+    const eDate = e.endDate || e.date;
+    const dateDisplay = sDate === eDate ? sDate : `${sDate} → ${eDate}`;
+    const volStr = e.volumeImpact !== undefined && e.volumeImpact !== null
+      ? `${Number(e.volumeImpact).toLocaleString()} MMcf/d`
+      : (conf.nameplate ? `${Number(conf.nameplate).toLocaleString()} MMcf/d` : '—');
+    const bcfStr = e.volumeImpactBcf ? ` (${e.volumeImpactBcf} Bcf/d)` : '';
+    const causeStr = e.cause || defaultCause(e.type);
+
+    return `
+      <tr data-event-idx="${idx}">
+        <td class="num mono">
+          <span class="downtime-date-range">${dateDisplay}</span>
+          <span class="downtime-date-raw" style="display:none">${e.date}</span>
+        </td>
+        <td><span class="badge badge--${e.type.toLowerCase()}">${e.type}</span></td>
+        <td class="num mono">${e.duration}d</td>
+        <td class="num mono">${volStr}${bcfStr}</td>
+        <td>
+          <span class="downtime-table__cause">${escapeHtml(causeStr)}</span>
+          <span class="downtime-table__detail"> · ${escapeHtml(e.detail)}</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   return `
     <div class="downtime-events">
-      <h3>${conf.label} · ${events ? events.length : 0} events (full history)</h3>
-      ${tableHtml}
+      <div class="downtime-events__header">
+        <h3 class="downtime-events__title">${escapeHtml(conf.label)} · ${events.length} events (full history)</h3>
+      </div>
+      <div class="downtime-cards">
+        ${cardsHtml}
+      </div>
+      <div class="downtime-table-wrap">
+        <table class="downtime-table">
+          <thead>
+            <tr>
+              <th>Gas Day Window</th>
+              <th>Status</th>
+              <th>Duration</th>
+              <th>Capacity Impact</th>
+              <th>Classification & Rule Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRowsHtml}
+          </tbody>
+        </table>
+      </div>
     </div>
-    <p class="downtime-honesty">⚠ ${conf.honesty}</p>
+    <p class="downtime-honesty"><span class="downtime-honesty__tag">Coverage Disclosure</span> ${escapeHtml(conf.honesty)}</p>
   `;
 }
 

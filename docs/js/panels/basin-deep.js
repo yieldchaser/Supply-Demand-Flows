@@ -301,7 +301,9 @@ export function renderBasinScatter(panelEl, bundle) {
     .attr('r',  (m) => r(m.avg12m))
     .style('fill',         (m) => `rgba(125,211,252,${0.10 + (m.gasShare / 100) * 0.45})`)
     .style('stroke',       (m) => m.gasShare > 50 ? '#7dd3fc' : 'rgba(156,163,175,0.4)')
-    .attr('stroke-width', 1.5);
+    .attr('stroke-width', 1.5)
+    .append('title')
+    .text((m) => `${m.label}: ${m.latest} rigs (4-week delta: ${m.d4w >= 0 ? '+' : ''}${m.d4w}, 12-month avg: ${m.avg12m.toFixed(1)}, gas share: ${m.gasShare.toFixed(1)}%)`);
 
   // Simple label collision avoidance: if a label would overlap a previously-placed
   // label, push it down by 12px. Sort by latest desc so larger basins get priority.
@@ -484,7 +486,9 @@ export function renderBasinShare(panelEl, bundle) {
   g.selectAll('.layer').data(series).enter().append('path')
     .attr('d', areaGen)
     .style('fill', (_, i) => COLORS[i % COLORS.length])
-    .style('opacity', 0.82);
+    .style('opacity', 0.82)
+    .append('title')
+    .text((d) => withGas.find((b) => b.slug === d.key)?.label || d.key);
 
   // Y-axis labels
   g.selectAll('.yt').data([0, 25, 50, 75, 100]).enter().append('text')

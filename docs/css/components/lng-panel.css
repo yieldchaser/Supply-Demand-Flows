@@ -673,35 +673,241 @@
 }
 
 /* ============================================================
-   Section 8: Terminal Downtime / Turnaround Indicator
+   Section 8: Terminal Downtime / Outage & Reliability Indicator
    ============================================================= */
+
+/* Terminal Selector Tabs */
 .downtime-tabs {
   display: flex;
-  gap: var(--space-2, 8px);
-  padding: 0 var(--space-4, 16px);
-  margin-bottom: var(--space-3, 12px);
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  margin-bottom: var(--space-4, 16px);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-md, 8px);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.downtime-tabs::-webkit-scrollbar {
+  display: none;
 }
 .downtime-tab {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--color-text-muted, #9ca3af);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary, #9ca3af);
   font-family: var(--font-sans), sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  transition: all var(--dur-fast, 120ms) var(--ease-out, ease-out);
 }
 .downtime-tab:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #e5e7eb);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 .downtime-tab--active {
-  background: var(--blue-flame, #0ea5e9);
-  border-color: var(--blue-flame, #0ea5e9);
-  color: #fff;
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Timeline Container & Tooltip */
+.downtime-chart-container {
+  position: relative;
+  width: 100%;
+}
+.downtime-tooltip {
+  position: absolute;
+  z-index: 30;
+  pointer-events: none;
+  background: rgba(15, 20, 25, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-primary, #e5e7eb);
+  min-width: 220px;
+  max-width: 320px;
+  transition: opacity 0.1s ease-out;
+  opacity: 0;
+}
+.downtime-tooltip.visible {
+  opacity: 1;
+}
+.downtime-tooltip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 5px;
+}
+.downtime-tooltip__title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary, #9ca3af);
+  text-transform: uppercase;
+}
+.downtime-tooltip__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.downtime-tooltip__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+}
+.downtime-tooltip__label {
+  color: var(--text-tertiary, #6b7280);
+}
+.downtime-tooltip__val {
+  font-family: var(--font-mono), monospace;
+  font-weight: 600;
+  color: var(--text-primary, #e5e7eb);
+}
+.downtime-tooltip__note {
+  font-size: 10.5px;
+  color: var(--text-secondary, #9ca3af);
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  line-height: 1.4;
+}
+
+/* Event List Container */
+.downtime-events {
+  margin-top: var(--space-6, 24px);
+}
+.downtime-events__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3, 12px);
+}
+.downtime-events__title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary, #e5e7eb);
+  margin: 0;
+}
+.downtime-events__empty {
+  font-size: 12px;
+  color: var(--text-secondary, #9ca3af);
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md, 8px);
+  margin: 8px 0;
+}
+
+/* Enercast-inspired Event Cards */
+.downtime-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: var(--space-4, 16px);
+}
+.downtime-card {
+  background: rgba(20, 26, 38, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 8px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all var(--dur-fast, 120ms) var(--ease-out, ease-out);
+}
+.downtime-card:hover {
+  background: rgba(25, 32, 46, 0.7);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+.downtime-card--offline {
+  border-left: 3px solid #ef4444;
+}
+.downtime-card--depressed {
+  border-left: 3px solid #f59e0b;
+}
+.downtime-card--cargo_idle {
+  border-left: 3px solid #fbbf24;
+}
+.downtime-card--ramping {
+  border-left: 3px solid #38bdf8;
+}
+.downtime-card--not_yet_operational {
+  border-left: 3px solid #94a3b8;
+}
+.downtime-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.downtime-card__dur {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  color: var(--text-secondary, #9ca3af);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.downtime-card__metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.downtime-card__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.downtime-card__metric-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary, #6b7280);
+}
+.downtime-card__metric-val {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary, #e5e7eb);
+}
+.downtime-card__cause {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-primary, #e5e7eb);
+}
+.downtime-card__detail {
+  font-size: 10.5px;
+  color: var(--text-secondary, #9ca3af);
+  line-height: 1.4;
+}
+
+/* Event Table */
+.downtime-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md, 8px);
+  background: rgba(20, 26, 38, 0.35);
 }
 .downtime-table {
   width: 100%;
@@ -711,46 +917,225 @@
 }
 .downtime-table th,
 .downtime-table td {
-  padding: 6px 10px;
+  padding: 8px 12px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .downtime-table th {
-  font-size: 9px;
+  font-size: 9.5px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--text-tertiary, #6b7280);
+  background: rgba(255, 255, 255, 0.02);
+  font-weight: 600;
+}
+.downtime-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 .downtime-table .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.downtime-honesty {
-  font-size: 8.5px;
-  line-height: 1.5;
-  color: var(--color-text-muted, #9ca3af);
-  font-style: italic;
-  margin-top: 8px;
+.downtime-table .mono {
+  font-family: var(--font-mono), monospace;
 }
-/* Badge colors per event type */
-.downtime-table .badge {
-  display: inline-block;
+.downtime-table__cause {
+  font-weight: 500;
+  color: var(--text-primary, #e5e7eb);
+}
+.downtime-table__detail {
+  color: var(--text-secondary, #9ca3af);
+  font-size: 11px;
+}
+
+/* Coverage Caveat Note */
+.downtime-honesty {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary, #9ca3af);
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0 var(--radius-sm, 4px) var(--radius-sm, 4px) 0;
+}
+.downtime-honesty__tag {
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary, #6b7280);
+  margin-right: 6px;
+}
+
+/* Badges with Clear Status Colors */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono), monospace;
   font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 2px 6px;
-  border-radius: 9999px;
-  margin-left: var(--space-2);
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  line-height: 1.3;
 }
-.badge--offline { color: #fca5a5; background: rgba(248, 181, 181, 0.10); }
-.badge--cargo_idle { color: #fcd34d; background: rgba(251, 191, 36, 0.12); }
-.badge--depressed { color: #fbbf24; background: rgba(251, 191, 36, 0.10); }
-.badge--ramping { color: #7dd3fc; background: rgba(125, 211, 252, 0.12); }
-.badge--normal { color: #86efac; background: rgba(34, 197, 94, 0.10); }
+.badge--offline {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.badge--depressed {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.badge--cargo_idle {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+.badge--ramping {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+.badge--not_yet_operational {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+.badge--normal {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
 
-@media (max-width: 480px) {
-  .downtime-tab { font-size: 10px; padding: 5px 10px; }
-  .downtime-table { font-size: 11px; }
-  .downtime-table th, .downtime-table td { padding: 4px 6px; }
+@media (max-width: 640px) {
+  .downtime-cards {
+    grid-template-columns: 1fr;
+  }
+  .downtime-table {
+    font-size: 11px;
+  }
+  .downtime-table th, .downtime-table td {
+    padding: 6px 8px;
+  }
+}
+
+/* ── EIA Weekly Supplement LNG Vessel Outflow Component ── */
+.lng-vessel-outflow-card {
+  background: var(--surface-card, #141a26);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 8px);
+  padding: 18px 20px;
+  margin-top: 24px;
+}
+
+.lng-vessel-outflow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.lng-vessel-outflow-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-main, #e2e8f0);
+}
+
+.lng-vessel-outflow-sub {
+  font-size: 11.5px;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 2px;
+}
+
+.lng-vessel-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 800px) {
+  .lng-vessel-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lng-vessel-kpi-box {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm, 6px);
+  padding: 12px 14px;
+}
+
+.lng-vessel-kpi-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 4px;
+}
+
+.lng-vessel-kpi-val {
+  font-family: var(--font-mono, monospace);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--blue-flame, #38bdf8);
+}
+
+.lng-vessel-kpi-sub {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 2px;
+}
+
+.lng-vessel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+
+.lng-vessel-table th {
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #94a3b8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.lng-vessel-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-main, #e2e8f0);
+}
+
+.lng-vessel-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.lng-vessel-crosslink {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 10px;
+  line-height: 1.5;
+}
+
+.lng-vessel-crosslink a {
+  color: var(--blue-flame, #38bdf8);
+  text-decoration: underline;
 }

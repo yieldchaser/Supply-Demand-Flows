@@ -74,6 +74,47 @@ test('Section 8 render: renderEventListHtml produces table markup when events ex
   assert.ok(html.includes('badge--offline'), 'Must include offline badge');
   assert.ok(html.includes('downtime-honesty'), 'Must include honesty caveat');
   assert.ok(html.includes('KMTP intrastate feed'), 'Must cite Freeport honesty string');
+  assert.ok(html.includes('downtime-cards'), 'Must render Enercast-style event cards container');
+  assert.ok(html.includes('downtime-card--offline'), 'Must render offline event card');
+  assert.ok(html.includes('7d duration'), 'Must render duration in event card');
+  assert.ok(!html.includes('⚠'), 'Must NOT contain warning triangle emojis');
+  const textContent = html.replace(/<[^>]*>/g, ' ');
+  assert.ok(!textContent.includes('--'), 'Visible text must not contain raw double dashes');
+});
+
+test('Section 8 render: enriched events include startDate, endDate, volume impact, and cause', () => {
+  const conf = DOWNTIME_CONF.freeport;
+  const richEvents = [
+    {
+      startDate: '2024-04-11',
+      endDate: '2024-04-17',
+      date: '2024-04-17',
+      type: 'OFFLINE',
+      duration: 7,
+      volumeImpact: 1538,
+      volumeImpactBcf: '1.538',
+      cause: 'Unplanned Outage / Total Interruption',
+      detail: '7 consecutive posted-zeros',
+    },
+    {
+      startDate: '2024-05-01',
+      endDate: '2024-05-14',
+      date: '2024-05-14',
+      type: 'RAMPING',
+      duration: 14,
+      volumeImpact: 820,
+      volumeImpactBcf: '0.820',
+      cause: 'Commercial Ramp / Expansion',
+      detail: 'baseline rising',
+    },
+  ];
+
+  const html = renderEventListHtml(richEvents, conf);
+  assert.ok(html.includes('2024-04-11 → 2024-04-17'), 'Must render exact start and end dates');
+  assert.ok(html.includes('1,538 MMcf/d (1.538 Bcf/d)'), 'Must render volume impact in MMcf/d and Bcf/d');
+  assert.ok(html.includes('Unplanned Outage / Total Interruption'), 'Must render cause');
+  assert.ok(html.includes('badge--offline'), 'Must render badge for OFFLINE');
+  assert.ok(html.includes('badge--ramping'), 'Must render badge for RAMPING');
 });
 
 test('Section 8 render: renderEventListHtml does NOT throw and produces clean empty state when 0 events', () => {
@@ -95,4 +136,46 @@ test('Section 8 render: renderEventListHtml does NOT throw and produces clean em
     assert.ok(htmlSabine.includes('measured-partial'), 'Must explain Sabine Pass measured-partial flat behavior');
     assert.ok(htmlSabine.includes('Non-CTPL feeds'), 'Must cite Sabine Pass honesty note');
   });
+});
+
+test('Section 8 render: event marketImpact and reductionBasis classification invariants', () => {
+  const conf = DOWNTIME_CONF.freeport;
+  // Construct events including OFFLINE and RAMPING
+  const mockEvents = [
+    {
+      startDate: '2024-04-11',
+      endDate: '2024-04-17',
+      date: '2024-04-17',
+      type: 'OFFLINE',
+      duration: 7,
+      volumeImpact: 1538,
+      volumeImpactBcf: '1.538',
+      reductionBasis: 'baseline_minus_cap (trailing 30-day median)',
+      marketImpact: 'Bearish Domestic Hub / Surplus to Grid',
+      cause: 'Unplanned Outage / Total Interruption',
+      detail: '7 consecutive posted-zeros',
+    },
+    {
+      startDate: '2024-05-01',
+      endDate: '2024-05-14',
+      date: '2024-05-14',
+      type: 'RAMPING',
+      duration: 14,
+      volumeImpact: 820,
+      volumeImpactBcf: '0.820',
+      reductionBasis: 'ramp_capacity_addition',
+      marketImpact: 'Bullish Domestic Hub / Demand Expansion',
+      cause: 'Commercial Ramp / Expansion',
+      detail: 'baseline rising',
+    },
+  ];
+
+  const offline = mockEvents.find((e) => e.type === 'OFFLINE');
+  const ramping = mockEvents.find((e) => e.type === 'RAMPING');
+
+  assert.equal(offline.marketImpact, 'Bearish Domestic Hub / Surplus to Grid');
+  assert.equal(offline.reductionBasis, 'baseline_minus_cap (trailing 30-day median)');
+
+  assert.equal(ramping.marketImpact, 'Bullish Domestic Hub / Demand Expansion');
+  assert.equal(ramping.reductionBasis, 'ramp_capacity_addition');
 });

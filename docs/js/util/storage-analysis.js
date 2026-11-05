@@ -633,29 +633,92 @@ export function analyseStorage(rawRows, { horizonWeeks = 8, lookbackYears = 5 } 
  * max (what this region has physically held in the window) and the nominal
  * 4,000 Bcf L48 convention scaled by the region's share of the L48 max.
  */
-export function computeRegionSeasonFill(periods, regions = regionTable(periods)) {
+export function computeRegionSeasonFill(periods, regionsOrLookback = 5, opts = {}) {
+  let regions = null;
+  let lookbackYears = 5;
+
+  if (typeof regionsOrLookback === 'number') {
+    lookbackYears = regionsOrLookback;
+    regions = regionTable(periods);
+  } else if (Array.isArray(regionsOrLookback)) {
+    regions = regionsOrLookback;
+    if (typeof opts === 'number') {
+      lookbackYears = opts;
+    } else if (opts && typeof opts.lookbackYears === 'number') {
+      lookbackYears = opts.lookbackYears;
+    }
+  } else if (regionsOrLookback && typeof regionsOrLookback.lookbackYears === 'number') {
+    lookbackYears = regionsOrLookback.lookbackYears;
+    regions = regionTable(periods);
+  } else {
+    regions = regionTable(periods);
+  }
+
   const out = [];
-  for (const region of regions) {
+  for (const region of regions || []) {
     const rows = weekSeries(periods, region.seriesId);
     if (rows.length < 2) continue;
+    const latest = rows[rows.length - 1];
     const max = rows.reduce((m, r) => Math.max(m, r.value), -Infinity);
     const min = rows.reduce((m, r) => Math.min(m, r.value), Infinity);
-    const normal = seasonNormal(rows, rows[rows.length - 1].period);
+    const normal = seasonNormal(rows, latest.period, { lookbackYears });
+
+    // Trailing 52-week min and max for inner comparison bar
+    const last52 = rows.slice(-52);
+    const trailing52Max = last52.reduce((m, r) => Math.max(m, r.value), -Infinity);
+    const trailing52Min = last52.reduce((m, r) => Math.min(m, r.value), Infinity);
+
+    // Multi-horizon lookback min and max for outer comparison bar
+    const year = latest.period.getFullYear();
+    const horizonCutoff = year - lookbackYears;
+    const horizonRows = rows.filter((r) => r.period.getFullYear() >= horizonCutoff && r.period.getFullYear() < year);
+    const horizonMax = horizonRows.length ? horizonRows.reduce((m, r) => Math.max(m, r.value), -Infinity) : max;
+    const horizonMin = horizonRows.length ? horizonRows.reduce((m, r) => Math.min(m, r.value), Infinity) : min;
+
+    // Week-over-week net change
+    const prev = rows.length >= 2 ? rows[rows.length - 2] : null;
+    const wowDelta = prev ? latest.value - prev.value : 0;
+
     out.push({
       key: region.key,
       label: region.label,
-      levelBcf: rows[rows.length - 1].value,
+      levelBcf: latest.value,
       observedMaxBcf: max,
       observedMinBcf: min,
-      pctOfObservedMax: max > 0 ? (rows[rows.length - 1].value / max) * 100 : null,
+      trailing52MinBcf: trailing52Min,
+      trailing52MaxBcf: trailing52Max,
+      horizonMinBcf: horizonMin,
+      horizonMaxBcf: horizonMax,
+      wowDeltaBcf: wowDelta,
+      pctOfObservedMax: max > 0 ? (latest.value / max) * 100 : null,
       normalMeanBcf: normal.mean,
       normalN: normal.n,
-      vsNormalBcf: normal.mean == null ? null : rows[rows.length - 1].value - normal.mean,
-      priorYearSameWeekBcf: matchYearAgo(rows, rows[rows.length - 1].period, 1, 6)?.value ?? null,
+      vsNormalBcf: normal.mean == null ? null : latest.value - normal.mean,
+      priorYearSameWeekBcf: matchYearAgo(rows, latest.period, 1, 6)?.value ?? null,
     });
   }
   return out;
 }
+
+/**
+ * Week-over-week net change series across all observed storage weeks.
+ *
+ * @param {Array<{period: Date, value: number, key?: string}>} rows
+ * @returns {Array<{period: Date, value: number, level: number, key?: string}>}
+ */
+export function computeWeeklyNetChanges(rows) {
+  const changes = [];
+  for (let i = 1; i < (rows || []).length; i++) {
+    changes.push({
+      period: rows[i].period,
+      key: rows[i].key ?? null,
+      value: rows[i].value - rows[i - 1].value,
+      level: rows[i].value,
+    });
+  }
+  return changes;
+}
+
 
 /**
  * Season-to-date: how much gas this season has put in or taken out so far, and
