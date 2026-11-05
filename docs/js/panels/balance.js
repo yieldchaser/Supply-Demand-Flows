@@ -588,7 +588,14 @@ function drawBalanceChart(container, model) {
     .attr('fill', 'var(--chart-label)')
     .attr('font-size', 10)
     .attr('font-family', 'var(--font-mono)')
-    .text((d) => (d >= 1000 ? `${(d / 1000).toFixed(0)}k` : `${Math.round(d)}`));
+    .text((d) => {
+      if (d === 0) return '0';
+      if (d >= 1000) {
+        const k = d / 1000;
+        return Number.isInteger(k) ? `${k}k` : `${k.toFixed(1)}k`;
+      }
+      return `${Math.round(d)}`;
+    });
 
   g.append('g')
     .attr('transform', `translate(0,${height})`)

@@ -221,7 +221,7 @@ function drawEuHeroChart(container, aggregate, referenceYear, normalFor, opts = 
     return;
   }
 
-  const { minYear = null } = opts;
+  const { minYear = null, range = '1Y' } = opts;
   const isPost2022 = minYear === 2022;
   const horizonLabel = isPost2022 ? 'Post-2022 Structural' : '5-Year';
 
@@ -230,14 +230,54 @@ function drawEuHeroChart(container, aggregate, referenceYear, normalFor, opts = 
   const width = Math.max(container.getBoundingClientRect().width || 640, 300) - margin.left - margin.right;
   const height = totalH - margin.top - margin.bottom;
 
-  const headerHtml = `
-    <div class="eu-hero-header">
-      <h3 class="eu-hero-title">Pan-European Storage Trajectory (% of Working Gas Capacity)</h3>
+  const isShort = range === '30D' || range === '90D';
+  const isMax = range === 'MAX';
+  const is5Y = range === '5Y';
+
+  let legendHtml = '';
+  if (is5Y) {
+    const rawByYear = rowsByYear(aggregate, (r) => r.pct);
+    const byYear = minYear ? rawByYear.filter((yr) => yr.year >= minYear) : rawByYear;
+    legendHtml = `
+      <div class="eu-hero-legend">
+        ${byYear.map((yr) => `
+          <span class="eu-legend-item">
+            <span class="eu-legend-swatch" style="background: ${YEAR_COLORS[yr.year] || '#94a3b8'}"></span>
+            ${yr.year}
+          </span>
+        `).join('')}
+        <span class="eu-legend-item"><span class="eu-legend-swatch eu-legend-swatch--median"></span>${horizonLabel} Median</span>
+        <span class="eu-legend-item"><span class="eu-legend-swatch eu-legend-swatch--band"></span>${horizonLabel} Range</span>
+      </div>
+    `;
+  } else if (isShort) {
+    legendHtml = `
+      <div class="eu-hero-legend">
+        <span class="eu-legend-item"><span class="eu-legend-swatch eu-legend-swatch--line"></span>${referenceYear} Trajectory (${range})</span>
+        <span class="eu-legend-item"><span class="eu-legend-swatch eu-legend-swatch--median"></span>Day-Matched ${horizonLabel} Median</span>
+        <span class="eu-legend-item"><span class="eu-legend-swatch eu-legend-swatch--band"></span>Day-Matched Min–Max Range</span>
+      </div>
+    `;
+  } else if (isMax) {
+    legendHtml = `
+      <div class="eu-hero-legend">
+        <span class="eu-legend-item"><span class="eu-legend-swatch eu-legend-swatch--line"></span>Pan-European Continuous History (2021–${referenceYear})</span>
+      </div>
+    `;
+  } else {
+    legendHtml = `
       <div class="eu-hero-legend">
         <span class="eu-legend-item"><span class="eu-legend-swatch eu-legend-swatch--line"></span>${referenceYear} Trajectory</span>
         <span class="eu-legend-item"><span class="eu-legend-swatch eu-legend-swatch--median"></span>${horizonLabel} Median Norm</span>
         <span class="eu-legend-item"><span class="eu-legend-swatch eu-legend-swatch--band"></span>${horizonLabel} Min–Max Range</span>
       </div>
+    `;
+  }
+
+  const headerHtml = `
+    <div class="eu-hero-header">
+      <h3 class="eu-hero-title">Pan-European Storage Trajectory (% of Working Gas Capacity)</h3>
+      ${legendHtml}
     </div>
   `;
   container.insertAdjacentHTML('beforeend', headerHtml);
@@ -250,6 +290,143 @@ function drawEuHeroChart(container, aggregate, referenceYear, normalFor, opts = 
 
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
+  // Handle Zoomed Short Ranges (30D / 90D)
+  if (isShort) {
+    const days = range === '30D' ? 30 : 90;
+    const latestRow = aggregate[aggregate.length - 1];
+    const cutoff = new Date(latestRow.period.getTime() - days * 86400000);
+    const sliceRows = aggregate.filter((r) => r.period >= cutoff);
+    if (sliceRows.length >= 2) {
+      const slicePoints = sliceRows.map((r) => {
+        const norm = normalFor ? normalFor(r) : { median: null, min: null, max: null, n: 0 };
+        return {
+          period: r.period,
+          pct: r.pct,
+          twh: r.twh,
+          capacityTwh: r.capacityTwh,
+          normMedian: norm?.median ?? null,
+          normMin: norm?.min ?? null,
+          normMax: norm?.max ?? null,
+          normN: norm?.n ?? 0,
+        };
+      });
+
+      const allY = slicePoints.flatMap((p) => [p.pct, p.normMin, p.normMax]).filter(Number.isFinite);
+      const yExtent = allY.length ? d3.extent(allY) : [0, 100];
+      const yPad = Math.max(3, (yExtent[1] - yExtent[0]) * 0.1);
+      const yMin = Math.max(0, Math.floor((yExtent[0] - yPad) / 5) * 5);
+      const yMax = Math.min(100, Math.ceil((yExtent[1] + yPad) / 5) * 5);
+      const y = d3.scaleLinear().domain([yMin, yMax]).range([height, 0]);
+      const x = d3.scaleTime().domain([cutoff, latestRow.period]).range([0, width]);
+
+      // Y Gridlines
+      for (const t of y.ticks(5)) {
+        g.append('line').attr('x1', 0).attr('x2', width).attr('y1', y(t)).attr('y2', y(t)).attr('class', 'eu-grid');
+        g.append('text').attr('x', -8).attr('y', y(t) + 4).attr('text-anchor', 'end')
+          .attr('class', 'eu-axis-text').attr('font-family', 'var(--font-mono)')
+          .attr('font-feature-settings', "'tnum'").text(`${t}%`);
+      }
+
+      // Min-Max envelope
+      const validBand = slicePoints.filter((p) => Number.isFinite(p.normMin) && Number.isFinite(p.normMax));
+      if (validBand.length > 1) {
+        g.append('path').datum(validBand)
+          .attr('d', d3.area().x((d) => x(d.period)).y0((d) => y(d.normMin)).y1((d) => y(d.normMax)).curve(d3.curveMonotoneX))
+          .attr('class', 'eu-band eu-band--range');
+
+        g.append('path').datum(validBand)
+          .attr('d', d3.line().x((d) => x(d.period)).y((d) => y(d.normMedian)).curve(d3.curveMonotoneX))
+          .attr('fill', 'none').attr('class', 'eu-band-median');
+      }
+
+      // Current Trajectory Line
+      g.append('path').datum(slicePoints)
+        .attr('d', d3.line().x((d) => x(d.period)).y((d) => y(d.pct)).curve(d3.curveMonotoneX))
+        .attr('fill', 'none')
+        .style('stroke', 'var(--blue-flame)')
+        .attr('stroke-width', 2.5)
+        .attr('stroke-linecap', 'round')
+        .attr('stroke-linejoin', 'round');
+
+      // Endpoint dot & label
+      const last = slicePoints[slicePoints.length - 1];
+      g.append('circle').attr('cx', x(last.period)).attr('cy', y(last.pct)).attr('r', 4.5).style('fill', 'var(--blue-flame)');
+      g.append('text')
+        .attr('x', Math.min(x(last.period) + 8, width + 4))
+        .attr('y', y(last.pct) + 4)
+        .attr('class', 'eu-axis-text')
+        .attr('font-family', 'var(--font-mono)')
+        .attr('font-feature-settings', "'tnum'")
+        .style('fill', 'var(--blue-flame)')
+        .style('font-weight', '600')
+        .text(`${last.pct.toFixed(1)}%`);
+
+      // X Axis Ticks (Dates)
+      const tickStep = range === '30D' ? d3.timeWeek.every(1) : d3.timeWeek.every(2);
+      const ticks = tickStep.range(cutoff, latestRow.period);
+      for (const dt of ticks) {
+        const tx = x(dt);
+        g.append('line').attr('x1', tx).attr('x2', tx).attr('y1', height).attr('y2', height + 4).attr('stroke', 'rgba(255, 255, 255, 0.15)');
+        g.append('text').attr('x', tx).attr('y', height + 18).attr('text-anchor', 'middle')
+          .attr('class', 'eu-axis-text').attr('font-family', 'var(--font-mono)').text(d3.timeFormat('%b %d')(dt));
+      }
+
+      setupEuHeroTimeHover(svg, g, x, y, width, height, margin, slicePoints, normalFor, { horizonLabel, isPost2022 });
+      return;
+    }
+  }
+
+  // Handle Continuous Multi-Year MAX Range
+  if (isMax) {
+    const earliest = aggregate[0].period;
+    const latest = aggregate[aggregate.length - 1].period;
+    const x = d3.scaleTime().domain([earliest, latest]).range([0, width]);
+    const y = d3.scaleLinear().domain([0, 100]).range([height, 0]);
+
+    // Gridlines
+    for (const t of [0, 25, 50, 75, 100]) {
+      g.append('line').attr('x1', 0).attr('x2', width).attr('y1', y(t)).attr('y2', y(t)).attr('class', t === 50 ? 'eu-grid eu-grid--major' : 'eu-grid');
+      g.append('text').attr('x', -8).attr('y', y(t) + 4).attr('text-anchor', 'end')
+        .attr('class', 'eu-axis-text').attr('font-family', 'var(--font-mono)')
+        .attr('font-feature-settings', "'tnum'").text(`${t}%`);
+    }
+
+    // Continuous Line
+    g.append('path').datum(aggregate)
+      .attr('d', d3.line().x((d) => x(d.period)).y((d) => y(d.pct)).curve(d3.curveMonotoneX))
+      .attr('fill', 'none')
+      .style('stroke', 'var(--blue-flame)')
+      .attr('stroke-width', 2);
+
+    // Latest dot & label
+    const last = aggregate[aggregate.length - 1];
+    g.append('circle').attr('cx', x(last.period)).attr('cy', y(last.pct)).attr('r', 4).style('fill', 'var(--blue-flame)');
+    g.append('text')
+      .attr('x', Math.min(x(last.period) + 8, width + 4))
+      .attr('y', y(last.pct) + 4)
+      .attr('class', 'eu-axis-text')
+      .attr('font-family', 'var(--font-mono)')
+      .attr('font-feature-settings', "'tnum'")
+      .style('fill', 'var(--blue-flame)')
+      .style('font-weight', '600')
+      .text(`${last.pct.toFixed(1)}%`);
+
+    // Yearly Ticks
+    const yearTicks = d3.timeYear.range(d3.timeYear.floor(earliest), d3.timeYear.ceil(latest));
+    for (const yt of yearTicks) {
+      const tx = x(yt);
+      if (tx >= 0 && tx <= width) {
+        g.append('line').attr('x1', tx).attr('x2', tx).attr('y1', height).attr('y2', height + 4).attr('stroke', 'rgba(255, 255, 255, 0.2)');
+        g.append('text').attr('x', tx).attr('y', height + 18).attr('text-anchor', 'middle')
+          .attr('class', 'eu-axis-text').attr('font-family', 'var(--font-mono)').text(yt.getFullYear());
+      }
+    }
+
+    setupEuHeroTimeHover(svg, g, x, y, width, height, margin, aggregate, normalFor, { horizonLabel, isPost2022 });
+    return;
+  }
+
+  // Handle 1Y & 5Y Seasonal Scale (0..1)
   const x = d3.scaleLinear().domain([0, 1]).range([0, width]);
   const band = monthlyEnvelope(aggregate, referenceYear, { minYear });
   const yMax = Math.max(100, ...band.map((b) => b.max ?? 0), ...aggregate.map((a) => a.pct));
@@ -302,6 +479,24 @@ function drawEuHeroChart(container, aggregate, referenceYear, normalFor, opts = 
       .attr('d', medGen)
       .attr('fill', 'none')
       .attr('class', 'eu-band-median');
+  }
+
+  // Multi-Year Overlay for 5Y Mode
+  if (is5Y) {
+    const rawByYear = rowsByYear(aggregate, (r) => r.pct);
+    const byYear = minYear ? rawByYear.filter((yr) => yr.year >= minYear) : rawByYear;
+    const yearLineGen = d3.line().x((d) => x(d.x)).y((d) => y(d.value)).curve(d3.curveMonotoneX);
+
+    for (const yr of byYear) {
+      if (yr.year === referenceYear || yr.points.length < 2) continue;
+      const col = YEAR_COLORS[yr.year] || '#94a3b8';
+      g.append('path').datum(yr.points)
+        .attr('d', yearLineGen)
+        .attr('fill', 'none')
+        .style('stroke', col)
+        .style('stroke-width', 1.35)
+        .style('opacity', 0.8);
+    }
   }
 
   // Reference Year Trajectory
@@ -364,10 +559,10 @@ function drawEuHeroChart(container, aggregate, referenceYear, normalFor, opts = 
       .text(MONTH_LABEL[m]);
   }
 
-  setupEuHeroHover(svg, g, x, y, width, height, margin, refPoints, normalFor);
+  setupEuHeroHover(svg, g, x, y, width, height, margin, refPoints, normalFor, { horizonLabel, isPost2022 });
 }
 
-function setupEuHeroHover(svg, g, x, y, width, height, margin, refPoints, normalFor) {
+function setupEuHeroHover(svg, g, x, y, width, height, margin, refPoints, normalFor, { horizonLabel = '5-Year', isPost2022 = false } = {}) {
   const host = svg.node().parentNode;
   const tooltip = d3.select(host).append('div').attr('class', 'chart-tooltip').style('opacity', 0);
   const crosshair = g.append('line').attr('y1', 0).attr('y2', height).attr('class', 'eu-crosshair');
@@ -399,8 +594,8 @@ function setupEuHeroHover(svg, g, x, y, width, height, margin, refPoints, normal
     }
 
     const row = best.p;
-    const normal = normalFor(row);
-    const dev = normal.median == null ? null : row.pct - normal.median;
+    const normal = normalFor ? normalFor(row) : null;
+    const dev = normal?.median == null ? null : row.pct - normal.median;
     const devTwh = dev != null && row.capacityTwh ? (dev * row.capacityTwh) / 100 : null;
 
     crosshair.attr('x1', x(row.x)).attr('x2', x(row.x)).style('opacity', 1);
@@ -422,10 +617,83 @@ function setupEuHeroHover(svg, g, x, y, width, height, margin, refPoints, normal
         <div class="tt-row"><span class="tt-label">Inventory Level</span><span class="num">${row.pct.toFixed(2)}%</span></div>
         <div class="tt-row"><span class="tt-label">Working Gas Stock</span><span class="num">${row.twh.toFixed(1)} TWh</span></div>
         <div class="tt-row"><span class="tt-label">Derived Capacity</span><span class="num">${row.capacityTwh.toFixed(1)} TWh</span></div>
-        ${normal.median == null ? '' : `
+        ${normal?.median == null ? '' : `
         <div class="tt-row"><span class="tt-label">${horizonLabel} Median Norm</span><span class="num">${normal.median.toFixed(2)}%</span></div>
         <div class="tt-row tt-row--accent">
           <span class="tt-label">vs ${isPost2022 ? 'Post-2022' : '5Y'} Median (n=${normal.n})</span>
+          <span class="num ${dev >= 0 ? 'delta-pos' : 'delta-neg'}">
+            ${dev >= 0 ? '+' : ''}${dev.toFixed(2)} pp${devTwh != null ? ` (${devTwh >= 0 ? '+' : ''}${devTwh.toFixed(1)} TWh)` : ''}
+          </span>
+        </div>`}
+      `);
+  }).on('mouseleave', () => {
+    tooltip.style('opacity', 0);
+    crosshair.style('opacity', 0);
+    dot.style('opacity', 0);
+  });
+}
+
+function setupEuHeroTimeHover(svg, g, x, y, width, height, margin, points, normalFor, { horizonLabel = '5-Year', isPost2022 = false } = {}) {
+  const host = svg.node().parentNode;
+  const tooltip = d3.select(host).append('div').attr('class', 'chart-tooltip').style('opacity', 0);
+  const crosshair = g.append('line').attr('y1', 0).attr('y2', height).attr('class', 'eu-crosshair');
+  const dot = g.append('circle').attr('r', 4.5).style('fill', 'var(--blue-flame)').style('opacity', 0);
+
+  const hit = g.append('rect')
+    .attr('class', 'eu-chart-hitbox')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('fill', 'none')
+    .style('cursor', 'pointer')
+    .style('pointer-events', 'all');
+
+  hit.on('mousemove', (event) => {
+    const [mx] = d3.pointer(event);
+    const targetDt = x.invert(mx);
+    if (!targetDt) return;
+    const targetMs = targetDt.getTime();
+
+    let best = null;
+    for (const p of points) {
+      const lag = Math.abs(p.period.getTime() - targetMs);
+      if (!best || lag < best.lag) best = { lag, p };
+    }
+    if (!best) {
+      tooltip.style('opacity', 0);
+      crosshair.style('opacity', 0);
+      dot.style('opacity', 0);
+      return;
+    }
+
+    const row = best.p;
+    const normal = normalFor ? normalFor(row) : null;
+    const medianVal = normal?.median ?? row.normMedian ?? null;
+    const dev = medianVal != null ? row.pct - medianVal : null;
+    const devTwh = dev != null && row.capacityTwh ? (dev * row.capacityTwh) / 100 : null;
+
+    crosshair.attr('x1', x(row.period)).attr('x2', x(row.period)).style('opacity', 1);
+    dot.attr('cx', x(row.period)).attr('cy', y(row.pct)).style('opacity', 1);
+
+    const hostRect = host.getBoundingClientRect();
+    const svgRect = svg.node().getBoundingClientRect();
+    const vb = svg.attr('viewBox').split(' ').map(Number);
+    const k = svgRect.width / vb[2];
+    const left = margin.left * k + x(row.period) * k + 14;
+    const top = margin.top * k + y(row.pct) * k - 20;
+
+    tooltip
+      .style('opacity', 1)
+      .style('left', `${Math.max(0, Math.min(left, hostRect.width - 240))}px`)
+      .style('top', `${Math.max(0, top)}px`)
+      .html(`
+        <div class="tt-title">${escapeHtml(formatIsoDate(row.period))} · European Aggregate</div>
+        <div class="tt-row"><span class="tt-label">Inventory Level</span><span class="num">${row.pct.toFixed(2)}%</span></div>
+        <div class="tt-row"><span class="tt-label">Working Gas Stock</span><span class="num">${row.twh != null ? row.twh.toFixed(1) : '—'} TWh</span></div>
+        <div class="tt-row"><span class="tt-label">Derived Capacity</span><span class="num">${row.capacityTwh != null ? row.capacityTwh.toFixed(1) : '—'} TWh</span></div>
+        ${medianVal == null ? '' : `
+        <div class="tt-row"><span class="tt-label">${horizonLabel} Median</span><span class="num">${medianVal.toFixed(2)}%</span></div>
+        <div class="tt-row tt-row--accent">
+          <span class="tt-label">vs Baseline</span>
           <span class="num ${dev >= 0 ? 'delta-pos' : 'delta-neg'}">
             ${dev >= 0 ? '+' : ''}${dev.toFixed(2)} pp${devTwh != null ? ` (${devTwh >= 0 ? '+' : ''}${devTwh.toFixed(1)} TWh)` : ''}
           </span>
@@ -472,7 +740,7 @@ function drawCountryGrid(container, views, referenceYear, { selected, onSelect, 
     const baselineLabel = minYear === 2022 ? 'post-2022' : '5Y';
 
     grid.insertAdjacentHTML('beforeend', `
-      <button type="button" class="eu-card ${levelClass}${isSel ? ' is-selected' : ''}"
+      <button type="button" class="eu-card${isSel ? ' is-selected' : ''}"
               data-cc="${escapeHtml(v.cc)}" aria-pressed="${isSel}" role="listitem">
         <div class="eu-card__head">
           <div class="eu-card__identity">
@@ -545,6 +813,7 @@ function drawCountryHistorySpark(svgEl, view, referenceYear, opts = {}) {
 
     svg.append('path').datum(pts)
       .attr('d', d3.line().x((d) => x(d.x)).y((d) => y(d.median)).curve(d3.curveMonotoneX))
+      .attr('fill', 'none')
       .attr('class', 'eu-band-median');
   }
 
@@ -789,13 +1058,159 @@ function drawCountryHistoryChart(host, view, referenceYear, opts = {}) {
   const w = width - margin.left - margin.right;
   const h = totalH - margin.top - margin.bottom;
 
-  const { minYear = null } = opts;
+  const { minYear = null, range = '1Y' } = opts;
   const isPost2022 = minYear === 2022;
   const normLabel = isPost2022 ? 'Post-2022' : '5Y';
 
   const rows = view.rows.filter((r) => Number.isFinite(r.pct));
   if (rows.length < 2) return;
 
+  const isShort = range === '30D' || range === '90D';
+  const isMax = range === 'MAX';
+
+  // Handle Zoomed Short Ranges (30D / 90D)
+  if (isShort) {
+    const days = range === '30D' ? 30 : 90;
+    const latestDate = rows[rows.length - 1].period;
+    const cutoff = new Date(latestDate.getTime() - days * 86400000);
+    const sliceRows = rows.filter((r) => r.period >= cutoff);
+    if (sliceRows.length >= 2) {
+      const slicePoints = sliceRows.map((r) => {
+        const norm = positionalNormal(rows.map((row) => ({ period: row.period, value: row.pct })), r.period, { minYear });
+        return {
+          period: r.period,
+          pct: r.pct,
+          twh: r.twh,
+          normMedian: norm?.median ?? null,
+          normMin: norm?.min ?? null,
+          normMax: norm?.max ?? null,
+          normN: norm?.n ?? 0,
+        };
+      });
+
+      const legendHtml = `
+        <div class="eu-chart-legend">
+          <span class="eu-legend-item">
+            <span class="eu-legend-swatch eu-legend-swatch--line"></span>${referenceYear} Trajectory (${range})
+          </span>
+          <span class="eu-legend-item">
+            <span class="eu-legend-swatch eu-legend-swatch--median"></span>${normLabel} Median
+          </span>
+          <span class="eu-legend-item">
+            <span class="eu-legend-swatch eu-legend-swatch--band"></span>${normLabel} Range
+          </span>
+        </div>
+      `;
+      host.insertAdjacentHTML('beforeend', legendHtml);
+
+      const svg = d3.select(host).append('svg')
+        .attr('viewBox', `0 0 ${width} ${totalH}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .style('display', 'block');
+
+      const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const allY = slicePoints.flatMap((p) => [p.pct, p.normMin, p.normMax]).filter(Number.isFinite);
+      const yExtent = allY.length ? d3.extent(allY) : [0, 100];
+      const yPad = Math.max(2, (yExtent[1] - yExtent[0]) * 0.1);
+      const yMin = Math.max(0, Math.floor((yExtent[0] - yPad) / 5) * 5);
+      const yMax = Math.min(100, Math.ceil((yExtent[1] + yPad) / 5) * 5);
+      const y = d3.scaleLinear().domain([yMin, yMax]).range([h, 0]);
+      const x = d3.scaleTime().domain([cutoff, latestDate]).range([0, w]);
+
+      // Y Gridlines
+      for (const t of y.ticks(4)) {
+        g.append('line').attr('x1', 0).attr('x2', w).attr('y1', y(t)).attr('y2', y(t)).attr('class', 'eu-grid');
+        g.append('text').attr('x', -6).attr('y', y(t) + 4).attr('text-anchor', 'end')
+          .attr('class', 'eu-axis-text').attr('font-family', 'var(--font-mono)').text(`${t}%`);
+      }
+
+      // Range Envelope
+      const validBand = slicePoints.filter((p) => Number.isFinite(p.normMin) && Number.isFinite(p.normMax));
+      if (validBand.length > 1) {
+        g.append('path').datum(validBand)
+          .attr('d', d3.area().x((d) => x(d.period)).y0((d) => y(d.normMin)).y1((d) => y(d.normMax)).curve(d3.curveMonotoneX))
+          .attr('class', 'eu-band eu-band--range');
+
+        g.append('path').datum(validBand)
+          .attr('d', d3.line().x((d) => x(d.period)).y((d) => y(d.normMedian)).curve(d3.curveMonotoneX))
+          .attr('fill', 'none').attr('class', 'eu-band-median');
+      }
+
+      // Trajectory
+      g.append('path').datum(slicePoints)
+        .attr('d', d3.line().x((d) => x(d.period)).y((d) => y(d.pct)).curve(d3.curveMonotoneX))
+        .attr('fill', 'none')
+        .style('stroke', 'var(--blue-flame)')
+        .attr('stroke-width', 2.5);
+
+      const last = slicePoints[slicePoints.length - 1];
+      g.append('circle').attr('cx', x(last.period)).attr('cy', y(last.pct)).attr('r', 3.5).style('fill', 'var(--blue-flame)');
+
+      // X Ticks
+      const tickStep = range === '30D' ? d3.timeWeek.every(1) : d3.timeWeek.every(2);
+      const ticks = tickStep.range(cutoff, latestDate);
+      for (const dt of ticks) {
+        const tx = x(dt);
+        g.append('line').attr('x1', tx).attr('x2', tx).attr('y1', h).attr('y2', h + 4).attr('stroke', 'rgba(255, 255, 255, 0.15)');
+        g.append('text').attr('x', tx).attr('y', h + 18).attr('text-anchor', 'middle')
+          .attr('class', 'eu-axis-text').attr('font-family', 'var(--font-mono)').text(d3.timeFormat('%b %d')(dt));
+      }
+
+      setupEuCountryTimeHover(host, svg, g, x, y, w, h, margin, slicePoints, view.label);
+      return;
+    }
+  }
+
+  // Handle Continuous Multi-Year MAX Range
+  if (isMax) {
+    const earliest = rows[0].period;
+    const latest = rows[rows.length - 1].period;
+    const legendHtml = `
+      <div class="eu-chart-legend">
+        <span class="eu-legend-item">
+          <span class="eu-legend-swatch eu-legend-swatch--line"></span>Continuous History (2021–${referenceYear})
+        </span>
+      </div>
+    `;
+    host.insertAdjacentHTML('beforeend', legendHtml);
+
+    const svg = d3.select(host).append('svg')
+      .attr('viewBox', `0 0 ${width} ${totalH}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .style('display', 'block');
+
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    const x = d3.scaleTime().domain([earliest, latest]).range([0, w]);
+    const y = d3.scaleLinear().domain([0, 100]).range([h, 0]);
+
+    for (const t of [0, 25, 50, 75, 100]) {
+      g.append('line').attr('x1', 0).attr('x2', w).attr('y1', y(t)).attr('y2', y(t)).attr('class', 'eu-grid');
+      g.append('text').attr('x', -6).attr('y', y(t) + 4).attr('text-anchor', 'end')
+        .attr('class', 'eu-axis-text').attr('font-family', 'var(--font-mono)').text(`${t}%`);
+    }
+
+    g.append('path').datum(rows)
+      .attr('d', d3.line().x((d) => x(d.period)).y((d) => y(d.pct)).curve(d3.curveMonotoneX))
+      .attr('fill', 'none')
+      .style('stroke', 'var(--blue-flame)')
+      .attr('stroke-width', 2);
+
+    const yearTicks = d3.timeYear.range(d3.timeYear.floor(earliest), d3.timeYear.ceil(latest));
+    for (const yt of yearTicks) {
+      const tx = x(yt);
+      if (tx >= 0 && tx <= w) {
+        g.append('line').attr('x1', tx).attr('x2', tx).attr('y1', h).attr('y2', h + 4).attr('stroke', 'rgba(255, 255, 255, 0.2)');
+        g.append('text').attr('x', tx).attr('y', h + 18).attr('text-anchor', 'middle')
+          .attr('class', 'eu-axis-text').attr('font-family', 'var(--font-mono)').text(yt.getFullYear());
+      }
+    }
+
+    setupEuCountryTimeHover(host, svg, g, x, y, w, h, margin, rows, view.label);
+    return;
+  }
+
+  // Handle 1Y & 5Y Seasonal Scale (0..1)
   const rawByYear = rowsByYear(rows, (r) => r.pct);
   const byYear = minYear ? rawByYear.filter((yr) => yr.year >= minYear) : rawByYear;
 
@@ -979,6 +1394,72 @@ function drawCountryHistoryChart(host, view, referenceYear, opts = {}) {
         <div style="margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06);">
           ${yearsListHtml}
         </div>
+      `);
+  }).on('mouseleave', () => {
+    tooltip.style('opacity', 0);
+    crosshair.style('opacity', 0);
+    dot.style('opacity', 0);
+  });
+}
+
+function setupEuCountryTimeHover(host, svg, g, x, y, w, h, margin, points, label) {
+  const tooltip = d3.select(host).append('div').attr('class', 'chart-tooltip').style('opacity', 0);
+  const crosshair = g.append('line').attr('y1', 0).attr('y2', h).attr('class', 'eu-crosshair');
+  const dot = g.append('circle').attr('r', 4.5).style('fill', 'var(--blue-flame)').style('opacity', 0);
+
+  const hit = g.append('rect')
+    .attr('class', 'eu-chart-hitbox')
+    .attr('width', w).attr('height', h)
+    .attr('fill', 'none')
+    .style('cursor', 'pointer')
+    .style('pointer-events', 'all');
+
+  hit.on('mousemove', (event) => {
+    const [mx] = d3.pointer(event);
+    const targetDt = x.invert(mx);
+    if (!targetDt) return;
+    const targetMs = targetDt.getTime();
+
+    let best = null;
+    for (const p of points) {
+      const lag = Math.abs(p.period.getTime() - targetMs);
+      if (!best || lag < best.lag) best = { lag, p };
+    }
+    if (!best) {
+      tooltip.style('opacity', 0);
+      crosshair.style('opacity', 0);
+      dot.style('opacity', 0);
+      return;
+    }
+
+    const row = best.p;
+    const dev = row.normMedian != null ? row.pct - row.normMedian : null;
+
+    crosshair.attr('x1', x(row.period)).attr('x2', x(row.period)).style('opacity', 1);
+    dot.attr('cx', x(row.period)).attr('cy', y(row.pct)).style('opacity', 1);
+
+    const hostRect = host.getBoundingClientRect();
+    const svgRect = svg.node().getBoundingClientRect();
+    const vb = svg.attr('viewBox').split(' ').map(Number);
+    const k = svgRect.width / vb[2];
+    const left = margin.left * k + x(row.period) * k + 12;
+    const top = 16;
+
+    tooltip
+      .style('opacity', 1)
+      .style('left', `${Math.max(0, Math.min(left, hostRect.width - 220))}px`)
+      .style('top', `${top}px`)
+      .html(`
+        <div class="tt-title">${escapeHtml(formatIsoDate(row.period))} · ${escapeHtml(label)}</div>
+        <div class="tt-row"><span class="tt-label">Inventory Level</span><span class="num">${row.pct.toFixed(2)}%</span></div>
+        ${row.twh != null ? `<div class="tt-row"><span class="tt-label">Stock</span><span class="num">${row.twh.toFixed(1)} TWh</span></div>` : ''}
+        ${row.normMedian != null ? `
+          <div class="tt-row"><span class="tt-label">Baseline Median</span><span class="num">${row.normMedian.toFixed(1)}%</span></div>
+          <div class="tt-row tt-row--accent">
+            <span class="tt-label">vs Baseline</span>
+            <span class="num ${dev >= 0 ? 'delta-pos' : 'delta-neg'}">${dev >= 0 ? '+' : ''}${dev.toFixed(1)} pp</span>
+          </div>
+        ` : ''}
       `);
   }).on('mouseleave', () => {
     tooltip.style('opacity', 0);

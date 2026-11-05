@@ -353,7 +353,7 @@ function drawNationalDualPlot(container, l48, envelope, netChangeEnv, range, wee
   }
 
   // Draw Left Plot: Inventory Trajectory
-  drawInventoryPlot(wrapInv, displayRows, envelope, weekKey, projection);
+  drawInventoryPlot(wrapInv, displayRows, envelope, weekKey, projection, range);
 
   // Draw Right Plot: Weekly Net Change Velocity
   const weeklyChanges = computeWeeklyNetChanges(l48);
@@ -372,10 +372,10 @@ function drawNationalDualPlot(container, l48, envelope, netChangeEnv, range, wee
     displayChanges = [...weeklyChanges];
   }
 
-  drawVelocityPlot(wrapVel, displayChanges, netChangeEnv, weekKey);
+  drawVelocityPlot(wrapVel, displayChanges, netChangeEnv, weekKey, range);
 }
 
-function drawInventoryPlot(container, displayRows, envelope, weekKey, projection) {
+function drawInventoryPlot(container, displayRows, envelope, weekKey, projection, range = '1y') {
   container.innerHTML = '';
   const rect = container.getBoundingClientRect();
   const margin = { top: 16, right: 16, bottom: 32, left: 54 };
@@ -389,8 +389,11 @@ function drawInventoryPlot(container, displayRows, envelope, weekKey, projection
     .style('display', 'block');
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-  const maxWeek = Math.max(52, ...Array.from(envelope.keys()));
-  const x = d3.scaleLinear().domain([1, maxWeek]).range([0, width]);
+  const isShortRange = range === '30d' || range === '90d';
+  const rowWeeks = displayRows.map((r) => weekKey(r)).filter((w) => Number.isFinite(w));
+  const minWeek = isShortRange && rowWeeks.length ? Math.min(...rowWeeks) : 1;
+  const maxWeek = isShortRange && rowWeeks.length ? Math.max(...rowWeeks) : Math.max(52, ...Array.from(envelope.keys()));
+  const x = d3.scaleLinear().domain([minWeek, maxWeek]).range([0, width]);
 
   const allValues = [
     ...displayRows.map((r) => r.value),
@@ -462,19 +465,30 @@ function drawInventoryPlot(container, displayRows, envelope, weekKey, projection
       .style('filter', 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.7))');
   }
 
-  // X Axis Ticks (Months)
-  const monthTicks = [
-    { wk: 1, label: 'Jan' }, { wk: 9, label: 'Mar' },
-    { wk: 18, label: 'May' }, { wk: 27, label: 'Jul' },
-    { wk: 36, label: 'Sep' }, { wk: 44, label: 'Nov' },
-  ];
-  g.selectAll('.x-tick').data(monthTicks).enter()
-    .append('text')
-    .attr('x', (d) => x(d.wk)).attr('y', height + 20)
-    .attr('text-anchor', 'middle')
-    .attr('font-size', 10.5).attr('font-family', 'var(--font-sans)')
-    .attr('fill', 'var(--chart-label, #94a3b8)')
-    .text((d) => d.label);
+  // X Axis Ticks
+  if (isShortRange) {
+    const sortedRows = [...displayRows].sort((a, b) => a.period - b.period);
+    g.selectAll('.x-tick').data(sortedRows).enter()
+      .append('text')
+      .attr('x', (d) => x(weekKey(d))).attr('y', height + 20)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 10).attr('font-family', 'var(--font-mono)')
+      .attr('fill', 'var(--chart-label, #94a3b8)')
+      .text((d) => d.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+  } else {
+    const monthTicks = [
+      { wk: 1, label: 'Jan' }, { wk: 9, label: 'Mar' },
+      { wk: 18, label: 'May' }, { wk: 27, label: 'Jul' },
+      { wk: 36, label: 'Sep' }, { wk: 44, label: 'Nov' },
+    ];
+    g.selectAll('.x-tick').data(monthTicks).enter()
+      .append('text')
+      .attr('x', (d) => x(d.wk)).attr('y', height + 20)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 10.5).attr('font-family', 'var(--font-sans)')
+      .attr('fill', 'var(--chart-label, #94a3b8)')
+      .text((d) => d.label);
+  }
 
   // Y Axis Ticks
   g.selectAll('.y-tick').data(yTicks).enter()
@@ -488,7 +502,7 @@ function drawInventoryPlot(container, displayRows, envelope, weekKey, projection
   setupTrajectoryHover(svg, g, x, y, width, height, displayRows, envelope, margin, weekKey);
 }
 
-function drawVelocityPlot(container, displayChanges, netChangeEnv, weekKey) {
+function drawVelocityPlot(container, displayChanges, netChangeEnv, weekKey, range = '1y') {
   container.innerHTML = '';
   const rect = container.getBoundingClientRect();
   const margin = { top: 16, right: 16, bottom: 32, left: 54 };
@@ -502,8 +516,11 @@ function drawVelocityPlot(container, displayChanges, netChangeEnv, weekKey) {
     .style('display', 'block');
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-  const maxWeek = Math.max(52, ...Array.from(netChangeEnv.keys()));
-  const x = d3.scaleLinear().domain([1, maxWeek]).range([0, width]);
+  const isShortRange = range === '30d' || range === '90d';
+  const changeWeeks = displayChanges.map((c) => weekKey(c)).filter((w) => Number.isFinite(w));
+  const minWeek = isShortRange && changeWeeks.length ? Math.min(...changeWeeks) : 1;
+  const maxWeek = isShortRange && changeWeeks.length ? Math.max(...changeWeeks) : Math.max(52, ...Array.from(netChangeEnv.keys()));
+  const x = d3.scaleLinear().domain([minWeek, maxWeek]).range([0, width]);
 
   const allDeltas = [
     ...displayChanges.map((c) => c.value),
@@ -579,19 +596,30 @@ function drawVelocityPlot(container, displayChanges, netChangeEnv, weekKey) {
       .style('filter', 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.7))');
   }
 
-  // X Axis Ticks (Months)
-  const monthTicks = [
-    { wk: 1, label: 'Jan' }, { wk: 9, label: 'Mar' },
-    { wk: 18, label: 'May' }, { wk: 27, label: 'Jul' },
-    { wk: 36, label: 'Sep' }, { wk: 44, label: 'Nov' },
-  ];
-  g.selectAll('.x-tick-vel').data(monthTicks).enter()
-    .append('text')
-    .attr('x', (d) => x(d.wk)).attr('y', height + 20)
-    .attr('text-anchor', 'middle')
-    .attr('font-size', 10.5).attr('font-family', 'var(--font-sans)')
-    .attr('fill', 'var(--chart-label, #94a3b8)')
-    .text((d) => d.label);
+  // X Axis Ticks
+  if (isShortRange) {
+    const sortedChanges = [...displayChanges].sort((a, b) => a.period - b.period);
+    g.selectAll('.x-tick-vel').data(sortedChanges).enter()
+      .append('text')
+      .attr('x', (d) => x(weekKey(d))).attr('y', height + 20)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 10).attr('font-family', 'var(--font-mono)')
+      .attr('fill', 'var(--chart-label, #94a3b8)')
+      .text((d) => d.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+  } else {
+    const monthTicks = [
+      { wk: 1, label: 'Jan' }, { wk: 9, label: 'Mar' },
+      { wk: 18, label: 'May' }, { wk: 27, label: 'Jul' },
+      { wk: 36, label: 'Sep' }, { wk: 44, label: 'Nov' },
+    ];
+    g.selectAll('.x-tick-vel').data(monthTicks).enter()
+      .append('text')
+      .attr('x', (d) => x(d.wk)).attr('y', height + 20)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 10.5).attr('font-family', 'var(--font-sans)')
+      .attr('fill', 'var(--chart-label, #94a3b8)')
+      .text((d) => d.label);
+  }
 
   // Y Axis Ticks
   g.selectAll('.y-tick-vel').data(yTicks).enter()
@@ -1008,7 +1036,7 @@ function renderNationalCommentary(container, analysis, lookbackYears) {
 
   container.innerHTML = `
     <div class="storage-narrative-card">
-      <div class="storage-narrative-title">EIA Weekly Supplement Desk Assessment · Lower 48 States</div>
+      <div class="storage-narrative-title">Official Weekly Storage Disclosures · EIA Form 912</div>
       <ul class="storage-narrative-list">
         ${bullets.map((b) => `<li>${b}</li>`).join('')}
       </ul>
@@ -1046,7 +1074,7 @@ function renderRegionalCommentary(container, regionalFillData, lookbackYears) {
 
   container.innerHTML = `
     <div class="storage-narrative-card">
-      <div class="storage-narrative-title">EIA Weekly Supplement Desk Assessment · Regional Drill-down</div>
+      <div class="storage-narrative-title">Regional Storage Disclosures · EIA Form 912</div>
       <ul class="storage-narrative-list">
         ${bullets.map((b) => `<li>${b}</li>`).join('')}
       </ul>

@@ -81,24 +81,20 @@
   transition: width 0.4s ease-out;
 }
 
-.utilization-gray {
-  background-color: #6b7280 !important;
-  color: #9ca3af !important;
+.utilization-bar-fill.utilization-gray {
+  background-color: #6b7280;
 }
 
-.utilization-green {
-  background-color: var(--color-bullish-supply, #10b981) !important;
-  color: var(--color-bullish-supply, #10b981) !important;
+.utilization-bar-fill.utilization-green {
+  background-color: var(--color-bullish-supply, #10b981);
 }
 
-.utilization-amber {
-  background-color: var(--color-warning, #f59e0b) !important;
-  color: var(--color-warning, #f59e0b) !important;
+.utilization-bar-fill.utilization-amber {
+  background-color: var(--color-warning, #f59e0b);
 }
 
-.utilization-red {
-  background-color: var(--color-bearish-supply, #ef4444) !important;
-  color: var(--color-bearish-supply, #ef4444) !important;
+.utilization-bar-fill.utilization-red {
+  background-color: var(--color-bearish-supply, #ef4444);
 }
 
 .kpi-card__delta--utilization-gray {

@@ -213,8 +213,8 @@ export function classifyVintage(sourceKey, latestPeriod) {
   const dueStr = nextExpectedPublishDate.toISOString().slice(0, 10);
   const labelText =
     freshness === 'fresh' ? `Updated ${formatAgeShort(ageDays)} ago` :
-    freshness === 'stale' ? `Due ${dueStr} · no print` :
-    `Due ${dueStr} · ${-daysUntilNext}d ago`;
+    freshness === 'stale' ? 'Awaiting next release' :
+    'Awaiting next release';
 
   return { ageDays, daysUntilNext, freshness, tooltip, labelText };
 }

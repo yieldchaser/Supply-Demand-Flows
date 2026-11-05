@@ -83,6 +83,8 @@
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: var(--space-6);
+  gap: var(--space-4, 16px);
+  flex-wrap: wrap;
 }
 
 .panel-header__left {
