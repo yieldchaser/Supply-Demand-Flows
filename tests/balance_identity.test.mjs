@@ -214,10 +214,14 @@ describe('LNG join', () => {
   it('joins on the calendar month despite the two different period formats', () => {
     // supply writes `YYYY-MM`; LNG exports write `YYYY-MM-01`. A raw string join
     // returns nothing and the panel silently omits its only import leg.
-    const key = monthKeyOf(model.latest.period);
-    assert.ok(lng.has(key), `no LNG row for ${key}`);
-    const lngValue = lng.get(key);
-    assert.ok(lngValue > 100 && lngValue < 1500, `${key} LNG ${lngValue} Bcf is out of plausible range`);
+    // Test on the newest month that exists in both series (EIA exports lag supply by 1-2 months).
+    const sharedKey = model.series
+      .map((m) => monthKeyOf(m.period))
+      .reverse()
+      .find((k) => lng.has(k));
+    assert.ok(sharedKey, 'no overlapping months between supply and LNG exports');
+    const lngValue = lng.get(sharedKey);
+    assert.ok(lngValue > 100 && lngValue < 1500, `${sharedKey} LNG ${lngValue} Bcf is out of plausible range`);
   });
 
   it('does not sum overlapping region ids', () => {

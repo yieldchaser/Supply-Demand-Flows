@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from publishers.events import detect_rig_reversal, detect_storage_print
+from publishers.events import detect_eu_storage_print, detect_rig_reversal, detect_storage_print
 
 
 @pytest.fixture
@@ -42,6 +42,48 @@ def test_storage_print_detector_computes_delta(mock_curated):
     assert result["dedup_key"] == "storage_print_2026-04-17"
     assert "Net injection: <code>+42 Bcf</code>" in result["html_body"]
     assert "Total: <code>3,042 Bcf</code>" in result["html_body"]
+
+
+def test_storage_print_detector_with_salt_breakout(mock_curated):
+    """Verify EIA storage print includes SC Salt caverns and TX 527 Bcf benchmark."""
+    df = pd.DataFrame(
+        [
+            {"period": "2026-04-10", "region": "Lower 48", "value": 3000.0, "source": "eia"},
+            {"period": "2026-04-17", "region": "Lower 48", "value": 3050.0, "source": "eia"},
+            {"period": "2026-04-10", "region": "South Central Salt", "value": 320.0, "source": "eia"},
+            {"period": "2026-04-17", "region": "South Central Salt", "value": 331.0, "source": "eia"},
+        ]
+    )
+    df.to_parquet(mock_curated / "eia_storage.parquet")
+
+    result = detect_storage_print()
+    assert result is not None
+    assert "SC Salt Caverns: <code>331 Bcf (+11 Bcf WoW)</code>" in result["html_body"]
+    assert "62.8%</code> of TX 527 Bcf Nameplate" in result["html_body"]
+
+
+def test_eu_storage_print_detector(mock_curated):
+    """Verify daily EU storage print includes stock, net flow, and country breakdown."""
+    rows = [
+        {"period": "2026-11-02", "series_id": "gie_storage_de_gas_in_storage", "value": 150.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_de_full_pct", "value": 60.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_de_injection", "value": 200.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_de_withdrawal", "value": 1200.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_fr_gas_in_storage", "value": 100.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_fr_full_pct", "value": 80.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_fr_injection", "value": 50.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_fr_withdrawal", "value": 500.0},
+    ]
+    df = pd.DataFrame(rows)
+    df.to_parquet(mock_curated / "gie_agsi.parquet")
+
+    result = detect_eu_storage_print()
+    assert result is not None
+    assert result["dedup_key"] == "eu_storage_print_2026-11-02"
+    assert "GIE AGSI+ European Gas Storage — 2026-11-02" in result["html_body"]
+    assert "250.0 TWh" in result["html_body"]
+    assert "-1,450 GWh/d" in result["html_body"]
+    assert "Germany: <code>60.0%</code>" in result["html_body"]
 
 
 def test_rig_reversal_detector_fires_on_big_move(mock_curated):

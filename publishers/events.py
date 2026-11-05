@@ -101,8 +101,100 @@ def detect_storage_print() -> dict[str, str] | None:
         pct = (vs_5y / five_yr_avg) * 100 if five_yr_avg else 0
         body_lines.append(f"vs 5-yr avg: <code>{fmt(vs_5y)} Bcf ({pct:+.1f}%)</code>")
 
+    # South Central Salt breakout & Texas 527 Bcf Benchmark
+    if "region" in df.columns:
+        salt_df = df[df["region"] == "South Central Salt"].sort_values("period")
+        if not salt_df.empty:
+            salt_latest = salt_df[salt_df["period"] == latest_period]
+            if not salt_latest.empty:
+                salt_val = float(salt_latest.iloc[-1]["value"])
+                salt_prior = salt_df[salt_df["period"] < latest_period]
+                salt_delta = (salt_val - float(salt_prior.iloc[-1]["value"])) if not salt_prior.empty else None
+                salt_delta_str = f" ({fmt(salt_delta)} Bcf WoW)" if salt_delta is not None else ""
+                texas_pct = (salt_val / 527.0) * 100.0
+                body_lines.append(f"SC Salt Caverns: <code>{salt_val:,.0f} Bcf{salt_delta_str}</code> (<code>{texas_pct:.1f}%</code> of TX 527 Bcf Nameplate)")
+
     return {
         "dedup_key": f"storage_print_{latest_period}",
+        "html_body": "\n".join(body_lines),
+    }
+
+
+def detect_eu_storage_print() -> dict[str, str] | None:
+    """
+    Fires daily when new GIE AGSI+ data arrives. Computes:
+      - Total European stock (TWh) and aggregate % full
+      - Daily net flow (GWh/d reported injection - withdrawal)
+      - Key country balances (Germany, France, Italy, Netherlands)
+    """
+    path = CURATED_DIR / "gie_agsi.parquet"
+    if not path.exists():
+        return None
+    try:
+        df = pd.read_parquet(path)
+    except Exception as exc:
+        logger.error(f"Failed to read {path}: {exc}")
+        return None
+
+    if df.empty:
+        return None
+
+    latest_period = str(df["period"].max())
+    day_df = df[df["period"] == latest_period]
+    if day_df.empty:
+        return None
+
+    stock_df = day_df[day_df["series_id"].str.endswith("_gas_in_storage")]
+    inj_df = day_df[day_df["series_id"].str.endswith("_injection")]
+    wdr_df = day_df[day_df["series_id"].str.endswith("_withdrawal")]
+    pct_df = day_df[day_df["series_id"].str.endswith("_full_pct")]
+
+    if stock_df.empty:
+        return None
+
+    total_stock = float(stock_df["value"].sum())
+    total_inj = float(inj_df["value"].sum()) if not inj_df.empty else 0.0
+    total_wdr = float(wdr_df["value"].sum()) if not wdr_df.empty else 0.0
+    net_flow = total_inj - total_wdr
+    flow_regime = "Injection" if net_flow > 100 else ("Withdrawal" if net_flow < -100 else "Neutral")
+
+    # Estimate capacity from each country's stock and pct
+    caps: list[float] = []
+    for _, srow in stock_df.iterrows():
+        sid = str(srow["series_id"])
+        parts = sid.split("_")
+        if len(parts) >= 3:
+            cc = parts[2]
+            prow = pct_df[pct_df["series_id"] == f"gie_storage_{cc}_full_pct"]
+            if not prow.empty and float(prow.iloc[0]["value"]) > 0:
+                c = float(srow["value"]) / (float(prow.iloc[0]["value"]) / 100.0)
+                caps.append(c)
+    total_cap = sum(caps) if caps else 1010.1
+    agg_pct = (total_stock / total_cap) * 100.0 if total_cap > 0 else 0.0
+
+    body_lines = [
+        f"🇪🇺 <b>GIE AGSI+ European Gas Storage — {latest_period}</b>",
+        "",
+        f"Aggregate: <code>{agg_pct:.1f}%</code> (<code>{total_stock:.1f} TWh</code> / <code>{total_cap:.1f} TWh</code>)",
+        f"Daily Flow: <code>{net_flow:+,.0f} GWh/d</code> ({flow_regime})",
+    ]
+
+    key_ccs = [("de", "Germany"), ("it", "Italy"), ("fr", "France"), ("nl", "Netherlands")]
+    country_lines = []
+    for cc, cname in key_ccs:
+        cpct_row = pct_df[pct_df["series_id"] == f"gie_storage_{cc}_full_pct"]
+        cstock_row = stock_df[stock_df["series_id"] == f"gie_storage_{cc}_gas_in_storage"]
+        if not cpct_row.empty and not cstock_row.empty:
+            cp = float(cpct_row.iloc[0]["value"])
+            cs = float(cstock_row.iloc[0]["value"])
+            country_lines.append(f"  • {cname}: <code>{cp:.1f}%</code> (<code>{cs:.1f} TWh</code>)")
+    if country_lines:
+        body_lines.append("")
+        body_lines.append("<b>Key Member States:</b>")
+        body_lines.extend(country_lines)
+
+    return {
+        "dedup_key": f"eu_storage_print_{latest_period}",
         "html_body": "\n".join(body_lines),
     }
 
@@ -180,6 +272,7 @@ def run_all_detectors() -> list[dict[str, str]]:
     # call site with "Cannot call function of unknown type" under --strict.
     detectors: list[Callable[[], dict[str, str] | None]] = [
         detect_storage_print,
+        detect_eu_storage_print,
         detect_rig_reversal,
     ]
     events: list[dict[str, str]] = []
