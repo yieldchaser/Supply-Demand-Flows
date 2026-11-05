@@ -17,7 +17,7 @@ const FEATURED_BASINS = [
   { id: 'permian',     label: 'Permian',     gasFlavor: 'associated' },
   { id: 'eagle_ford',  label: 'Eagle Ford',  gasFlavor: 'mixed' },
   { id: 'dj_niobrara', label: 'DJ-Niobrara', gasFlavor: 'oil_basin' },
-  { id: 'bakken',      label: 'Bakken',      gasFlavor: 'oil_basin' },
+  { id: 'williston',   label: 'Bakken (Williston)', gasFlavor: 'oil_basin' },
 ];
 
 export function renderBasinsPanel(panelEl, bundle) {
