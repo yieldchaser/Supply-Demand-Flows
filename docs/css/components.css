@@ -1,3 +1,6 @@
+/* Hallmark · app screen · modern-minimal · posture: restrained · hero: custom · shape: app screen · job: natural gas observatory · components */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 · core charts, tables, cards, divergence gauge */
+
 /* ========================================================
    Components — Glassmorphism language for Blue Tide
    ======================================================== */
@@ -8,8 +11,8 @@
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse at top, rgba(125, 211, 252, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom right, rgba(56, 189, 248, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at top, var(--color-accent-bg-subtle) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, var(--color-accent-bg-subtle) 0%, transparent 60%),
     linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
   pointer-events: none;
 }
@@ -33,10 +36,7 @@
   font-size: var(--fs-xl);
   font-weight: 700;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, var(--blue-flame), var(--blue-flame-deep));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--blue-flame-deep);
 }
 
 .header-subtitle {
@@ -122,7 +122,7 @@
 .chart-export-btn:focus-visible {
   color: var(--blue-flame);
   border-color: var(--blue-flame);
-  background: rgba(125, 211, 252, 0.08);
+  background: var(--surface-hover);
   outline: none;
 }
 
@@ -220,8 +220,8 @@
 }
 .kpi-card__label {
   font-size: var(--fs-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  /* normal case */
+  letter-spacing: 0.01em;
   color: var(--text-secondary);
   margin-bottom: 0;  /* gap handles spacing */
 }
@@ -324,7 +324,7 @@
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-subtle);
   padding: var(--space-4);
   border-radius: var(--radius-md);
   max-width: 600px;
@@ -444,8 +444,8 @@
 .panel-subchart__badge {
   font-size: 10px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  /* normal case */
+  letter-spacing: 0.01em;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
 }
@@ -476,7 +476,7 @@
 .panel-subchart__body--prose {
   height: auto;
   min-height: 0;
-  max-width: 78ch;
+  max-width: 65ch;
 }
 
 /* === Chart Tooltip === */
@@ -497,8 +497,8 @@
 }
 .chart-tooltip .tt-date {
   font-size: var(--fs-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  /* normal case */
+  letter-spacing: 0.01em;
   color: var(--text-secondary);
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
@@ -535,8 +535,8 @@
 .bridge-table th {
   font-size: 10px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  /* normal case */
+  letter-spacing: 0.01em;
   color: var(--text-tertiary);
   text-align: right;
   padding: 0 0 var(--space-2);
@@ -639,23 +639,23 @@
 .basin-card__flavor {
   font-size: 9px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  /* normal case */
+  letter-spacing: 0.01em;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
 }
 .basin-card__flavor--gas {
   color: var(--blue-flame);
-  background: rgba(125, 211, 252, 0.12);
+  background: var(--color-accent-bg);
 }
 .basin-card__flavor--mixed {
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--border-subtle);
 }
 .basin-card__flavor--oil {
   color: var(--text-tertiary);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-subtle);
 }
 
 .basin-card__metric {
@@ -682,7 +682,7 @@
   align-items: baseline;
 }
 .basin-card--accel .basin-card__delta { color: var(--blue-flame); }
-.basin-card--decel .basin-card__delta { color: #f59e0b; }
+.basin-card--decel .basin-card__delta { color: var(--color-warning); }
 
 .basin-card__arrow {
   font-size: var(--fs-base);
@@ -753,8 +753,8 @@
 
 .basin-table th {
   font-size: var(--fs-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  /* normal case */
+  letter-spacing: 0.01em;
   color: var(--text-secondary);
   font-weight: 500;
   text-align: right;
@@ -784,11 +784,11 @@
   text-align: right;
   font-family: var(--font-mono);
   font-feature-settings: 'tnum';
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--surface-subtle);
 }
 
 .basin-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-subtle);
 }
 
 .basin-table .delta-pos { color: var(--color-bullish-supply); }
@@ -798,16 +798,16 @@
   display: inline-block;
   font-size: 9px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  /* normal case */
+  letter-spacing: 0.01em;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   margin-left: var(--space-2);
 }
 
-.badge--gas   { color: var(--blue-flame);      background: rgba(125, 211, 252, 0.12); }
-.badge--mixed { color: var(--text-secondary);  background: rgba(255, 255, 255, 0.05); }
-.badge--oil   { color: var(--text-tertiary);   background: rgba(255, 255, 255, 0.03); }
+.badge--gas   { color: var(--blue-flame);      background: var(--color-accent-bg); }
+.badge--mixed { color: var(--text-secondary);  background: var(--border-subtle); }
+.badge--oil   { color: var(--text-tertiary);   background: var(--surface-subtle); }
 
 /* === Extremes Strip === */
 .extreme-card {
@@ -815,13 +815,13 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-subtle);
   border-radius: var(--radius-md);
   font-size: var(--fs-sm);
 }
 
-.extreme-card--high { border: 1px solid rgba(125, 211, 252, 0.25); }
-.extreme-card--low  { border: 1px solid rgba(245, 158, 11, 0.25); }
+.extreme-card--high { border: 1px solid var(--color-accent-border); }
+.extreme-card--low  { border: 1px solid var(--color-warning-border); }
 
 .extremes-empty {
   color: var(--text-tertiary);
@@ -868,11 +868,11 @@
 .eu-card:focus-visible { outline: 2px solid var(--blue-flame); outline-offset: 2px; }
 .eu-card.is-selected {
   border-top-color: var(--blue-flame);
-  background: rgba(125, 211, 252, 0.04);
+  background: var(--color-accent-bg-subtle);
 }
 
-.eu-card--low  { border-top-color: rgba(239, 78, 92, 0.6); }
-.eu-card--mid  { border-top-color: rgba(245, 158, 11, 0.6); }
+.eu-card--low  { border-top-color: var(--color-danger); }
+.eu-card--mid  { border-top-color: var(--color-warning); }
 .eu-card--high { border-top-color: var(--rule-strong); }
 
 .eu-card__head {
@@ -885,8 +885,8 @@
   font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  /* normal case */
+  letter-spacing: 0.01em;
 }
 .eu-card__cc {
   font-family: var(--font-mono);
@@ -945,10 +945,10 @@
 /* Shared chart primitives for the European surfaces. Colours come from tokens;
    the band is a fill on the same scale as the lines, not a decoration. */
 .eu-grid {
-  stroke: rgba(255, 255, 255, 0.05);
+  stroke: var(--border-subtle);
   shape-rendering: crispEdges;
 }
-.eu-grid--major { stroke: rgba(255, 255, 255, 0.12); }
+.eu-grid--major { stroke: var(--chart-grid-major); }
 .eu-axis-text {
   font-size: 10px;
   fill: var(--text-tertiary);
@@ -958,14 +958,14 @@
   stroke-dasharray: 2 3;
   pointer-events: none;
 }
-.eu-band--range { fill: rgba(148, 163, 184, 0.14); }
+.eu-band--range { fill: var(--color-slate-bg); }
 .eu-band-median {
   stroke: var(--text-tertiary);
   stroke-width: 1;
   stroke-dasharray: 3 3;
 }
 .eu-year {
-  stroke: rgba(148, 163, 184, 0.4);
+  stroke: var(--color-slate-border);
   stroke-width: 1;
 }
 .eu-year--current {
@@ -981,7 +981,7 @@
 }
 .eu-year-label--current { fill: var(--blue-flame); }
 .eu-spark-prior {
-  stroke: rgba(148, 163, 184, 0.28);
+  stroke: var(--color-slate-border);
   stroke-width: 0.75;
 }
 .eu-flow--in  { stroke: var(--color-bullish-supply); }
@@ -1019,8 +1019,8 @@
 .eu-detail__stats > div { display: flex; flex-direction: column; gap: 2px; }
 .eu-detail__stats dt {
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  /* normal case */
+  letter-spacing: 0.01em;
   color: var(--text-tertiary);
 }
 .eu-detail__stats dd {
@@ -1074,7 +1074,7 @@
 .divergence-card__title {
   font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
+  /* normal case */
   letter-spacing: 0.1em;
   color: var(--text-secondary);
 }
@@ -1099,7 +1099,7 @@
 .divergence-side__label {
   font-size: var(--fs-xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--text-tertiary);
   margin-bottom: var(--space-1);
 }
@@ -1142,11 +1142,11 @@
   border-radius: 6px;
   background: linear-gradient(
     to right,
-    rgba(34, 211, 164, 0.50) 0%,
-    rgba(125, 211, 252, 0.20) 35%,
-    rgba(255, 255, 255, 0.05) 50%,
-    rgba(245, 158, 11, 0.20) 65%,
-    rgba(239, 78, 92, 0.50) 100%
+    var(--color-success-border) 0%,
+    var(--color-accent-bg) 35%,
+    var(--border-subtle) 50%,
+    var(--color-warning-bg) 65%,
+    var(--color-danger-border) 100%
   );
   border: 1px solid var(--border-glass);
 }
@@ -1159,8 +1159,8 @@
   background: var(--text-primary);
   border-radius: 1.5px;
   transform: translateX(-50%);
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-  transition: left var(--dur-slow) var(--ease-out);
+  box-shadow: 0 0 8px var(--chart-axis);
+  /* static positioned */
 }
 
 /* No spread to point at: park the needle at centre, visibly inert. */
@@ -1176,7 +1176,7 @@
   font-size: var(--fs-xs);
 }
 
-.divergence-gauge__edge { color: var(--text-tertiary); letter-spacing: 0.04em; }
+.divergence-gauge__edge { color: var(--text-tertiary); letter-spacing: 0.01em; }
 
 .divergence-gauge__spread {
   color: var(--text-primary);
@@ -1222,9 +1222,9 @@
   inset: var(--space-8);
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.02) 25%,
-    rgba(255, 255, 255, 0.06) 50%,
-    rgba(255, 255, 255, 0.02) 75%
+    var(--surface-subtle) 25%,
+    var(--border-glass) 50%,
+    var(--surface-subtle) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-pulse 1.8s ease-in-out infinite;
@@ -1279,8 +1279,8 @@ button:focus-visible,
 }
 .panel-table th {
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  /* normal case */
+  letter-spacing: 0.01em;
   font-size: 10px;
   color: var(--text-tertiary);
   text-align: right;
@@ -1331,11 +1331,19 @@ button:focus-visible,
   color: var(--text-tertiary);
   font-family: var(--font-mono);
   font-feature-settings: 'tnum';
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--surface-muted);
   padding-top: var(--space-2);
   margin-top: var(--space-2);
   display: block;
 }
 .data-provenance__flag {
   color: var(--color-warning);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

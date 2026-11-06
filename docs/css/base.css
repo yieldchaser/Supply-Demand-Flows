@@ -1,3 +1,6 @@
+/* Hallmark · app screen · modern-minimal · posture: restrained · hero: custom · shape: app screen · job: natural gas observatory · base */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 · typography, reset, access, motion fallbacks */
+
 /* === Reset === */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -11,6 +14,7 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
@@ -21,7 +25,7 @@ body {
   color: var(--text-primary);
   background: var(--bg-0);
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* === Focus === */
@@ -72,9 +76,7 @@ h1, h2, h3, h4, h5, h6 {
 abbr,
 .label-caps {
   font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 500;
   color: var(--text-secondary);
   text-decoration: none;
 }
@@ -107,12 +109,12 @@ img, svg {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface-active);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--border-focus);
 }
 
 /* === Utility === */
@@ -126,4 +128,21 @@ img, svg {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* === Active States === */
+button:active,
+a:active,
+[role='button']:active {
+  transform: translateY(1px);
+}
+
+/* === Motion Fallback === */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -1,32 +1,94 @@
+/* Hallmark · app screen · modern-minimal · posture: restrained · hero: custom · shape: app screen · job: natural gas observatory · tokens */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 · gas trading desk institutional styling; tightened contrast and data density */
+
 :root {
-  /* === Color: Surface === */
+  /* === Color: Surface Ladder === */
   --bg-0: #0a0e14;
   --bg-1: #0f1419;
+  --bg-card: #131922;
   --surface-glass: rgba(20, 26, 38, 0.55);
   --surface-glass-hover: rgba(25, 32, 46, 0.65);
+  --surface-subtle: rgba(255, 255, 255, 0.02);
+  --surface-muted: rgba(255, 255, 255, 0.04);
+  --surface-elevated: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --surface-active: rgba(255, 255, 255, 0.12);
+  --surface-highlight: rgba(255, 255, 255, 0.18);
+  --surface-card: rgba(20, 26, 38, 0.55);
+  --surface-card-hover: rgba(25, 32, 46, 0.75);
+  --surface-card-subtle: rgba(20, 26, 38, 0.45);
+  --surface-overlay: rgba(10, 14, 20, 0.94);
+  --surface-overlay-heavy: rgba(10, 14, 20, 0.98);
+  --surface-modal: rgba(15, 20, 28, 0.92);
+  --surface-dark-soft: rgba(0, 0, 0, 0.25);
+  --surface-dark-mid: rgba(0, 0, 0, 0.50);
+
+  /* === Color: Borders & Rules === */
+  --border-subtle: rgba(255, 255, 255, 0.05);
   --border-glass: rgba(255, 255, 255, 0.06);
-  --border-glass-strong: rgba(255, 255, 255, 0.1);
-  /* Flat rules replace card borders. --rule is the resting hairline between
-     sections and columns; --rule-strong is the one heavier divider. */
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-glass-strong: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-focus: rgba(255, 255, 255, 0.25);
+  --border-prominent: rgba(255, 255, 255, 0.35);
   --rule: rgba(255, 255, 255, 0.08);
   --rule-strong: rgba(255, 255, 255, 0.16);
 
-  /* === Color: Text === */
+  /* === Color: Text & Ink === */
   --text-primary: #e5e7eb;
+  --text-bright: #f9fafb;
   --text-secondary: #9ca3af;
   --text-tertiary: #6b7280;
+  --text-muted: #4b5563;
   --text-inverse: #0a0e14;
+  --color-accent-ink: #0a0e14;
 
-  /* === Color: Semantic === */
+  /* === Color: Semantic Anchors === */
   --blue-flame: #7dd3fc;
   --blue-flame-deep: #38bdf8;
-  --blue-flame-glow: rgba(125, 211, 252, 0.35);
-  --color-bullish-supply: #22d3a4;
-  --color-bearish-supply: #ef4e5c;
-  --color-warning: #f59e0b;
-  --color-neutral: #9ca3af;
+  --blue-flame-hover: #0ea5e9;
+  --blue-flame-dark: #0284c7;
+  --blue-flame-glow: rgba(125, 211, 252, 0.25);
+  --color-accent: #38bdf8;
+  --color-accent-light: #7dd3fc;
+  --color-accent-bg: rgba(56, 189, 248, 0.12);
+  --color-accent-bg-subtle: rgba(56, 189, 248, 0.06);
+  --color-accent-border: rgba(56, 189, 248, 0.35);
 
-  /* === Color: Chart grid === */
+  /* Bullish / Success / Supply High */
+  --color-bullish-supply: #22d3a4;
+  --color-success: #34d399;
+  --color-success-bright: #6ee7b7;
+  --color-success-bg: rgba(52, 211, 153, 0.12);
+  --color-success-border: rgba(52, 211, 153, 0.35);
+
+  /* Bearish / Danger / Supply Tight / Outage / Congestion */
+  --color-bearish-supply: #ef4e5c;
+  --color-danger: #ef4444;
+  --color-danger-bright: #fca5a5;
+  --color-danger-soft: #f87171;
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
+  --color-danger-border: rgba(239, 68, 68, 0.35);
+
+  /* Warning / Caution / Maintenance */
+  --color-warning: #fbbf24;
+  --color-warning-amber: #f59e0b;
+  --color-warning-bright: #fde68a;
+  --color-warning-bg: rgba(251, 191, 36, 0.12);
+  --color-warning-border: rgba(251, 191, 36, 0.35);
+
+  /* Neutral / Slate / Unscheduled */
+  --color-neutral: #9ca3af;
+  --color-slate: #94a3b8;
+  --color-slate-light: #cbd5e1;
+  --color-slate-bg: rgba(148, 163, 184, 0.10);
+  --color-slate-border: rgba(148, 163, 184, 0.30);
+
+  /* Specialty / Flow colors */
+  --color-purple: #c084fc;
+  --color-purple-bg: rgba(192, 132, 252, 0.12);
+
+  /* === Color: Chart Grid & Labels === */
   --chart-grid: rgba(255, 255, 255, 0.04);
   --chart-grid-major: rgba(255, 255, 255, 0.08);
   --chart-axis: rgba(255, 255, 255, 0.25);
@@ -45,6 +107,7 @@
   --fs-display: 48px;
 
   /* === Spacing === */
+  --space-0: 0px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -69,7 +132,10 @@
   --dur-base: 180ms;
   --dur-slow: 320ms;
 
-  /* === Shadows === */
+  /* === Shadows (clean offset, no zero-offset AI glow) === */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45);
   --shadow-panel: none;
 
   /* === Layout === */

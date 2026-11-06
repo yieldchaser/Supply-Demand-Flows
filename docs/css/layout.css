@@ -1,3 +1,6 @@
+/* Hallmark · app screen · modern-minimal · posture: restrained · hero: custom · shape: app screen · job: natural gas observatory · layout */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 · grid, spacing, breakpoints */
+
 /* === Site wrapper === */
 .site-header,
 .health-strip,
@@ -47,7 +50,7 @@
 /* === Responsive: Tablet === */
 @media (max-width: 1100px) {
   :root {
-    --content-gutter: 24px;
+    --content-gutter: var(--space-6);
   }
 
   .dashboard {
@@ -59,7 +62,7 @@
 /* === Responsive: Mobile === */
 @media (max-width: 768px) {
   :root {
-    --content-gutter: 16px;
+    --content-gutter: var(--space-4);
   }
 
   .site-header {

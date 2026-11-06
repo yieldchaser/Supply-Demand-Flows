@@ -1,16 +1,15 @@
-/* Chapter navigation — top-level tabs for the observatory.
-   Additive only: without JS the `.chapter` wrapper is a plain block and every
-   chapter renders in the legacy single-scroll order. */
+/* Hallmark · app screen · modern-minimal · posture: restrained · hero: custom · shape: app screen · job: natural gas observatory · chapter navigation */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 · sticky top bar, accessible tabs, view isolation */
 
 .chapter-bar {
   position: sticky;
   top: 0;
   z-index: 40;
-  padding: 6px var(--space-4, 16px);
-  margin: 0 auto var(--space-4, 16px);
-  max-width: 1400px;
-  background: var(--bg-0, #0a0e14);
-  border-bottom: 1px solid var(--rule, rgba(255, 255, 255, 0.08));
+  padding: 6px var(--space-4);
+  margin: 0 auto var(--space-4);
+  max-width: var(--max-width);
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--rule);
 }
 
 .chapter-bar[hidden] {
@@ -20,7 +19,7 @@
 .chapter-bar__track {
   display: flex;
   align-items: stretch;
-  gap: 4px;
+  gap: var(--space-1);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
@@ -37,38 +36,38 @@
   flex-direction: column;
   justify-content: center;
   gap: 2px;
-  padding: 6px 12px 7px;
+  padding: 6px var(--space-3) 7px;
   border: 0;
   border-bottom: 2px solid transparent;
-  border-radius: 3px 3px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: transparent;
-  color: var(--text-secondary, #9ca3af);
-  font-family: var(--font-sans, Inter, sans-serif);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
   text-align: left;
   cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
   position: relative;
 }
 
 .chapter-tab:hover {
-  color: var(--text-primary, #e5e7eb);
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom-color: var(--rule-strong, rgba(255, 255, 255, 0.2));
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+  border-bottom-color: var(--rule-strong);
 }
 
 .chapter-tab:focus-visible {
-  outline: 2px solid var(--blue-flame-deep, #38bdf8);
+  outline: 2px solid var(--blue-flame-deep);
   outline-offset: 2px;
 }
 
 .chapter-tab.is-active {
-  background: rgba(255, 255, 255, 0.04);
-  border-bottom-color: var(--blue-flame-deep, #38bdf8);
-  color: var(--text-primary, #f9fafb);
+  background: var(--surface-muted);
+  border-bottom-color: var(--blue-flame-deep);
+  color: var(--text-bright);
 }
 
 .chapter-tab__label {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0.015em;
   white-space: nowrap;
@@ -76,34 +75,32 @@
 }
 
 .chapter-tab__blurb {
-  font-size: 9.5px;
-  color: var(--text-tertiary, #6b7280);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
   white-space: nowrap;
   line-height: 1.2;
 }
 
 .chapter-tab.is-active .chapter-tab__label {
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .chapter-tab.is-active .chapter-tab__blurb {
-  color: var(--text-secondary, #9ca3af);
+  color: var(--text-secondary);
 }
 
-/* The export is a link, not a button: with no border, radius or fill it reads
-   as part of the line it sits on, which is all a convenience download deserves. */
 .chapter-export {
   margin-left: auto;
   align-self: center;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-1);
   padding: 0 0 0 2px;
-  font-family: var(--font-mono, monospace);
-  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: 400;
   letter-spacing: 0.02em;
-  color: var(--text-tertiary, #6b7280);
+  color: var(--text-tertiary);
   background: none;
   border: 0;
   border-radius: 0;
@@ -113,28 +110,26 @@
 }
 
 .chapter-export:hover {
-  color: var(--text-primary, #e5e7eb);
+  color: var(--text-primary);
   text-decoration: underline;
 }
 
 .chapter-export:focus-visible {
   outline: none;
-  color: var(--text-primary, #e5e7eb);
+  color: var(--text-primary);
   text-decoration: underline;
 }
 
 .chapter-export__label {
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
 }
 
-/* Per-chart "download plotted points" control (rendered by panel-base into the
-   right-hand header slot only when the chart registered a snapshot). */
 .chart-export-btn {
-  font-family: var(--font-mono, monospace);
-  font-size: 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   letter-spacing: 0.02em;
   padding: 0;
-  color: var(--text-tertiary, #6b7280);
+  color: var(--text-tertiary);
   background: none;
   border: 0;
   border-radius: 0;
@@ -144,26 +139,16 @@
 
 .chart-export-btn:hover,
 .chart-export-btn:focus-visible {
-  color: var(--text-primary, #e5e7eb);
+  color: var(--text-primary);
   text-decoration: underline;
   outline: none;
 }
 
-/* View isolation: enforce absolute hiding of inactive chapters.
-   `.dashboard > .chapter` defines `display: grid;`, so without `!important`
-   and matching specificity, hidden chapters remained visible below the active chapter. */
 .dashboard > .chapter[hidden],
 .chapter[hidden] {
   display: none !important;
 }
 
-/* A chapter is the grid *container*, not a grid item.
-   `main.dashboard` is a two-column grid, and each chapter lays its panels out
-   itself — full-width panels stack, and `.deep-grid` gives side-by-side pairs.
-   Without this, a chapter becomes a single grid item occupying the left
-   column only: every panel stacked in half the page with the right half empty.
-   Sources are additive, so a chapter still renders as a plain block for
-   no-JS and single-column mobile. */
 .dashboard > .chapter {
   grid-column: 1 / -1;
   display: grid;
@@ -172,20 +157,17 @@
   min-width: 0;
 }
 
-/* Panels already carry their own margins inside `.deep-grid`; keep the gap
-   rhythm from doubling up. */
 .dashboard > .chapter > .deep-grid {
   margin: 0;
 }
 
-/* Section headers sit under the tab bar, not over the panels. */
 .dashboard > .chapter > .section-header {
   margin-bottom: 0;
 }
 
 @media (max-width: 1040px) {
   .chapter-tab {
-    padding: 6px 9px 7px;
+    padding: 6px var(--space-2) 7px;
   }
 
   .chapter-tab__blurb {
@@ -193,13 +175,13 @@
   }
 
   .chapter-tab__label {
-    font-size: 12px;
+    font-size: var(--fs-sm);
   }
 }
 
 @media (max-width: 640px) {
   .chapter-bar {
-    padding: 6px 8px;
+    padding: 6px var(--space-2);
   }
 
   .chapter-bar__track {
@@ -207,15 +189,15 @@
   }
 
   .chapter-tab {
-    padding: 6px 8px 7px;
+    padding: 6px var(--space-2) 7px;
   }
 
   .chapter-tab__label {
-    font-size: 11.5px;
+    font-size: var(--fs-xs);
   }
 
   .chapter-export {
-    padding: 4px 6px;
+    padding: var(--space-1) 6px;
   }
 
   .chapter-export__label {
