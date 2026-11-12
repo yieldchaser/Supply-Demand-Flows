@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-11-12T10:05:16Z",
+    "last_inventory_run": "2026-11-12T22:50:19Z",
     "total_locations_seen": 781,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1721068.0
+        "scheduled_quantity_dth": 1723125.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1218854.0
+        "scheduled_quantity_dth": 1204376.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 678327.0
+        "scheduled_quantity_dth": 708698.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 582933.0
+        "scheduled_quantity_dth": 584333.0
       },
       {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 549249.0
+        "scheduled_quantity_dth": 549053.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 520629.0
+        "scheduled_quantity_dth": 522079.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 351638.0
+        "scheduled_quantity_dth": 433134.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 332300.0
-      },
-      {
-        "loc_id": 23371,
-        "loc_name": "Bosco (Texas Gas)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 273809.0
+        "scheduled_quantity_dth": 380141.0
       },
       {
         "loc_id": 22128,
         "loc_name": "Clarke County (To Destin)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 241606.0
+        "scheduled_quantity_dth": 242455.0
+      },
+      {
+        "loc_id": 23371,
+        "loc_name": "Bosco (Texas Gas)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 208126.0
       }
     ]
   }
