@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-12T10:05:56.400555+00:00",
+  "generated_at": "2026-11-12T20:44:25.940563+00:00",
   "overall": "WARN",
   "sources": {
     "gulf_south": {
@@ -70,9 +70,9 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 750420→751913 / days 171→171",
+          "message": "history intact: rows 751913→751913 / days 171→171",
           "details": {
-            "rows_before": 750420,
+            "rows_before": 751913,
             "rows_after": 751913,
             "days_before": 171,
             "days_after": 171
@@ -81,7 +81,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 1d, resolved 2026-11-11, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 11h ago and dataset consistent (stale 1d, resolved 2026-11-11, warn 2d / fail 4d)",
           "details": {
             "stale_days": 1
           }
@@ -99,17 +99,17 @@
         {
           "check": "schema",
           "severity": "PASS",
-          "message": "schema ok: 85560 rows, all 8 canonical columns, value numeric, periods parseable, unit check skipped",
+          "message": "schema ok: 85600 rows, all 8 canonical columns, value numeric, periods parseable, unit check skipped",
           "details": {
-            "rows": 85560
+            "rows": 85600
           }
         },
         {
           "check": "value_sanity",
           "severity": "PASS",
-          "message": "value sanity ok: 85560 row(s) scanned, 0 within 0 band(s), 0 breaches",
+          "message": "value sanity ok: 85600 row(s) scanned, 0 within 0 band(s), 0 breaches",
           "details": {
-            "rows": 85560,
+            "rows": 85600,
             "banded_scanned": 0
           }
         },
@@ -122,25 +122,25 @@
         {
           "check": "collision",
           "severity": "PASS",
-          "message": "no collisions: 85,560 distinct (series_id, period) keys, each from 1 row",
+          "message": "no collisions: 85,600 distinct (series_id, period) keys, each from 1 row",
           "details": {
-            "keys": 85560
+            "keys": 85600
           }
         },
         {
           "check": "stagnation",
           "severity": "PASS",
-          "message": "dataset fresh: newest period 2026-11-09 is 3d old (warn 3d / fail 6d)",
+          "message": "dataset fresh: newest period 2026-11-10 is 2d old (warn 3d / fail 6d)",
           "details": {
-            "stale_days": 3
+            "stale_days": 2
           }
         },
         {
           "check": "gaps",
           "severity": "PASS",
-          "message": "calendar complete: 2139 consecutive day(s) 2021-01-01..2026-11-09",
+          "message": "calendar complete: 2140 consecutive day(s) 2021-01-01..2026-11-10",
           "details": {
-            "days": 2139
+            "days": 2140
           }
         },
         {
@@ -161,27 +161,27 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 85560→85560 / days 2139→2139",
+          "message": "history intact: rows 85560→85600 / days 2139→2140",
           "details": {
             "rows_before": 85560,
-            "rows_after": 85560,
+            "rows_after": 85600,
             "days_before": 2139,
-            "days_after": 2139
+            "days_after": 2140
           }
         },
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 17h ago and dataset consistent (stale 3d, resolved 2026-11-09, warn 3d / fail 6d)",
+          "message": "no divergence: scraper 'ok' 3h ago and dataset consistent (stale 2d, resolved 2026-11-10, warn 3d / fail 6d)",
           "details": {
-            "stale_days": 3
+            "stale_days": 2
           }
         }
       ],
       "stats": {
-        "rows": 85560,
-        "days": 2139,
-        "latest": "2026-11-09"
+        "rows": 85600,
+        "days": 2140,
+        "latest": "2026-11-10"
       }
     },
     "baker_hughes": {
@@ -265,7 +265,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 108h ago and dataset consistent (stale 6d, resolved 2026-11-06, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 118h ago and dataset consistent (stale 6d, resolved 2026-11-06, warn 9d / fail 18d)",
           "details": {
             "stale_days": 6
           }
@@ -356,7 +356,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 157h ago and dataset consistent (stale 13d, resolved 2026-10-30, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 167h ago and dataset consistent (stale 13d, resolved 2026-10-30, warn 9d / fail 18d)",
           "details": {
             "stale_days": 13
           }
@@ -447,7 +447,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 156h ago and dataset consistent (stale 73d, resolved 2026-08-31, warn 105d / fail 135d)",
+          "message": "no divergence: scraper 'ok' 167h ago and dataset consistent (stale 73d, resolved 2026-08-31, warn 105d / fail 135d)",
           "details": {
             "stale_days": 73
           }
@@ -538,7 +538,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 255h ago and dataset consistent (stale 73d, resolved 2026-08-31, warn 75d / fail 135d)",
+          "message": "no divergence: scraper 'ok' 265h ago and dataset consistent (stale 73d, resolved 2026-08-31, warn 75d / fail 135d)",
           "details": {
             "stale_days": 73
           }
@@ -556,17 +556,17 @@
         {
           "check": "schema",
           "severity": "PASS",
-          "message": "schema ok: 885952 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "message": "schema ok: 886126 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
           "details": {
-            "rows": 885952
+            "rows": 886126
           }
         },
         {
           "check": "value_sanity",
           "severity": "PASS",
-          "message": "value sanity ok: 885952 row(s) scanned, 0 within 0 band(s), 0 breaches",
+          "message": "value sanity ok: 886126 row(s) scanned, 0 within 0 band(s), 0 breaches",
           "details": {
-            "rows": 885952,
+            "rows": 886126,
             "banded_scanned": 0
           }
         },
@@ -579,9 +579,9 @@
         {
           "check": "collision",
           "severity": "PASS",
-          "message": "no collisions: 885,952 distinct (series_id, period) keys, each from 1 row",
+          "message": "no collisions: 886,126 distinct (series_id, period) keys, each from 1 row",
           "details": {
-            "keys": 885952
+            "keys": 886126
           }
         },
         {
@@ -630,11 +630,11 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 885770→885952 / days 1165→1166",
+          "message": "history intact: rows 885952→886126 / days 1166→1166",
           "details": {
-            "rows_before": 885770,
-            "rows_after": 885952,
-            "days_before": 1165,
+            "rows_before": 885952,
+            "rows_after": 886126,
+            "days_before": 1166,
             "days_after": 1166
           }
         },
@@ -648,7 +648,7 @@
         }
       ],
       "stats": {
-        "rows": 885952,
+        "rows": 886126,
         "days": 1166,
         "latest": "2026-11-12"
       }
@@ -659,18 +659,18 @@
         {
           "check": "schema",
           "severity": "PASS",
-          "message": "schema ok: 121588 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "message": "schema ok: 121606 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
           "details": {
-            "rows": 121588
+            "rows": 121606
           }
         },
         {
           "check": "value_sanity",
           "severity": "PASS",
-          "message": "value sanity ok: 121588 row(s) scanned, 121588 within 1 band(s), 0 breaches",
+          "message": "value sanity ok: 121606 row(s) scanned, 121606 within 1 band(s), 0 breaches",
           "details": {
-            "rows": 121588,
-            "banded_scanned": 121588
+            "rows": 121606,
+            "banded_scanned": 121606
           }
         },
         {
@@ -682,9 +682,9 @@
         {
           "check": "collision",
           "severity": "PASS",
-          "message": "no collisions: 121,588 distinct (series_id, period) keys, each from 1 row",
+          "message": "no collisions: 121,606 distinct (series_id, period) keys, each from 1 row",
           "details": {
-            "keys": 121588
+            "keys": 121606
           }
         },
         {
@@ -743,10 +743,10 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 121570→121588 / days 2066→2066",
+          "message": "history intact: rows 121588→121606 / days 2066→2066",
           "details": {
-            "rows_before": 121570,
-            "rows_after": 121588,
+            "rows_before": 121588,
+            "rows_after": 121606,
             "days_before": 2066,
             "days_after": 2066
           }
@@ -754,14 +754,14 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 2h ago and dataset consistent (stale 0d, resolved 2026-11-12, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 0d, resolved 2026-11-12, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
         }
       ],
       "stats": {
-        "rows": 121588,
+        "rows": 121606,
         "days": 2066,
         "latest": "2026-11-12"
       }
@@ -772,18 +772,18 @@
         {
           "check": "schema",
           "severity": "PASS",
-          "message": "schema ok: 22620 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "message": "schema ok: 22668 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
           "details": {
-            "rows": 22620
+            "rows": 22668
           }
         },
         {
           "check": "value_sanity",
           "severity": "PASS",
-          "message": "value sanity ok: 22620 row(s) scanned, 5064 within 3 band(s), 0 breaches",
+          "message": "value sanity ok: 22668 row(s) scanned, 5076 within 3 band(s), 0 breaches",
           "details": {
-            "rows": 22620,
-            "banded_scanned": 5064
+            "rows": 22668,
+            "banded_scanned": 5076
           }
         },
         {
@@ -795,9 +795,9 @@
         {
           "check": "collision",
           "severity": "PASS",
-          "message": "no collisions: 22,620 distinct (series_id, period) keys, each from 1 row",
+          "message": "no collisions: 22,668 distinct (series_id, period) keys, each from 1 row",
           "details": {
-            "keys": 22620
+            "keys": 22668
           }
         },
         {
@@ -840,10 +840,10 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 22620→22620 / days 682→682",
+          "message": "history intact: rows 22620→22668 / days 682→682",
           "details": {
             "rows_before": 22620,
-            "rows_after": 22620,
+            "rows_after": 22668,
             "days_before": 682,
             "days_after": 682
           }
@@ -851,14 +851,14 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 8h ago and dataset consistent (stale 0d, resolved 2026-11-12, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 9h ago and dataset consistent (stale 0d, resolved 2026-11-12, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
         }
       ],
       "stats": {
-        "rows": 22620,
+        "rows": 22668,
         "days": 682,
         "latest": "2026-11-12"
       }
@@ -869,18 +869,18 @@
         {
           "check": "schema",
           "severity": "PASS",
-          "message": "schema ok: 16368 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "message": "schema ok: 16434 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
           "details": {
-            "rows": 16368
+            "rows": 16434
           }
         },
         {
           "check": "value_sanity",
           "severity": "PASS",
-          "message": "value sanity ok: 16368 row(s) scanned, 16368 within 1 band(s), 0 breaches",
+          "message": "value sanity ok: 16434 row(s) scanned, 16434 within 1 band(s), 0 breaches",
           "details": {
-            "rows": 16368,
-            "banded_scanned": 16368
+            "rows": 16434,
+            "banded_scanned": 16434
           }
         },
         {
@@ -892,9 +892,9 @@
         {
           "check": "collision",
           "severity": "PASS",
-          "message": "no collisions: 16,368 distinct (series_id, period) keys, each from 1 row",
+          "message": "no collisions: 16,434 distinct (series_id, period) keys, each from 1 row",
           "details": {
-            "keys": 16368
+            "keys": 16434
           }
         },
         {
@@ -947,10 +947,10 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 16368→16368 / days 172→172",
+          "message": "history intact: rows 16368→16434 / days 172→172",
           "details": {
             "rows_before": 16368,
-            "rows_after": 16368,
+            "rows_after": 16434,
             "days_before": 172,
             "days_after": 172
           }
@@ -965,7 +965,7 @@
         }
       ],
       "stats": {
-        "rows": 16368,
+        "rows": 16434,
         "days": 172,
         "latest": "2026-11-12"
       }
@@ -976,18 +976,18 @@
         {
           "check": "schema",
           "severity": "PASS",
-          "message": "schema ok: 253488 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
+          "message": "schema ok: 253616 rows, all 8 canonical columns, value numeric, periods parseable, units all 'Dth/d'",
           "details": {
-            "rows": 253488
+            "rows": 253616
           }
         },
         {
           "check": "value_sanity",
           "severity": "PASS",
-          "message": "value sanity ok: 253488 row(s) scanned, 31686 within 1 band(s), 0 breaches",
+          "message": "value sanity ok: 253616 row(s) scanned, 31702 within 1 band(s), 0 breaches",
           "details": {
-            "rows": 253488,
-            "banded_scanned": 31686
+            "rows": 253616,
+            "banded_scanned": 31702
           }
         },
         {
@@ -999,9 +999,9 @@
         {
           "check": "collision",
           "severity": "PASS",
-          "message": "no collisions: 253,488 distinct (series_id, period) keys, each from 1 row",
+          "message": "no collisions: 253,616 distinct (series_id, period) keys, each from 1 row",
           "details": {
-            "keys": 253488
+            "keys": 253616
           }
         },
         {
@@ -1038,10 +1038,10 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 253480→253488 / days 1177→1177",
+          "message": "history intact: rows 253488→253616 / days 1177→1177",
           "details": {
-            "rows_before": 253480,
-            "rows_after": 253488,
+            "rows_before": 253488,
+            "rows_after": 253616,
             "days_before": 1177,
             "days_after": 1177
           }
@@ -1049,14 +1049,14 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 7h ago and dataset consistent (stale 0d, resolved 2026-11-12, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 2h ago and dataset consistent (stale 0d, resolved 2026-11-12, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
         }
       ],
       "stats": {
-        "rows": 253488,
+        "rows": 253616,
         "days": 1177,
         "latest": "2026-11-12"
       }
@@ -1135,9 +1135,9 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 1294→1298 / days 80→80",
+          "message": "history intact: rows 1298→1298 / days 80→80",
           "details": {
-            "rows_before": 1294,
+            "rows_before": 1298,
             "rows_after": 1298,
             "days_before": 80,
             "days_after": 80
@@ -1146,7 +1146,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 6h ago and dataset consistent (stale 0d, resolved 2026-11-12, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 16h ago and dataset consistent (stale 0d, resolved 2026-11-12, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
