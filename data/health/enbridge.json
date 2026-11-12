@@ -1,11 +1,11 @@
 {
   "source": "enbridge",
   "status": "ok",
-  "timestamp_utc": "2026-11-12T19:00:36Z",
+  "timestamp_utc": "2026-11-12T22:00:06Z",
   "error": null,
   "metadata": {
-    "written": 79,
+    "written": 84,
     "skipped_existing": 0,
-    "rows": 57433
+    "rows": 61068
   }
 }
