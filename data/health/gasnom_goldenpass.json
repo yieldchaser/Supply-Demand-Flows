@@ -1,14 +1,14 @@
 {
   "source": "gasnom_goldenpass",
   "status": "ok",
-  "timestamp_utc": "2026-11-13T20:21:51Z",
+  "timestamp_utc": "2026-11-14T09:13:03Z",
   "error": null,
   "metadata": {
     "slug": "goldenpass",
-    "gas_day": "2026-11-13",
-    "cycle": "id1",
-    "cycle_desc": "Intraday 1",
-    "posted_at": "November 13, 2026 12:30 PM CT",
+    "gas_day": "2026-11-14",
+    "cycle": "evening",
+    "cycle_desc": "Evening",
+    "posted_at": "November 13, 2026 08:30 PM CT",
     "row_count": 21
   }
 }

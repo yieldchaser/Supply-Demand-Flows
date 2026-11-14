@@ -1,14 +1,14 @@
 {
   "source": "gasnom_portarthurpipeline",
   "status": "ok",
-  "timestamp_utc": "2026-11-13T20:21:42Z",
+  "timestamp_utc": "2026-11-14T09:12:57Z",
   "error": null,
   "metadata": {
     "slug": "portarthurpipeline",
-    "gas_day": "2026-11-13",
-    "cycle": "id1",
-    "cycle_desc": "Intraday 1",
-    "posted_at": "November 13, 2026 12:30 PM CT",
+    "gas_day": "2026-11-14",
+    "cycle": "evening",
+    "cycle_desc": "Evening",
+    "posted_at": "November 13, 2026 08:31 PM CT",
     "row_count": 4
   }
 }
