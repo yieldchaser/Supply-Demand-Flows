@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-11-17T10:58:45Z",
+    "last_inventory_run": "2026-11-17T23:55:36Z",
     "total_locations_seen": 780,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1846397.0
+        "scheduled_quantity_dth": 1874178.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1366198.0
+        "scheduled_quantity_dth": 1334817.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 619625.0
-      },
-      {
-        "loc_id": 23700,
-        "loc_name": "Gulf South Transfer To Coastal Bend",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 554125.0
+        "scheduled_quantity_dth": 563088.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 547025.0
+        "scheduled_quantity_dth": 555315.0
+      },
+      {
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 516151.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 511112.0
+        "scheduled_quantity_dth": 507700.0
       },
       {
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 482818.0
+        "scheduled_quantity_dth": 441454.0
       },
       {
         "loc_id": 24229,
         "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 335863.0
+        "scheduled_quantity_dth": 299109.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 267985.0
+        "scheduled_quantity_dth": 268474.0
       },
       {
         "loc_id": 24255,
         "loc_name": "Methanex Geismer 2",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 185072.0
+        "scheduled_quantity_dth": 198125.0
       }
     ]
   }
