@@ -1,11 +1,16 @@
 {
   "source": "kinder_morgan",
   "status": "ok",
-  "timestamp_utc": "2026-11-17T05:15:34Z",
+  "timestamp_utc": "2026-11-17T23:17:02Z",
   "error": null,
   "metadata": {
-    "processed": 15,
+    "processed": 11,
     "failed": [],
-    "not_posted": []
+    "not_posted": [
+      "NGPL_ITRD3",
+      "TGP_ITRD2",
+      "TGP_ITRD3",
+      "KMLP_ITRD3"
+    ]
   }
 }
