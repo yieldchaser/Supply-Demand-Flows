@@ -1,10 +1,10 @@
 {
   "source": "eia_storage",
   "status": "ok",
-  "timestamp_utc": "2026-11-14T19:40:50Z",
+  "timestamp_utc": "2026-11-19T22:32:58Z",
   "error": null,
   "metadata": {
-    "latest_date": "2026-11-06",
-    "rows": 3696
+    "latest_date": "2026-11-13",
+    "rows": 3704
   }
 }
