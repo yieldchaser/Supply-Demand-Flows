@@ -1,7 +1,11 @@
 {
   "source": "enbridge",
-  "status": "failed",
-  "timestamp_utc": "2026-11-20T19:16:48Z",
-  "error": "EnbridgeApiError: HTTP failure for https://rtba.enbridge.com/InformationalPosting/Download.aspx/AddToFile: Error-Error Preparing Download File (status=200, attempts=1, elapsed=0.00s)",
-  "metadata": null
+  "status": "ok",
+  "timestamp_utc": "2026-11-20T22:28:16Z",
+  "error": null,
+  "metadata": {
+    "written": 84,
+    "skipped_existing": 0,
+    "rows": 61068
+  }
 }
