@@ -841,8 +841,9 @@ function drawBalanceChart(container, model, flowsByMonth = new Map()) {
     { label: hasTrade ? 'Gap = net exports' : 'Gap = implied net exports', color: 'var(--color-accent-border)' },
   ];
   if (hasTrade) items.push({ label: 'Consumption + measured net exports', color: 'var(--text-secondary)', dash: '4 3' });
+  let yOff = 0;
   for (const item of items) {
-    const grp = legend.append('g').attr('transform', `translate(${xOff}, 0)`);
+    const grp = legend.append('g');
     grp.append('line')
       .attr('class', 'chart-legend-swatch')
       .attr('x1', 0).attr('x2', 14).attr('y1', 5).attr('y2', 5)
@@ -853,7 +854,15 @@ function drawBalanceChart(container, model, flowsByMonth = new Map()) {
       .attr('class', 'chart-legend-text')
       .attr('x', 20).attr('y', 9)
       .text(item.label);
-    xOff += text.node().getComputedTextLength() + 46;
+    const w = text.node().getComputedTextLength() + 34;
+    // Wrap at the plot width so a phone does not clip the last items.
+    if (xOff > 0 && xOff + w > width) { xOff = 0; yOff += 14; }
+    grp.attr('transform', `translate(${xOff}, ${yOff})`);
+    xOff += w;
+  }
+  if (yOff > 0) {
+    g.attr('transform', `translate(${margin.left},${margin.top + yOff})`);
+    svg.attr('viewBox', `0 0 ${width + margin.left + margin.right} ${CHART_HEIGHT + yOff}`);
   }
 
   setupBalanceHover(svg, g, x, width, height, rows, margin);
@@ -1087,8 +1096,10 @@ function drawDisposition(container, rows) {
     lx += w;
   }
   if (ly > 0) {
-    // Make room for the wrapped legend without squeezing the plot.
-    svg.attr('viewBox', `0 ${-ly} ${outerW} ${H + ly}`);
+    // Make room for the wrapped legend: move the plot down and grow the
+    // drawing, rather than letting the legend rows sit on the bars.
+    g.attr('transform', `translate(${margin.left},${margin.top + ly})`);
+    svg.attr('viewBox', `0 0 ${outerW} ${H + ly}`);
   }
 
   const host = d3.select(container).style('position', 'relative');
