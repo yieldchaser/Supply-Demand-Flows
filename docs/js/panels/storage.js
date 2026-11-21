@@ -5,7 +5,7 @@
  * reproducing the official EIA Weekly Natural Gas Storage Supplement layout:
  *
  *  - Top Controls: View Switcher (National vs Regional), Baseline Horizon
- *    (5Y Tactical, 10Y Decadal, All-Time Secular), and Range Filter (30D, 90D, 1Y, 5Y, MAX).
+ *    (last 5 years, last 10 when the data holds them, all history), and Range Filter (30D, 90D, 1Y, 5Y, MAX).
  *  - National View: Native SVG Dual Plots showing (a) Working Gas in Storage
  *    inventory trajectory against multi-horizon envelope and average, and
  *    (b) Weekly Net Change velocity against historical ranges with 0-line.
@@ -40,7 +40,7 @@ import {
   priorSameWeekValues,
   endOfSeasonAnalog,
 } from '../util/storage-analysis.js';
-import { matchYearAgo } from '../util/season.js';
+import { matchYearAgo, daysBetween } from '../util/season.js';
 import { formatPeriodKey } from '../util/period.js';
 
 const STORAGE_CHART_ID = 'storage-envelope';
@@ -97,10 +97,18 @@ export function renderStoragePanel(panelEl, bundle) {
     range: '1y',      // '30d' | '90d' | '1y' | '5y' | 'max'
   };
 
+  // Baselines are named from the data, not from a fixed calendar: EIA weekly
+  // history in this bundle may start less than ten years back, so a '10-year' baseline
+  // would silently be the same 8 years as 'all history'.
+  const firstYear = l48[0].period.getFullYear();
+  const priorYearsAvailable = latest.period.getFullYear() - firstYear;
+  HORIZON_INFO.firstYear = firstYear;
+  HORIZON_INFO.lastPriorYear = latest.period.getFullYear() - 1;
+  HORIZON_INFO.priorYears = priorYearsAvailable;
   function getLookbackYears() {
-    if (state.horizon === '10y') return 10;
-    if (state.horizon === 'all') return 32;
-    return 5;
+    const n = state.horizon === '10y' ? 10 : state.horizon === 'all' ? Math.max(priorYearsAvailable, 1) : 5;
+    ACTIVE_LOOKBACK = n;
+    return n;
   }
 
   // Create UI Controls Bar and Main Mount inside chartEl
@@ -113,9 +121,9 @@ export function renderStoragePanel(panelEl, bundle) {
       </div>
       <div class="storage-horizon-group">
         <span style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-right:4px;">Baseline:</span>
-        <button class="storage-btn-pill active" data-horizon="5y" title="5-Year Tactical Rolling Horizon">5Y Tactical</button>
-        <button class="storage-btn-pill" data-horizon="10y" title="10-Year Decadal Rolling Horizon">10Y Decadal</button>
-        <button class="storage-btn-pill" data-horizon="all" title="All-Time Secular Baseline: Observed History (2018–present, n=8)">Observed History (2018–present, n=8)</button>
+        <button class="storage-btn-pill active" data-horizon="5y" title="Mean of the same week in the last 5 years">Last 5 years</button>
+        ${priorYearsAvailable >= 10 ? '<button class="storage-btn-pill" data-horizon="10y" title="Mean of the same week in the last 10 years">Last 10 years</button>' : ''}
+        <button class="storage-btn-pill" data-horizon="all" title="Mean of the same week in every prior year on file">All history (${firstYear}–${latest.period.getFullYear() - 1}, n=${priorYearsAvailable})</button>
       </div>
       <div class="storage-range-group">
         <span style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-right:4px;">Range:</span>
@@ -186,7 +194,7 @@ export function renderStoragePanel(panelEl, bundle) {
     }),
     {
       source: 'eia_storage',
-      basis: 'Lower 48 weekly working gas (storage_lower48); multi-horizon baselines (5Y, 10Y, All-Time).',
+      basis: 'Lower 48 weekly working gas (storage_lower48); baseline = mean of the same calendar week over the selected prior years.',
       latest_period: source.latest_period ?? null,
       invariants: {
         periods_checked: analysis.invariants.checked,
@@ -699,15 +707,15 @@ function setupTrajectoryHover(svg, g, x, y, width, height, rows, envelope, margi
         tooltipDiv.html(`
           <div class="tt-date">${row.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · Wk ${wk}</div>
           <div class="tt-row"><span class="tt-label">Inventory</span><span class="tt-val">${row.value.toLocaleString()} Bcf</span></div>
-          ${env ? `<div class="tt-row"><span class="tt-label">Baseline Norm (n=${env.count})</span><span class="tt-val">${Math.round(env.mean).toLocaleString()} Bcf</span></div>` : ''}
-          ${vsAvg != null ? `<div class="tt-row"><span class="tt-label">vs Baseline</span><span class="tt-val ${vsAvg >= 0 ? 'pos' : 'neg'}">${vsAvg >= 0 ? '+' : ''}${Math.round(vsAvg).toLocaleString()} Bcf (${vsAvgPct >= 0 ? '+' : ''}${vsAvgPct.toFixed(1)}%)</span></div>` : ''}
+          ${env ? `<div class="tt-row"><span class="tt-label">${horizonLabel(lookbackYearsForTip())} mean (n=${env.count})</span><span class="tt-val">${Math.round(env.mean).toLocaleString()} Bcf</span></div>` : ''}
+          ${vsAvg != null ? `<div class="tt-row"><span class="tt-label">vs mean</span><span class="tt-val ${vsAvg >= 0 ? 'pos' : 'neg'}">${vsAvg >= 0 ? '+' : ''}${Math.round(vsAvg).toLocaleString()} Bcf (${vsAvgPct >= 0 ? '+' : ''}${vsAvgPct.toFixed(1)}%)</span></div>` : ''}
           ${env ? `<div class="tt-row"><span class="tt-label">Range</span><span class="tt-val">${Math.round(env.min).toLocaleString()}–${Math.round(env.max).toLocaleString()} Bcf</span></div>` : ''}
         `);
       } else {
         hoverDot.style('opacity', 0);
         tooltipDiv.html(`
-          <div class="tt-date">Week ${wk} · Baseline Norm</div>
-          <div class="tt-row"><span class="tt-label">Baseline Mean</span><span class="tt-val">${Math.round(env.mean).toLocaleString()} Bcf</span></div>
+          <div class="tt-date">Week ${wk} · prior-year normal</div>
+          <div class="tt-row"><span class="tt-label">${horizonLabel(lookbackYearsForTip())} mean (n=${env.count})</span><span class="tt-val">${Math.round(env.mean).toLocaleString()} Bcf</span></div>
           <div class="tt-row"><span class="tt-label">Range</span><span class="tt-val">${Math.round(env.min).toLocaleString()}–${Math.round(env.max).toLocaleString()} Bcf</span></div>
         `);
       }
@@ -778,17 +786,17 @@ function setupVelocityHover(svg, g, x, y, width, height, changes, netChangeEnv, 
         tooltipDiv.html(`
           <div class="tt-date">${change.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · Wk ${wk}</div>
           <div class="tt-row"><span class="tt-label">Weekly Net Change</span><span class="tt-val ${change.value >= 0 ? 'pos' : 'neg'}">${change.value >= 0 ? '+' : ''}${change.value.toLocaleString()} Bcf</span></div>
-          <div class="tt-row"><span class="tt-label">Injection / Draw Rate</span><span class="tt-val">${(change.value / 7).toFixed(2)} Bcf/d</span></div>
-          ${env ? `<div class="tt-row"><span class="tt-label">Norm Net Change (n=${env.count})</span><span class="tt-val">${env.mean >= 0 ? '+' : ''}${Math.round(env.mean)} Bcf</span></div>` : ''}
-          ${vsMean != null ? `<div class="tt-row"><span class="tt-label">vs Norm Net Change</span><span class="tt-val ${vsMean >= 0 ? 'pos' : 'neg'}">${vsMean >= 0 ? '+' : ''}${Math.round(vsMean)} Bcf</span></div>` : ''}
-          ${env ? `<div class="tt-row"><span class="tt-label">Historical Range</span><span class="tt-val">${Math.round(env.min)} to ${Math.round(env.max)} Bcf</span></div>` : ''}
+          <div class="tt-row"><span class="tt-label">Daily rate</span><span class="tt-val">${change.value >= 0 ? '+' : '\u2212'}${Math.abs(change.value / 7).toFixed(2)} Bcf/d</span></div>
+          ${env ? `<div class="tt-row"><span class="tt-label">Same week, prior-year mean (n=${env.count})</span><span class="tt-val">${sgnBcf(env.mean)} Bcf</span></div>` : ''}
+          ${vsMean != null ? `<div class="tt-row"><span class="tt-label">vs prior-year mean</span><span class="tt-val ${vsMean >= 0 ? 'pos' : 'neg'}">${sgnBcf(vsMean)} Bcf</span></div>` : ''}
+          ${env ? `<div class="tt-row"><span class="tt-label">Prior-year range</span><span class="tt-val">${sgnBcf(env.min)} to ${sgnBcf(env.max)} Bcf</span></div>` : ''}
         `);
       } else {
         hoverDot.style('opacity', 0);
         tooltipDiv.html(`
-          <div class="tt-date">Week ${wk} · Historical Net Change</div>
-          <div class="tt-row"><span class="tt-label">Norm Average</span><span class="tt-val">${Math.round(env.mean)} Bcf</span></div>
-          <div class="tt-row"><span class="tt-label">Range</span><span class="tt-val">${Math.round(env.min)} to ${Math.round(env.max)} Bcf</span></div>
+          <div class="tt-date">Week ${wk} · prior-year net change</div>
+          <div class="tt-row"><span class="tt-label">Mean (n=${env.count})</span><span class="tt-val">${sgnBcf(env.mean)} Bcf</span></div>
+          <div class="tt-row"><span class="tt-label">Range</span><span class="tt-val">${sgnBcf(env.min)} to ${sgnBcf(env.max)} Bcf</span></div>
         `);
       }
     })
@@ -1032,13 +1040,13 @@ function renderNationalCommentary(container, analysis, lookbackYears) {
     const seasonInfo = seasonProgress(latest.period);
     const seasonName = seasonInfo.season === 'injection' ? 'refill season (April through October)' : 'withdrawal season (November through March)';
     bullets.push(
-      `The average rate of ${stdVerb} storage is ${analysis.pace ? `${Math.abs(analysis.pace.bePerDay).toFixed(1)} Bcf/d` : 'measured'} so far in the ${seasonName}. Cumulative net ${std.netChangeBcf >= 0 ? 'injection' : 'withdrawal'} stands at ${Math.abs(std.netChangeBcf).toLocaleString()} Bcf to date against a ${lookbackYears}-year prior range of ${std.priorMinBcf != null ? std.priorMinBcf.toLocaleString() : '—'} to ${std.priorMaxBcf != null ? std.priorMaxBcf.toLocaleString() : '—'} Bcf.`,
+      `The average rate of ${stdVerb} storage is ${std.start && std.end && daysBetween(std.start, std.end) > 0 ? `${Math.abs(std.netChangeBcf / daysBetween(std.start, std.end)).toFixed(1)} Bcf/d` : 'not yet measurable'} so far in the ${seasonName} (${std.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to ${std.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}). Cumulative net ${std.netChangeBcf >= 0 ? 'injection' : 'withdrawal'} stands at ${Math.abs(std.netChangeBcf).toLocaleString()} Bcf to date against a ${horizonLabel(lookbackYears)} prior range of ${std.priorMinBcf != null ? std.priorMinBcf.toLocaleString() : '—'} to ${std.priorMaxBcf != null ? std.priorMaxBcf.toLocaleString() : '—'} Bcf.`,
     );
   }
 
   container.innerHTML = `
     <div class="storage-narrative-card">
-      <div class="storage-narrative-title">Official Weekly Storage Disclosures · EIA Form 912</div>
+      <div class="storage-narrative-title">Weekly summary · computed from EIA weekly storage (Form EIA-912)</div>
       <ul class="storage-narrative-list">
         ${bullets.map((b) => `<li>${b}</li>`).join('')}
       </ul>
@@ -1076,7 +1084,7 @@ function renderRegionalCommentary(container, regionalFillData, lookbackYears) {
 
   container.innerHTML = `
     <div class="storage-narrative-card">
-      <div class="storage-narrative-title">Regional Storage Disclosures · EIA Form 912</div>
+      <div class="storage-narrative-title">Regional summary · computed from EIA weekly storage (Form EIA-912)</div>
       <ul class="storage-narrative-list">
         ${bullets.map((b) => `<li>${b}</li>`).join('')}
       </ul>
@@ -1108,21 +1116,37 @@ const GULF_COAST_SALT_FACILITIES = [
   { name: 'Egan Gas Storage', state: 'LA', basin: 'Egan Salt Dome', pipe: 'Columbia Gulf / ANR', re: /egan/i, cycle: 'Rapid 8–10x' },
 ];
 
+/** Signed whole Bcf with a true minus sign. */
+const sgnBcf = (v) => `${v > 0 ? '+' : v < 0 ? '\u2212' : ''}${Math.abs(Math.round(v)).toLocaleString()}`;
+
+/** Lookback the charts were last drawn with; the hover tooltips name it. */
+let ACTIVE_LOOKBACK = 5;
+function lookbackYearsForTip() {
+  return ACTIVE_LOOKBACK;
+}
+
+/** Filled in by renderStoragePanel from the data; read by the label helper. */
+const HORIZON_INFO = { firstYear: null, lastPriorYear: null, priorYears: null };
+
+/** Name of the active baseline, from the data's own span. */
+export function horizonLabel(lookbackYears) {
+  const { firstYear, lastPriorYear, priorYears } = HORIZON_INFO;
+  if (priorYears != null && lookbackYears >= priorYears) return `All history (${firstYear}–${lastPriorYear}, n=${priorYears})`;
+  return `${lookbackYears}-year`;
+}
+
 function drawTexasSaltView(container, analysis, regionalFill, bundle, lookbackYears) {
   container.innerHTML = '';
-  const scSalt = regionalFill?.find((r) => r.key === 'sc_salt') || {
-    levelBcf: 0,
-    wowDeltaBcf: 0,
-    observedMaxBcf: 400,
-    horizonMinBcf: 200,
-    horizonMaxBcf: 400,
-    trailing52MinBcf: 200,
-    trailing52MaxBcf: 400,
-  };
+  const scSalt = regionalFill?.find((r) => r.key === 'sc_salt');
+  if (!scSalt) {
+    // No salt series in this bundle: say so rather than draw placeholder bands.
+    container.innerHTML = '<div class="panel-error">South Central salt series unavailable in this bundle.</div>';
+    return;
+  }
 
   const texasBenchmarkBcf = 527.0;
   const fillPct = ((scSalt.levelBcf / texasBenchmarkBcf) * 100).toFixed(1);
-  const horizonLabel = lookbackYears >= 25 ? 'Observed History (2018–present, n=8)' : `${lookbackYears}-Year`;
+  const baselineName = horizonLabel(lookbackYears);
 
   // Aggregate salt cavern nominations from pipeline EBB (gulf_south)
   // Strictly filter for scheduled quantity (_sq_) and exclude operational available capacity (_oac_)
@@ -1212,7 +1236,7 @@ function drawTexasSaltView(container, analysis, regionalFill, bundle, lookbackYe
           <div class="storage-salt-card__sub">EIA 7-state salt dome formation · ${fillPct}% of Texas nameplate · WoW ${scSalt.wowDeltaBcf >= 0 ? '+' : ''}${scSalt.wowDeltaBcf} Bcf</div>
         </div>
         <div class="storage-salt-card">
-          <div class="storage-salt-card__label">${horizonLabel} Salt Operating Band</div>
+          <div class="storage-salt-card__label">${baselineName} salt operating band</div>
           <div class="storage-salt-card__val">${scSalt.horizonMinBcf} – ${scSalt.horizonMaxBcf} <span style="font-size:14px;color:var(--text-muted);">Bcf</span></div>
           <div class="storage-salt-card__sub">Trailing 52W: ${scSalt.trailing52MinBcf} – ${scSalt.trailing52MaxBcf} Bcf · 6–12x annual turnover</div>
         </div>
@@ -1361,11 +1385,15 @@ function drawTexasSaltView(container, analysis, regionalFill, bundle, lookbackYe
 
 function renderTexasSaltCommentary(container, analysis, regionalFill, lookbackYears) {
   if (!container) return;
-  const scSalt = regionalFill?.find((r) => r.key === 'sc_salt') || { levelBcf: 0, wowDeltaBcf: 0, horizonMinBcf: 200, horizonMaxBcf: 400 };
-  const scNonSalt = regionalFill?.find((r) => r.key === 'sc_nonsalt') || { levelBcf: 0, wowDeltaBcf: 0 };
+  const scSalt = regionalFill?.find((r) => r.key === 'sc_salt');
+  const scNonSalt = regionalFill?.find((r) => r.key === 'sc_nonsalt');
+  if (!scSalt || !scNonSalt) {
+    container.innerHTML = '';
+    return;
+  }
   const texasBenchmarkBcf = 527.0;
   const fillPct = ((scSalt.levelBcf / texasBenchmarkBcf) * 100).toFixed(1);
-  const horizonLabel = lookbackYears >= 25 ? 'Observed History (2018–present, n=8)' : `${lookbackYears}-Year`;
+  const baselineName = horizonLabel(lookbackYears);
 
   container.innerHTML = `
     <div class="storage-plot-card" style="margin-top: 16px;">
@@ -1383,7 +1411,7 @@ function renderTexasSaltCommentary(container, analysis, regionalFill, lookbackYe
           South Central salt dome storage inventory (covering the EIA 7-state salt dome formation across TX, LA, MS, AL, AR, KS, OK) stands at <strong style="color:var(--text-main);">${scSalt.levelBcf} Bcf</strong>,
           benchmarked against the 527.0 Bcf Texas Railroad Commission (RRC) nameplate working gas capacity (<strong style="color:var(--blue-flame);">${fillPct}%</strong> equivalent).
           Weekly net change registered <strong style="color:var(--text-main);">${scSalt.wowDeltaBcf >= 0 ? '+' : ''}${scSalt.wowDeltaBcf} Bcf</strong>,
-          operating within the ${horizonLabel} historical seasonal band of ${scSalt.horizonMinBcf} to ${scSalt.horizonMaxBcf} Bcf.
+          operating within the ${baselineName} historical seasonal band of ${scSalt.horizonMinBcf} to ${scSalt.horizonMaxBcf} Bcf.
         </p>
         <p>
           Unlike depleted sandstone reservoirs in the South Central Non-Salt region (<strong style="color:var(--text-main);">${scNonSalt.levelBcf} Bcf</strong>,
@@ -1604,9 +1632,9 @@ function setupCoverHover(svg, g, x, y, width, height, currentRows, margin, weekK
         .html(`
           <div class="tt-date">${row.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
           <div class="tt-row"><span class="tt-label">Days of Cover</span><span class="num">${Math.round(row.daysOfCover)} days</span></div>
-          ${env ? `<div class="tt-row"><span class="tt-label">5-Year Seasonal Norm</span><span class="num">${Math.round(env.mean)} days</span></div>
-          <div class="tt-row"><span class="tt-label">vs 5-Year Norm</span><span class="num">${vsNormal > 0 ? '+' : ''}${vsNormal} days</span></div>
-          <div class="tt-row"><span class="tt-label">Sample</span><span class="num">n=${env.count}</span></div>` : '<div class="tt-row"><span class="tt-label">5-Year Seasonal Norm</span><span class="num">n/a</span></div>'}
+          ${env ? `<div class="tt-row"><span class="tt-label">Same week, 5-year mean (n=${env.count})</span><span class="num">${Math.round(env.mean)} days</span></div>
+          <div class="tt-row"><span class="tt-label">vs mean</span><span class="num">${vsNormal > 0 ? '+' : vsNormal < 0 ? '\u2212' : ''}${Math.abs(vsNormal)} days</span></div>` : '<div class="tt-row"><span class="tt-label">5-year mean</span><span class="num">n/a</span></div>'}
+          <div class="tt-row"><span class="tt-label">Basis</span><span class="num">Bcf ÷ typical daily use for the month</span></div>
         `);
     })
     .on('mouseleave', () => {
@@ -1836,12 +1864,19 @@ function l48Row(analysis) {
 /*  8. Season to Date                                                 */
 /* ================================================================== */
 
+/**
+ * Where this season's net change sits among the same window in prior years,
+ * compared as signed values (injection +, withdrawal −), which is how the
+ * badge reads: 'largest' = above every prior year, 'smallest' = below every
+ * one. An earlier version compared magnitudes and only within the same
+ * direction, so a +20 Bcf net injection against five years of net draws fell
+ * through to "middle of 5 years".
+ */
 export function seasonToDateStanding(std) {
   if (!std || std.netChangeBcf == null || std.n < 2) return 'mid-range';
-  const signedLike = (v) => (v >= 0) === (std.netChangeBcf >= 0);
-  const mag = Math.abs(std.netChangeBcf);
-  if (std.prior.every((p) => signedLike(p.netChangeBcf) && Math.abs(p.netChangeBcf) <= mag)) return 'largest';
-  if (std.prior.every((p) => signedLike(p.netChangeBcf) && Math.abs(p.netChangeBcf) >= mag)) return 'smallest';
+  const v = std.netChangeBcf;
+  if (std.prior.every((p) => p.netChangeBcf < v)) return 'largest';
+  if (std.prior.every((p) => p.netChangeBcf > v)) return 'smallest';
   return 'mid-range';
 }
 
@@ -1917,7 +1952,7 @@ function appendProvenance(panelEl, analysis) {
       : `<span class="data-provenance__flag">${breaks} identity break(s)</span>`,
     `${analysis.dropped} unparseable row(s) dropped`,
     analysis.duplicateKeys ? `<span class="data-provenance__flag">${analysis.duplicateKeys} duplicate row(s)</span>` : null,
-    'Multi-horizon baselines: 5Y Tactical, 10Y Decadal, Observed History (2018–present, n=8)',
+    `Baselines: last 5 years${HORIZON_INFO.priorYears >= 10 ? ', last 10 years' : ''}, all history (${HORIZON_INFO.firstYear}–${HORIZON_INFO.lastPriorYear}, n=${HORIZON_INFO.priorYears}); weekly normals are means of the same calendar week`,
     'EIA Weekly Supplement native SVG dual plot (Lower 48) and 6-region floating comparison columns',
     'Fill is a share of each region\'s own observed peak; only Lower 48 uses the nominal 4,000 Bcf convention',
     'Zero synthetic forecast models: season-end path repeats prior realised arithmetic',

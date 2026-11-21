@@ -230,11 +230,13 @@ describe('seasonToDateStanding', () => {
     );
   });
 
-  it('is mid-range when a prior year moved the other way, not smallest', () => {
-    assert.equal(
-      seasonToDateStanding(std(-40, [{ netChangeBcf: 30 }, { netChangeBcf: 10 }])),
-      'mid-range',
-    );
+  it('compares signed values: a draw below every prior injection is the smallest', () => {
+    // The badge reads 'ABOVE ALL' / 'BELOW ALL' as signed comparisons. The old
+    // rule compared magnitudes within one direction only, so a +20 Bcf net
+    // injection against five years of net draws printed "MIDDLE OF 5 YEARS".
+    assert.equal(seasonToDateStanding(std(-40, [{ netChangeBcf: 30 }, { netChangeBcf: 10 }])), 'smallest');
+    assert.equal(seasonToDateStanding(std(20, [{ netChangeBcf: -14 }, { netChangeBcf: -80 }, { netChangeBcf: -3 }])), 'largest');
+    assert.equal(seasonToDateStanding(std(-10, [{ netChangeBcf: -14 }, { netChangeBcf: -3 }])), 'mid-range');
   });
 });
 
