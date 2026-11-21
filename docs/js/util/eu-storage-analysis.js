@@ -11,19 +11,37 @@
  *   injection         GWh per day, daily
  *   withdrawal        GWh per day, daily
  *
- * Two things this module refuses to do:
+ * Methodological rules this module enforces:
  *
- *  1. **Invent capacity.** Working gas is `gas_in_storage / full_pct × 100`,
- *     derived per country per day from the two series that both exist. There is
- *     no hard-coded TWh ceiling anywhere.
+ *  1. **Capacity is read per day, not assumed constant.** GIE's `full` is
+ *     `gasInStorage ÷ workingGasVolume` on that day, so `gas ÷ pct × 100` recovers
+ *     the day's working-gas volume. Capacities move materially inside the window
+ *     this bundle covers (Czechia ~36 → ~46 TWh, France ~134 → ~124 TWh,
+ *     Belgium ~8.8 → ~7.6 TWh), so a single all-history median capacity biased
+ *     the aggregate % and every pp → TWh conversion. Each day now carries its
+ *     own capacity; days with a fill too low for the ratio to be stable borrow
+ *     the nearest stable day's capacity.
  *
- *  2. **Call four years five.** AGSI history in this bundle starts 2021-01-01,
- *     so a "normal" for a 2026 week can draw on at most four or five *prior*
- *     years. Every comparison returns its own `years` array and the UI prints
- *     exactly that, never a constant.
+ *  2. **Deviations are computed in the unit they are printed in.** A TWh
+ *     deviation is `stock − normal stock` on the TWh series; a pp deviation is
+ *     `fill − normal fill` on the % series. Converting pp to TWh through a
+ *     capacity is only exact when capacity never changed.
+ *
+ *  3. **"Normal" is the same calendar day in prior years, and its sample is
+ *     printed.** AGSI history here starts 2021-01-01, so a normal for 2026 has
+ *     at most five prior years, and fewer for earlier dates. Every normal
+ *     returns its `years`; series that need a stable comparison require a
+ *     minimum `n` and say so.
+ *
+ *  4. **Projections are analogs, not forecasts.** The end-of-season outlook
+ *     applies each prior year's *observed* net change over the rest of the
+ *     season to today's stock. It answers "if the remaining weeks repeat year
+ *     X", with every analog listed, and makes no claim about which is likely.
  */
 
 import { dayOnly } from './season.js';
+
+const DAY_MS = 86400000;
 
 /** The country set that is actually in the bundle; labels are ours, codes are GIE's. */
 export const EU_COUNTRIES = [
@@ -39,29 +57,49 @@ export const EU_COUNTRIES = [
   { cc: 'pl', label: 'Poland' },
 ];
 
+/** Identifier of the synthetic 10-country total view. */
+export const AGGREGATE_CC = 'eu10';
+
+/**
+ * EU-wide fill reference. Regulation (EU) 2022/1032 set a 90 % filling target;
+ * the 2025 amendment lets it be met at any point between 1 October and
+ * 1 December, with permitted deviations. National obligations differ, so the
+ * panel draws this as a reference level, never as a per-country compliance test.
+ */
+export const FILL_TARGET_PCT = 90;
+
+/** Below this fill the day's `gas ÷ pct` ratio is too sensitive to rounding. */
+const CAPACITY_MIN_PCT = 3;
+
+/* ------------------------------------------------------------------ */
+/*  Calendar helpers                                                   */
+/* ------------------------------------------------------------------ */
+
 /** Days in a month, from the calendar (not a table). */
 function daysInMonth(year, monthIndex) {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
 
-/**
- * Calendar month index 1..12 — the axis AGSI history is naturally read on
- * ("where was Germany in mid-March?"), and one that is identical in every year,
- * so no leap-year or 53-week offset can shift a comparison by a week.
- */
+function isLeap(y) {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+
+/** Calendar month index 1..12. */
 export function monthOfDay(date) {
   return dayOnly(date).getMonth() + 1;
 }
 
+/** 1-based day of year for a local date. */
+export function dayOfYear(date) {
+  const d = dayOnly(date);
+  const start = new Date(d.getFullYear(), 0, 1);
+  return Math.round((d - start) / DAY_MS) + 1;
+}
+
 /**
- * Continuous position of a calendar date on the 0..1 whole-year horizontal axis.
- *
- * Each month occupies 1/12th of the horizontal axis; days within the month are
- * centered at (day - 0.5) / daysInMonth. This guarantees:
- *  1. Strict monotonicity across the entire 365/366 day year.
- *  2. Continuous progression across month boundaries without sawtooth resets to 0.
- *  3. Invariant month-boundary placement (e.g. March 1 is identical in leap and
- *     non-leap years at (2 + 0.5/31) / 12), perfectly aligning with monthly envelopes.
+ * Continuous position of a calendar date on a 0..1 January-to-December axis.
+ * Each month is 1/12th of the axis and days are centred within it, so a given
+ * month-day sits at the same x in leap and non-leap years.
  */
 export function monthDayFraction(date) {
   const d = dayOnly(date);
@@ -72,12 +110,80 @@ export function monthDayFraction(date) {
 export const calendarFraction = monthDayFraction;
 
 /**
+ * Storage year a date belongs to: the year in which its injection season
+ * started. 1 Apr 2026 – 31 Mar 2027 is storage year 2026 ("2026/27").
+ *
+ * European storage is a cycle that fills April–September and draws
+ * October–March. On a January-to-December axis the winter being watched is
+ * cut in two; on a storage-year axis it is one continuous line.
+ */
+export function storageYearOf(date) {
+  const d = dayOnly(date);
+  return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+}
+
+/** "2026/27" style label. */
+export function storageYearLabel(sy) {
+  return `${sy}/${String((sy + 1) % 100).padStart(2, '0')}`;
+}
+
+/**
+ * 0..1 position on the April-to-March storage-year axis, month-aligned like
+ * `monthDayFraction` (each month 1/12th, days centred), so 1 March is the same
+ * x whether or not the year has a 29 February.
+ */
+export function storageYearFraction(date) {
+  const d = dayOnly(date);
+  const m = (d.getMonth() + 9) % 12; // Apr → 0 … Mar → 11
+  return (m + (d.getDate() - 0.5) / daysInMonth(d.getFullYear(), d.getMonth())) / 12;
+}
+
+/** First day of a storage year. */
+export function storageYearStart(sy) {
+  return new Date(sy, 3, 1);
+}
+
+/** Last day of a storage year. */
+export function storageYearEnd(sy) {
+  return new Date(sy + 1, 2, 31);
+}
+
+/**
+ * Which half of the storage year a date falls in, and where that half ends.
+ * Injection season: 1 Apr – 30 Sep. Withdrawal season: 1 Oct – 31 Mar.
+ */
+export function seasonOf(date) {
+  const d = dayOnly(date);
+  const m = d.getMonth();
+  const y = d.getFullYear();
+  if (m >= 3 && m <= 8) {
+    return { kind: 'injection', start: new Date(y, 3, 1), end: new Date(y, 8, 30), endLabel: '30 Sep' };
+  }
+  const startYear = m >= 9 ? y : y - 1;
+  return { kind: 'withdrawal', start: new Date(startYear, 9, 1), end: new Date(startYear + 1, 2, 31), endLabel: '31 Mar' };
+}
+
+/**
+ * The same calendar day `k` years earlier. 29 February maps to 28 February in
+ * a non-leap target year rather than spilling into March.
+ */
+export function sameDayYearsBack(date, k) {
+  const d = dayOnly(date);
+  const y = d.getFullYear() - k;
+  const m = d.getMonth();
+  return new Date(y, m, Math.min(d.getDate(), daysInMonth(y, m)));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Building the per-country and aggregate views                       */
+/* ------------------------------------------------------------------ */
+
+/**
  * Build one country's usable series by joining the four AGSI series on date.
  *
- * The join is on the calendar day, not on row order: `getSeries` sorts each
- * series independently, and a day present in `full_pct` but missing from
- * `gas_in_storage` would otherwise shift every later row by one and silently
- * pair volume from the wrong day with a percentage.
+ * The join is on the calendar day, not on row order: a day present in
+ * `full_pct` but missing from `gas_in_storage` would otherwise shift every
+ * later row by one and silently pair volume from the wrong day with a percentage.
  *
  * @param {Record<string, Array<{period: Date, value: number}>>} series
  * @returns {Array<{period: Date, pct: number|null, twh: number|null,
@@ -106,11 +212,6 @@ export function joinCountrySeries({ pct = [], gas = [], injection = [], withdraw
 /**
  * Working-gas capacity in TWh for one day, derived from the two series.
  *
- * `gas / pct × 100` is exact under AGSI's own definition of the two fields.
- * It is only computed when the percentage is far enough from zero that the
- * division is meaningful; a 0.2 % reading would otherwise imply a capacity
- * ten million TWh wide.
- *
  * @param {number|null} twh
  * @param {number|null} pct
  * @param {number} [minPct] floor below which the ratio is not trusted
@@ -123,17 +224,37 @@ export function capacityFromDay(twh, pct, minPct = 1) {
 }
 
 /**
- * Robust capacity per country: the median of the per-day ratios, and the
- * sample counted.
+ * Attach a per-day capacity (`capTwh`) to joined rows.
  *
- * A single day's ratio carries the reporting rounding of both fields; the
- * median over the full history does not, and it is insensitive to the one day
- * a country reports an anomalous pair. The maximum day-to-day spread is
- * returned as `spreadPct` so the UI can say how stable the derivation is
- * rather than implying it is exact.
+ * Days below `minPct` take the capacity of the nearest stable day (previous
+ * first, then next) and are flagged `capFilled`, so nothing downstream divides
+ * by a ratio that is mostly rounding noise.
+ *
+ * @param {Array} rows output of joinCountrySeries
+ * @returns {Array} the same rows (copied) with `capTwh` and `capFilled`
+ */
+export function attachDailyCapacity(rows, { minPct = CAPACITY_MIN_PCT } = {}) {
+  const out = (rows || []).map((r) => ({ ...r, capTwh: capacityFromDay(r.twh, r.pct, minPct), capFilled: false }));
+  let last = null;
+  for (const r of out) {
+    if (r.capTwh != null) last = r.capTwh;
+    else if (last != null) { r.capTwh = last; r.capFilled = true; }
+  }
+  let next = null;
+  for (let i = out.length - 1; i >= 0; i--) {
+    const r = out[i];
+    if (r.capTwh != null && !r.capFilled) next = r.capTwh;
+    else if (r.capTwh == null && next != null) { r.capTwh = next; r.capFilled = true; }
+  }
+  return out;
+}
+
+/**
+ * Robust summary of a country's capacity history: median of the per-day
+ * ratios plus first/latest stable values, so the UI can state how much the
+ * capacity moved rather than implying a constant.
  *
  * @param {Array<{pct: number|null, twh: number|null}>} rows
- * @param {{minPct?: number}} [opts]
  * @returns {{capacityTwh: number|null, n: number, spreadPct: number|null}}
  */
 export function countryCapacity(rows, { minPct = 1 } = {}) {
@@ -144,87 +265,128 @@ export function countryCapacity(rows, { minPct = 1 } = {}) {
   }
   if (caps.length === 0) return { capacityTwh: null, n: 0, spreadPct: null };
   caps.sort((a, b) => a - b);
-  const median = caps.length % 2 ? caps[(caps.length - 1) / 2]
-    : (caps[caps.length / 2 - 1] + caps[caps.length / 2]) / 2;
-  const spreadPct = ((caps[caps.length - 1] - caps[0]) / median) * 100;
-  return { capacityTwh: median, n: caps.length, spreadPct };
+  const med = median(caps);
+  const spreadPct = ((caps[caps.length - 1] - caps[0]) / med) * 100;
+  return { capacityTwh: med, n: caps.length, spreadPct };
+}
+
+/** Median of the stable capacities over the last `days` observations. */
+function recentCapacity(rows, days = 30) {
+  const caps = [];
+  for (let i = rows.length - 1; i >= 0 && caps.length < days; i--) {
+    if (rows[i].capTwh != null && !rows[i].capFilled) caps.push(rows[i].capTwh);
+  }
+  return caps.length ? median(caps.sort((a, b) => a - b)) : null;
+}
+
+/** First full storage year's median capacity, for the "capacity moved" note. */
+function earliestCapacity(rows, days = 60) {
+  const caps = [];
+  for (let i = 0; i < rows.length && caps.length < days; i++) {
+    if (rows[i].capTwh != null && !rows[i].capFilled) caps.push(rows[i].capTwh);
+  }
+  return caps.length ? median(caps.sort((a, b) => a - b)) : null;
+}
+
+function lastFinite(rows, field) {
+  for (let i = rows.length - 1; i >= 0; i--) if (Number.isFinite(rows[i][field])) return rows[i];
+  return null;
 }
 
 /**
- * Build every country's view at once, including its derived capacity.
+ * Index a view's rows by local-midnight time for O(1) same-day lookups.
+ * @returns {Map<number, object>}
+ */
+export function indexRows(rows) {
+  const m = new Map();
+  for (const r of rows || []) {
+    if (r && r.period instanceof Date) m.set(dayOnly(r.period).getTime(), r);
+  }
+  return m;
+}
+
+function finalizeView(cc, label, rows, extra = {}) {
+  const capacityTwh = recentCapacity(rows);
+  const cap = countryCapacity(rows);
+  return {
+    cc,
+    label,
+    rows,
+    index: indexRows(rows),
+    capacityTwh,
+    capacityFirstTwh: earliestCapacity(rows),
+    capacityMedianTwh: cap.capacityTwh,
+    capacityN: cap.n,
+    capacitySpreadPct: cap.spreadPct,
+    latest: lastFinite(rows, 'pct'),
+    ...extra,
+  };
+}
+
+/**
+ * Build every country's view, each row carrying its own capacity.
+ *
+ * `capacityTwh` is the *current* capacity (median of the last 30 stable days);
+ * `capacityFirstTwh` the earliest, so the UI can state how far it moved.
  *
  * @param {Record<string, Record<string, Array<{period: Date, value: number}>>>} perCountry
- * @returns {Array<{cc: string, label: string, rows: Array, capacityTwh: number|null,
- *   capacityN: number, capacitySpreadPct: number|null, latest: object|null}>}
  */
 export function buildCountryViews(perCountry, countries = EU_COUNTRIES) {
   const out = [];
   for (const c of countries) {
     const s = perCountry?.[c.cc];
     if (!s) continue;
-    const rows = joinCountrySeries(s);
-    if (rows.length === 0) continue;
-    const cap = countryCapacity(rows);
-    let latest = null;
-    for (let i = rows.length - 1; i >= 0; i--) {
-      if (Number.isFinite(rows[i].pct)) { latest = rows[i]; break; }
-    }
-    out.push({
-      cc: c.cc,
-      label: c.label,
-      rows,
-      capacityTwh: cap.capacityTwh,
-      capacityN: cap.n,
-      capacitySpreadPct: cap.spreadPct,
-      latest,
-    });
+    const joined = joinCountrySeries(s);
+    if (joined.length === 0) continue;
+    out.push(finalizeView(c.cc, c.label, attachDailyCapacity(joined)));
   }
   return out;
 }
 
 /**
- * Panel aggregate: sum(TWh) over sum(derived capacity), per day.
+ * Aggregate rows: Σ stock ÷ Σ that day's capacities, with summed flows.
  *
- * The previous panel weighted each country's % by its all-time maximum
- * `gas_in_storage`. That proxy is close (the probe measured a 0.03 pp drift on
- * the latest day) but it is a different quantity from capacity and it cannot
- * produce a TWh total at all. Summing volumes and dividing by the summed
- * derived capacity gives both, and a percentage that is exactly the weighted
- * mean of the parts.
- *
- * `nCountries` and `missing` are returned per day because the aggregate is a
- * mean over whoever reported: a late-joining country would otherwise change
- * the composition of the number without changing its label.
+ * This is GIE's own aggregation rule, so the percentage is exactly the
+ * capacity-weighted mean of the parts on that day. `nCountries`/`missing` are
+ * returned per day because the aggregate is a sum over whoever reported.
  *
  * @param {ReturnType<typeof buildCountryViews>} views
- * @returns {Array<{period: Date, pct: number, twh: number, capacityTwh: number,
+ * @returns {Array<{period: Date, pct: number, twh: number, capTwh: number,
+ *   capacityTwh: number, injectionGwh: number|null, withdrawalGwh: number|null,
  *   nCountries: number, missing: string[]}>}
  */
 export function buildAggregate(views) {
   const byDay = new Map();
   for (const v of views) {
-    const cap = v.capacityTwh;
-    if (!Number.isFinite(cap) || cap <= 0) continue;
     for (const r of v.rows) {
-      if (!Number.isFinite(r.twh) || !Number.isFinite(r.pct)) continue;
+      if (!Number.isFinite(r.twh) || !Number.isFinite(r.capTwh) || r.capTwh <= 0) continue;
       const key = r.period.getTime();
       if (!byDay.has(key)) {
-        byDay.set(key, { period: r.period, twh: 0, capacityTwh: 0, present: new Set() });
+        byDay.set(key, { period: r.period, twh: 0, capTwh: 0, inj: 0, wd: 0, nFlow: 0, present: new Set() });
       }
       const slot = byDay.get(key);
       slot.twh += r.twh;
-      slot.capacityTwh += cap;
+      slot.capTwh += r.capTwh;
+      if (r.injectionGwh != null || r.withdrawalGwh != null) {
+        slot.inj += r.injectionGwh ?? 0;
+        slot.wd += r.withdrawalGwh ?? 0;
+        slot.nFlow += 1;
+      }
       slot.present.add(v.cc);
     }
   }
   const out = [];
   for (const [, slot] of byDay) {
-    if (slot.capacityTwh <= 0) continue;
+    if (slot.capTwh <= 0) continue;
     out.push({
       period: slot.period,
       twh: slot.twh,
-      capacityTwh: slot.capacityTwh,
-      pct: (slot.twh / slot.capacityTwh) * 100,
+      capTwh: slot.capTwh,
+      capacityTwh: slot.capTwh,
+      pct: (slot.twh / slot.capTwh) * 100,
+      injectionGwh: slot.nFlow ? slot.inj : null,
+      withdrawalGwh: slot.nFlow ? slot.wd : null,
+      capFilled: false,
       nCountries: slot.present.size,
       missing: views.filter((v) => !slot.present.has(v.cc)).map((v) => v.cc),
     });
@@ -233,72 +395,109 @@ export function buildAggregate(views) {
 }
 
 /**
- * Same-point-of-year normal over the prior years the bundle actually holds.
+ * The 10-country total as a view with the same shape as a country's, so every
+ * chart and metric can be drawn for "the total" or "one country" alike.
  *
- * Comparison is by **calendar month-day position** (day-of-year, so a leap year
- * still lines up in late December). For each prior year the nearest observation
- * within `toleranceDays` contributes; a year with no observation that close is
- * absent from `years` rather than interpolated.
- *
- * @param {Array<{period: Date, value: number}>} rows
- * @param {Date} asOf
- * @param {{lookbackYears?: number, toleranceDays?: number}} [opts]
- * @returns {{values: Array<{year: number, period: Date, value: number}>,
- *   years: number[], median: number|null, min: number|null, max: number|null,
- *   n: number}}
+ * Days on which not every country reported are dropped from the view: a sum
+ * over nine countries is a different quantity, and silently mixing the two
+ * would put a step into the line that no physical flow produced.
  */
-export function positionalNormal(rows, asOf, { lookbackYears = 5, toleranceDays = 10, pick = (r) => r?.value ?? r?.pct, minYear = null } = {}) {
+export function buildAggregateView(views) {
+  const all = buildAggregate(views);
+  const full = all.filter((r) => r.nCountries === views.length);
+  return finalizeView(AGGREGATE_CC, `${views.length}-country total`, full, {
+    isAggregate: true,
+    droppedPartialDays: all.length - full.length,
+  });
+}
+
+/**
+ * Whether a prior-year comparison date falls before the selected baseline.
+ * `minDate` (preferred) cuts on the exact day — e.g. 1 Apr 2022 for the
+ * post-crisis baseline, so a January comparison does not pull in the
+ * 2021/22 winter; `minYear` cuts on the calendar year.
+ */
+function beforeBaseline(date, minYear, minDate) {
+  if (minDate instanceof Date && date < minDate) return true;
+  return minYear != null && date.getFullYear() < minYear;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Normals                                                            */
+/* ------------------------------------------------------------------ */
+
+function median(sorted) {
+  if (!sorted.length) return null;
+  const n = sorted.length;
+  return n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+}
+
+const pickPct = (r) => r?.value ?? r?.pct;
+
+/**
+ * Find the row for `date` in an index, allowing a small gap tolerance.
+ * Exact day first, then ±1, ±2 … up to `toleranceDays`.
+ */
+function lookupNear(index, date, toleranceDays) {
+  const t = dayOnly(date);
+  const exact = index.get(t.getTime());
+  if (exact) return exact;
+  for (let k = 1; k <= toleranceDays; k++) {
+    const a = index.get(new Date(t.getFullYear(), t.getMonth(), t.getDate() - k).getTime());
+    if (a) return a;
+    const b = index.get(new Date(t.getFullYear(), t.getMonth(), t.getDate() + k).getTime());
+    if (b) return b;
+  }
+  return null;
+}
+
+/**
+ * Same-day normal over prior years.
+ *
+ * For each of the `lookbackYears` prior years the observation on the same
+ * calendar day (nearest within `toleranceDays` when that day is missing)
+ * contributes; a year with nothing that close is absent from `years` rather
+ * than interpolated.
+ *
+ * Accepts either rows or a prebuilt index (`indexRows`) as the first argument;
+ * the index form is what the charts use, since they evaluate a normal for
+ * every day of a year.
+ *
+ * @param {Array|Map} rowsOrIndex
+ * @param {Date} asOf
+ * @param {{lookbackYears?: number, toleranceDays?: number, pick?: Function, minYear?: number|null}} [opts]
+ * @returns {{values: Array<{year: number, period: Date, value: number}>,
+ *   years: number[], median: number|null, mean: number|null,
+ *   min: number|null, max: number|null, n: number}}
+ */
+export function positionalNormal(rowsOrIndex, asOf, { lookbackYears = 5, toleranceDays = 1, pick = pickPct, minYear = null, minDate = null } = {}) {
+  const index = rowsOrIndex instanceof Map ? rowsOrIndex : indexRows(rowsOrIndex);
   const d = dayOnly(asOf);
-  const year = d.getFullYear();
-  const cutoffYear = minYear != null ? Math.max(year - lookbackYears, minYear) : year - lookbackYears;
-  const doy = dayOfYear(d);
   const values = [];
-  for (let y = year - 1; y >= cutoffYear; y--) {
-    let best = null;
-    for (const r of rows || []) {
-      const p = r.period instanceof Date ? r.period : null;
-      if (!p || p.getFullYear() !== y) continue;
-      const v = pick ? pick(r) : (r.value ?? r.pct);
-      if (!Number.isFinite(v)) continue;
-      // day-of-year difference, wrapped through the year boundary
-      let lag = Math.abs(dayOfYear(p) - doy);
-      const len = isLeap(y) ? 366 : 365;
-      lag = Math.min(lag, len - lag);
-      if (lag > toleranceDays) continue;
-      if (!best || lag < best.lag) best = { lag, row: r, value: v };
-    }
-    if (best) {
-      values.push({ year: y, period: best.row.period, value: best.value });
-    }
+  for (let k = 1; k <= lookbackYears; k++) {
+    const target = sameDayYearsBack(d, k);
+    if (beforeBaseline(target, minYear, minDate)) break;
+    const row = lookupNear(index, target, toleranceDays);
+    if (!row) continue;
+    const v = pick(row);
+    if (!Number.isFinite(v)) continue;
+    values.push({ year: target.getFullYear(), period: row.period, value: v });
   }
   const sorted = values.map((v) => v.value).sort((a, b) => a - b);
-  const median = sorted.length === 0 ? null
-    : sorted.length % 2 ? sorted[(sorted.length - 1) / 2]
-      : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
   return {
     values,
     years: values.map((v) => v.year),
     n: values.length,
-    median,
+    median: median(sorted),
+    mean: sorted.length ? sorted.reduce((s, x) => s + x, 0) / sorted.length : null,
     min: sorted.length ? sorted[0] : null,
     max: sorted.length ? sorted[sorted.length - 1] : null,
   };
 }
 
-function isLeap(y) {
-  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-}
-
-/** 1-based day of year for a local date. */
-export function dayOfYear(date) {
-  const d = dayOnly(date);
-  const start = new Date(d.getFullYear(), 0, 1);
-  return Math.round((d - start) / 86400000) + 1;
-}
-
 /**
  * Where a level ranks among the prior years at the same point of the year.
- * `better` = how many prior years were lower (0 means this is the lowest).
+ * `rank` 1 = lower than every prior year; `n + 1` = higher than all.
  */
 export function rankAmongYears(value, values) {
   const vals = values.filter((v) => Number.isFinite(v));
@@ -308,66 +507,56 @@ export function rankAmongYears(value, values) {
 }
 
 /**
- * Calendar-month envelope over prior years, for the "history by year" chart.
+ * Daily seasonal band for one storage year: for every day from 1 April to
+ * 31 March, the min / median / max / mean of the same calendar day in prior
+ * years. Drawn behind the year lines.
  *
- * Each month gets, over the observations of that month in prior years, the
- * min / median / max plus the years that contributed. This is the band the
- * country detail draws behind the current year's line; it is positional, not a
- * trend, and `nYears` is printed on screen.
+ * This replaces a calendar-month envelope that pooled all thirty days of a
+ * month across years: early-January and late-January levels (often 15 pp
+ * apart in winter) were thrown into one bucket, so the band was wider than the
+ * year-to-year spread it claimed to show, and its median disagreed with the
+ * same-day "normal" printed next to it.
  *
- * @param {Array<{period: Date, value: number}>} rows
- * @param {number} currentYear
- * @param {number} [nMonths]
- * @returns {Array<{month: number, min: number|null, median: number|null,
- *   max: number|null, years: number[], nYears: number}>}
+ * @param {Map<number, object>} index  `indexRows(view.rows)`
+ * @param {number} sy reference storage year
+ * @param {{pick?: Function, lookbackYears?: number, minYear?: number|null, step?: number}} [opts]
+ * @returns {Array<{period: Date, x: number, min: number, max: number, median: number, mean: number, n: number}>}
  */
-export function monthlyEnvelope(rows, currentYear, nMonths = 12, opts = {}) {
-  let count = nMonths;
-  let options = opts;
-  if (typeof count === 'object' && count !== null) {
-    options = count;
-    count = 12;
-  }
-  const { pick = (r) => r?.value ?? r?.pct, minYear = null } = options || {};
+export function seasonalBand(index, sy, { pick = pickPct, lookbackYears = 5, minYear = null, minDate = null, step = 1 } = {}) {
   const out = [];
-  for (let m = 1; m <= count; m++) {
-    const vals = [];
-    const years = new Set();
-    for (const r of rows || []) {
-      const p = r.period instanceof Date ? r.period : null;
-      if (!p || p.getMonth() + 1 !== m) continue;
-      if (p.getFullYear() >= currentYear) continue;
-      if (minYear != null && p.getFullYear() < minYear) continue;
-      const v = pick ? pick(r) : (r.value ?? r.pct);
-      if (!Number.isFinite(v)) continue;
-      vals.push(v);
-      years.add(p.getFullYear());
-    }
-    vals.sort((a, b) => a - b);
-    const median = vals.length === 0 ? null
-      : vals.length % 2 ? vals[(vals.length - 1) / 2]
-        : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
-    out.push({
-      month: m,
-      min: vals.length ? vals[0] : null,
-      max: vals.length ? vals[vals.length - 1] : null,
-      median,
-      years: [...years].sort((a, b) => a - b),
-      nYears: years.size,
-    });
+  const start = storageYearStart(sy);
+  const end = storageYearEnd(sy);
+  for (let d = start; d <= end; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + step)) {
+    const nrm = positionalNormal(index, d, { pick, lookbackYears, minYear, minDate });
+    if (nrm.n === 0) continue;
+    out.push({ period: d, x: storageYearFraction(d), min: nrm.min, max: nrm.max, median: nrm.median, mean: nrm.mean, n: nrm.n });
   }
   return out;
 }
 
 /**
- * Split a country's history into one array per calendar year, mapped to the
- * continuous whole-year positional axis (`monthDayFraction`, 0..1).
- *
- * @param {Array<{period: Date, value?: number, pct?: number}>} rows
- * @param {(row: object) => number} [pick]
- * @returns {Array<{year: number, points: Array<{x: number, period: Date, value: number}>, n: number}>}
+ * One line per storage year on the April-to-March axis.
+ * @returns {Array<{sy: number, label: string, points: Array<{x: number, period: Date, value: number}>, n: number}>}
  */
-export function rowsByYear(rows, pick = (r) => r?.value ?? r?.pct) {
+export function storageYearTraces(rows, pick = pickPct) {
+  const by = new Map();
+  for (const r of rows || []) {
+    const v = pick(r);
+    if (!Number.isFinite(v) || !(r.period instanceof Date)) continue;
+    const sy = storageYearOf(r.period);
+    if (!by.has(sy)) by.set(sy, []);
+    by.get(sy).push({ x: storageYearFraction(r.period), period: r.period, value: v });
+  }
+  return [...by.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([sy, points]) => ({ sy, label: storageYearLabel(sy), points: points.sort((a, b) => a.x - b.x), n: points.length }));
+}
+
+/**
+ * Calendar-year traces on the January-to-December axis (kept for callers that
+ * read history by calendar year).
+ */
+export function rowsByYear(rows, pick = pickPct) {
   const byYear = new Map();
   for (const r of rows || []) {
     const v = pick(r);
@@ -380,35 +569,82 @@ export function rowsByYear(rows, pick = (r) => r?.value ?? r?.pct) {
   }
   return [...byYear.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([year, points]) => ({
-      year,
-      points: points.sort((a, b) => a.x - b.x),
-      n: points.length,
-    }));
+    .map(([year, points]) => ({ year, points: points.sort((a, b) => a.x - b.x), n: points.length }));
+}
+
+/**
+ * Deviation from the same-day normal for every observation that has one with
+ * at least `minN` prior years. Both units are computed on their own series.
+ *
+ * @returns {Array<{period: Date, pct: number, twh: number, normalPct: number,
+ *   normalTwh: number, devPp: number, devTwh: number, n: number}>}
+ */
+export function deviationSeries(view, { lookbackYears = 5, minYear = null, minDate = null, minN = 3, stat = 'median', from = null } = {}) {
+  const out = [];
+  for (const r of view.rows) {
+    if (from && r.period < from) continue;
+    if (!Number.isFinite(r.pct) || !Number.isFinite(r.twh)) continue;
+    const np = positionalNormal(view.index, r.period, { lookbackYears, minYear, minDate, pick: (x) => x.pct });
+    if (np.n < minN) continue;
+    const nt = positionalNormal(view.index, r.period, { lookbackYears, minYear, minDate, pick: (x) => x.twh });
+    const normalPct = np[stat];
+    const normalTwh = nt[stat];
+    out.push({
+      period: r.period,
+      pct: r.pct,
+      twh: r.twh,
+      normalPct,
+      normalTwh,
+      devPp: r.pct - normalPct,
+      devTwh: r.twh - normalTwh,
+      n: np.n,
+    });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Flows                                                              */
+/* ------------------------------------------------------------------ */
+
+/** Reported net flow for a row, GWh/d (injection − withdrawal), or null. */
+export function netFlow(r) {
+  if (!r || (r.injectionGwh == null && r.withdrawalGwh == null)) return null;
+  return (r.injectionGwh ?? 0) - (r.withdrawalGwh ?? 0);
+}
+
+/**
+ * Mean reported net flow over the `windowDays` days ending at `end`
+ * (inclusive), from an index. Days without a report are skipped, and the
+ * number actually averaged is returned so a short sample is visible.
+ */
+export function windowNet(index, end, windowDays = 7) {
+  let sum = 0;
+  let n = 0;
+  const e = dayOnly(end);
+  for (let k = 0; k < windowDays; k++) {
+    const r = index.get(new Date(e.getFullYear(), e.getMonth(), e.getDate() - k).getTime());
+    const v = netFlow(r);
+    if (v == null) continue;
+    sum += v;
+    n += 1;
+  }
+  return n ? { avg: sum / n, n } : { avg: null, n: 0 };
 }
 
 /**
  * Trailing flow dynamics (GWh/d net, injection, withdrawal, momentum, weekly TWh rate).
  *
- * @param {Array<{period: Date, injectionGwh?: number|null, withdrawalGwh?: number|null}>} rows
- * @param {{windowDays?: number}} [opts]
- * @returns {{
- *   latestNetGwh: number|null,
- *   avgNetGwh: number|null,
- *   avgInjectionGwh: number|null,
- *   avgWithdrawalGwh: number|null,
- *   momentumGwh: number|null,
- *   rateTwhPerWeek: number|null,
- *   regime: 'injection'|'withdrawal'|'neutral'|null,
- *   nDays: number
- * }|null}
+ * The regime threshold scales with the facility: a net flow counts as
+ * injection or withdrawal only beyond ±0.05 % of working-gas capacity per day
+ * (≈ ±125 GWh/d for Germany, ≈ ±4 GWh/d for Belgium). A fixed ±15 GWh/d called
+ * Germany "injecting" on days that moved its fill by less than 0.01 pp.
+ *
+ * @param {Array} rows
+ * @param {{windowDays?: number, capacityTwh?: number|null}} [opts]
  */
-export function flowDynamics(rows, { windowDays = 7 } = {}) {
+export function flowDynamics(rows, { windowDays = 7, capacityTwh = null } = {}) {
   if (!rows || rows.length === 0) return null;
-  const netFlow = (r) => (r.injectionGwh == null && r.withdrawalGwh == null)
-    ? null
-    : (r.injectionGwh ?? 0) - (r.withdrawalGwh ?? 0);
-
   const valid = rows.filter((r) => netFlow(r) !== null);
   if (valid.length === 0) return null;
 
@@ -416,74 +652,251 @@ export function flowDynamics(rows, { windowDays = 7 } = {}) {
   const tail = valid.slice(-w);
   const prevTail = valid.slice(-2 * w, -w);
 
-  const avgNet = tail.reduce((s, r) => s + netFlow(r), 0) / tail.length;
-  const avgInj = tail.reduce((s, r) => s + (r.injectionGwh ?? 0), 0) / tail.length;
-  const avgWd = tail.reduce((s, r) => s + (r.withdrawalGwh ?? 0), 0) / tail.length;
+  const avg = (arr, f) => arr.reduce((s, r) => s + f(r), 0) / arr.length;
+  const avgNet = avg(tail, netFlow);
+  const avgInj = avg(tail, (r) => r.injectionGwh ?? 0);
+  const avgWd = avg(tail, (r) => r.withdrawalGwh ?? 0);
+  const prevAvgNet = prevTail.length ? avg(prevTail, netFlow) : null;
 
-  const prevAvgNet = prevTail.length
-    ? prevTail.reduce((s, r) => s + netFlow(r), 0) / prevTail.length
-    : null;
-  const momentum = prevAvgNet != null ? avgNet - prevAvgNet : null;
-  const rateTwhPerWeek = (avgNet * 7) / 1000;
-
-  const latestRow = valid[valid.length - 1];
-  const latestNet = netFlow(latestRow);
+  const threshold = Number.isFinite(capacityTwh) && capacityTwh > 0 ? capacityTwh * 1000 * 0.0005 : 15;
 
   return {
-    latestNetGwh: latestNet,
+    latestNetGwh: netFlow(valid[valid.length - 1]),
     avgNetGwh: avgNet,
     avgInjectionGwh: avgInj,
     avgWithdrawalGwh: avgWd,
-    momentumGwh: momentum,
-    rateTwhPerWeek,
-    regime: avgNet > 15 ? 'injection' : avgNet < -15 ? 'withdrawal' : 'neutral',
+    momentumGwh: prevAvgNet != null ? avgNet - prevAvgNet : null,
+    rateTwhPerWeek: (avgNet * 7) / 1000,
+    ppPerDay: Number.isFinite(capacityTwh) && capacityTwh > 0 ? (avgNet / (capacityTwh * 1000)) * 100 : null,
+    regime: avgNet > threshold ? 'injection' : avgNet < -threshold ? 'withdrawal' : 'neutral',
+    thresholdGwh: threshold,
     nDays: tail.length,
   };
 }
 
 /**
- * Comprehensive country metrics combining stock, capacity, positional normal,
- * deviation in pp and TWh, and flow dynamics.
+ * Is the current flow faster or slower than normal for the time of year?
+ *
+ * Compares the trailing `windowDays` mean net flow with the mean net flow
+ * over the same calendar window in each prior year.
+ *
+ * @returns {{current: number|null, nCurrent: number, normal: ReturnType<typeof positionalNormal>,
+ *   diffGwh: number|null}}
+ */
+export function flowPaceVsNormal(view, asOf, { windowDays = 7, lookbackYears = 5, minYear = null, minDate = null } = {}) {
+  const cur = windowNet(view.index, asOf, windowDays);
+  const values = [];
+  for (let k = 1; k <= lookbackYears; k++) {
+    const t = sameDayYearsBack(asOf, k);
+    if (beforeBaseline(t, minYear, minDate)) break;
+    const w = windowNet(view.index, t, windowDays);
+    if (w.avg == null || w.n < Math.ceil(windowDays / 2)) continue;
+    values.push({ year: t.getFullYear(), period: t, value: w.avg });
+  }
+  const sorted = values.map((v) => v.value).sort((a, b) => a - b);
+  const normal = {
+    values,
+    years: values.map((v) => v.year),
+    n: values.length,
+    median: median(sorted),
+    mean: sorted.length ? sorted.reduce((s, x) => s + x, 0) / sorted.length : null,
+    min: sorted.length ? sorted[0] : null,
+    max: sorted.length ? sorted[sorted.length - 1] : null,
+  };
+  return {
+    current: cur.avg,
+    nCurrent: cur.n,
+    normal,
+    diffGwh: cur.avg != null && normal.median != null ? cur.avg - normal.median : null,
+  };
+}
+
+/**
+ * Daily series of trailing-window net flow for the current window and the
+ * prior-year band at the same dates — the flow chart's data.
+ *
+ * @returns {Array<{period: Date, net: number|null, avg: number|null,
+ *   normMedian: number|null, normMin: number|null, normMax: number|null, n: number}>}
+ */
+export function flowSeriesWithNormal(view, from, to, { windowDays = 7, lookbackYears = 5, minYear = null, minDate = null } = {}) {
+  const out = [];
+  for (let d = dayOnly(from); d <= to; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+    const r = view.index.get(d.getTime());
+    if (!r) continue;
+    const pace = flowPaceVsNormal(view, d, { windowDays, lookbackYears, minYear, minDate });
+    out.push({
+      period: d,
+      net: netFlow(r),
+      avg: pace.current,
+      normMedian: pace.normal.median,
+      normMin: pace.normal.min,
+      normMax: pace.normal.max,
+      n: pace.normal.n,
+    });
+  }
+  return out;
+}
+
+/**
+ * Net stock change since the start of the current season (1 Apr or 1 Oct),
+ * against the same change in prior years, in TWh.
+ */
+export function seasonToDate(view, asOf, { lookbackYears = 5, minYear = null, minDate = null } = {}) {
+  const season = seasonOf(asOf);
+  const startRow = lookupNear(view.index, season.start, 2);
+  const nowRow = lookupNear(view.index, asOf, 0);
+  if (!startRow || !nowRow || !Number.isFinite(startRow.twh) || !Number.isFinite(nowRow.twh)) return null;
+  const current = nowRow.twh - startRow.twh;
+  const values = [];
+  for (let k = 1; k <= lookbackYears; k++) {
+    const s = sameDayYearsBack(season.start, k);
+    const e = sameDayYearsBack(asOf, k);
+    if (beforeBaseline(s, minYear, minDate)) break;
+    const a = lookupNear(view.index, s, 2);
+    const b = lookupNear(view.index, e, 2);
+    if (!a || !b || !Number.isFinite(a.twh) || !Number.isFinite(b.twh)) continue;
+    values.push({ year: e.getFullYear(), value: b.twh - a.twh });
+  }
+  const sorted = values.map((v) => v.value).sort((x, y) => x - y);
+  return {
+    season,
+    startDate: startRow.period,
+    currentTwh: current,
+    normalMedianTwh: median(sorted),
+    values,
+    n: values.length,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  End-of-season analogs                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * End-of-season outlook by historical analog.
+ *
+ * For each prior year k with observations on both the same day as `asOf` and
+ * the season's end date, the stock change it recorded over that interval is
+ * applied to today's stock. Paths are clipped to [0, capacity] and flagged
+ * when clipped, because a year that withdrew more than is now in storage
+ * cannot be repeated.
+ *
+ * Caveat the panel prints: deliverability falls as storage empties and prices
+ * respond to low stocks, so a low-stock year will not draw as hard as a
+ * high-stock analog did. The analogs bound "what the flows of year X would do",
+ * not what will happen.
  *
  * @param {object} view
- * @param {Date} [asOf]
- * @param {{lookbackYears?: number}} [opts]
- * @returns {object|null}
+ * @param {Date} asOf
+ * @returns {null | {endDate: Date, endLabel: string, seasonKind: string,
+ *   startTwh: number, capacityTwh: number,
+ *   analogs: Array<{sy: number, label: string, deltaTwh: number, endTwh: number,
+ *     endPct: number, clipped: boolean, path: Array<{period: Date, twh: number, pct: number}>}>,
+ *   endNormal: ReturnType<typeof positionalNormal>,
+ *   summary: {minPct: number, medianPct: number, maxPct: number, minTwh: number, medianTwh: number, maxTwh: number} | null}}
  */
-export function countryStorageMetrics(view, asOf = null, { lookbackYears = 5, minYear = null } = {}) {
+export function analogProjection(view, asOfIn, { lookbackYears = 5, minYear = null, minDate = null, pathStep = 3 } = {}) {
+  const asOf = dayOnly(asOfIn);
+  const now = lookupNear(view.index, asOf, 0);
+  if (!now || !Number.isFinite(now.twh)) return null;
+  const season = seasonOf(asOf);
+  const endDate = season.end;
+  if (dayOnly(asOf) >= endDate) return null;
+  const cap = Number.isFinite(now.capTwh) ? now.capTwh : view.capacityTwh;
+  if (!Number.isFinite(cap) || cap <= 0) return null;
+
+  const analogs = [];
+  for (let k = 1; k <= lookbackYears; k++) {
+    const d0 = sameDayYearsBack(asOf, k);
+    if (beforeBaseline(d0, minYear, minDate)) break;
+    const e0 = sameDayYearsBack(endDate, k);
+    const a = lookupNear(view.index, d0, 2);
+    const b = lookupNear(view.index, e0, 2);
+    if (!a || !b || !Number.isFinite(a.twh) || !Number.isFinite(b.twh)) continue;
+    let clipped = false;
+    const path = [];
+    const days = Math.round((endDate - dayOnly(asOf)) / DAY_MS);
+    for (let i = 0; i <= days; i += pathStep) {
+      const t = new Date(asOf.getFullYear(), asOf.getMonth(), asOf.getDate() + i);
+      const h = lookupNear(view.index, sameDayYearsBack(t, k), 2);
+      if (!h || !Number.isFinite(h.twh)) continue;
+      let twh = now.twh + (h.twh - a.twh);
+      if (twh < 0) { twh = 0; clipped = true; }
+      if (twh > cap) { twh = cap; clipped = true; }
+      path.push({ period: t, twh, pct: (twh / cap) * 100 });
+    }
+    let endTwh = now.twh + (b.twh - a.twh);
+    if (endTwh < 0) { endTwh = 0; clipped = true; }
+    if (endTwh > cap) { endTwh = cap; clipped = true; }
+    path.push({ period: endDate, twh: endTwh, pct: (endTwh / cap) * 100 });
+    const sy = storageYearOf(d0);
+    analogs.push({ sy, label: storageYearLabel(sy), deltaTwh: b.twh - a.twh, endTwh, endPct: (endTwh / cap) * 100, clipped, path });
+  }
+
+  const endNormal = positionalNormal(view.index, endDate, { lookbackYears, minYear, minDate, pick: (r) => r.pct });
+  let summary = null;
+  if (analogs.length) {
+    const p = analogs.map((x) => x.endPct).sort((x, y) => x - y);
+    const t = analogs.map((x) => x.endTwh).sort((x, y) => x - y);
+    summary = {
+      minPct: p[0], medianPct: median(p), maxPct: p[p.length - 1],
+      minTwh: t[0], medianTwh: median(t), maxTwh: t[t.length - 1],
+    };
+  }
+  return {
+    endDate,
+    endLabel: season.endLabel,
+    seasonKind: season.kind,
+    startTwh: now.twh,
+    startPct: now.pct,
+    capacityTwh: cap,
+    analogs,
+    endNormal,
+    summary,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Composite metrics                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Everything the table and the KPI strip print for one view on one day.
+ *
+ * `asOf` may be a Date (that day, or the latest row if absent), a year number
+ * (last row of that year) or null (latest row).
+ */
+export function countryStorageMetrics(view, asOf = null, { lookbackYears = 5, minYear = null, minDate = null } = {}) {
   if (!view) return null;
   const rows = view.rows || [];
   let latest = view.latest;
-  if (asOf instanceof Date || (asOf && typeof asOf.getTime === 'function')) {
-    latest = rows.find((r) => r.period && r.period.getTime() === asOf.getTime()) ?? view.latest;
+  if (asOf instanceof Date) {
+    latest = view.index?.get(dayOnly(asOf).getTime()) ?? view.latest;
   } else if (typeof asOf === 'number') {
-    const yearMatches = rows.filter((r) => r.period && (r.period.getUTCFullYear?.() === asOf || r.period.getFullYear?.() === asOf));
-    latest = yearMatches.length ? yearMatches[yearMatches.length - 1] : view.latest;
+    const ym = rows.filter((r) => r.period && r.period.getFullYear() === asOf && Number.isFinite(r.pct));
+    latest = ym.length ? ym[ym.length - 1] : view.latest;
   }
   if (!latest || !Number.isFinite(latest.pct)) return null;
+  const index = view.index ?? indexRows(rows);
 
-  const normal = positionalNormal(
-    rows.map((r) => ({ period: r.period, value: r.pct })),
-    latest.period,
-    { lookbackYears, minYear }
-  );
-
+  const normal = positionalNormal(index, latest.period, { lookbackYears, minYear, minDate, pick: (r) => r.pct });
+  const normalTwh = positionalNormal(index, latest.period, { lookbackYears, minYear, minDate, pick: (r) => r.twh });
   const deviationPp = normal.median != null ? latest.pct - normal.median : null;
-  const deviationTwh = deviationPp != null && view.capacityTwh != null
-    ? (deviationPp * view.capacityTwh) / 100
-    : null;
+  const deviationTwh = normalTwh.median != null && Number.isFinite(latest.twh) ? latest.twh - normalTwh.median : null;
+  const rank = normal.n ? rankAmongYears(latest.pct, normal.values.map((v) => v.value)) : { rank: null, n: 0 };
 
-  const rank = normal.n
-    ? rankAmongYears(latest.pct, normal.values.map((v) => v.value))
-    : { rank: null, n: 0 };
+  const yearAgoRow = lookupNear(index, sameDayYearsBack(latest.period, 1), 2);
+  const yoyPp = yearAgoRow && Number.isFinite(yearAgoRow.pct) ? latest.pct - yearAgoRow.pct : null;
+  const yoyTwh = yearAgoRow && Number.isFinite(yearAgoRow.twh) && Number.isFinite(latest.twh) ? latest.twh - yearAgoRow.twh : null;
 
-  const flow7d = flowDynamics(rows, { windowDays: 7 });
-  const flow14d = flowDynamics(rows, { windowDays: 14 });
+  const upTo = rows.filter((r) => r.period <= latest.period);
+  const cap = Number.isFinite(latest.capTwh) ? latest.capTwh : view.capacityTwh;
+  const v = { ...view, index };
 
   return {
     cc: view.cc,
     label: view.label,
-    capacityTwh: view.capacityTwh,
+    capacityTwh: cap,
     latest: {
       period: latest.period,
       pct: latest.pct,
@@ -492,22 +905,67 @@ export function countryStorageMetrics(view, asOf = null, { lookbackYears = 5, mi
       withdrawalGwh: latest.withdrawalGwh,
     },
     normal,
+    normalTwh,
     deviationPp,
     deviationTwh,
     rank,
-    flow7d,
-    flow14d,
+    yoyPp,
+    yoyTwh,
+    flow7d: flowDynamics(upTo, { windowDays: 7, capacityTwh: cap }),
+    flow14d: flowDynamics(upTo, { windowDays: 14, capacityTwh: cap }),
+    pace7d: flowPaceVsNormal(v, latest.period, { windowDays: 7, lookbackYears, minYear, minDate }),
+    seasonToDate: seasonToDate(v, latest.period, { lookbackYears, minYear, minDate }),
+    projection: analogProjection(v, latest.period, { lookbackYears, minYear, minDate }),
   };
 }
 
 /**
- * Net daily flow implied by consecutive storage readings, in GWh/d.
+ * Which countries account for the total's distance from normal.
  *
- * The panel also uses GIE's own `injection` and `withdrawal` fields, which are
- * reported flows rather than differences and can therefore disagree with the
- * stock path in the last day of a reporting cycle. Where they do, the reported
- * fields win and this derived net is shown only as a cross-check; refusing to
- * print a contradiction is better than printing two "flows".
+ * Uses the same-day prior-year **mean** in TWh, because means are additive:
+ * Σ(country stock − country mean) equals (total stock − total mean) exactly
+ * when every country reported in every compared year. Medians are not
+ * additive, which is why the attribution is labelled "vs average" while the
+ * headline deviation is "vs median". The residual is returned and the panel
+ * prints it if it is not ~0.
+ *
+ * @returns {{rows: Array<{cc: string, label: string, devTwh: number, sharePct: number|null}>,
+ *   totalDevTwh: number, aggregateDevTwh: number|null, residualTwh: number|null, years: number[]}}
+ */
+export function deviationAttribution(views, aggregateView, asOf, { lookbackYears = 5, minYear = null, minDate = null } = {}) {
+  const rows = [];
+  let total = 0;
+  let years = null;
+  for (const v of views) {
+    const r = v.index.get(dayOnly(asOf).getTime());
+    if (!r || !Number.isFinite(r.twh)) continue;
+    const nrm = positionalNormal(v.index, asOf, { lookbackYears, minYear, minDate, pick: (x) => x.twh, toleranceDays: 0 });
+    if (nrm.mean == null) continue;
+    years = years ?? nrm.years;
+    const dev = r.twh - nrm.mean;
+    total += dev;
+    rows.push({ cc: v.cc, label: v.label, devTwh: dev, years: nrm.years });
+  }
+  let aggregateDevTwh = null;
+  if (aggregateView) {
+    const r = aggregateView.index.get(dayOnly(asOf).getTime());
+    const nrm = positionalNormal(aggregateView.index, asOf, { lookbackYears, minYear, minDate, pick: (x) => x.twh, toleranceDays: 0 });
+    if (r && nrm.mean != null) aggregateDevTwh = r.twh - nrm.mean;
+  }
+  for (const r of rows) r.sharePct = total !== 0 ? (r.devTwh / total) * 100 : null;
+  rows.sort((a, b) => a.devTwh - b.devTwh);
+  return {
+    rows,
+    totalDevTwh: total,
+    aggregateDevTwh,
+    residualTwh: aggregateDevTwh == null ? null : total - aggregateDevTwh,
+    years: years ?? [],
+  };
+}
+
+/**
+ * Net daily flow implied by consecutive storage readings, in GWh/d. Used as a
+ * cross-check on the reported injection/withdrawal fields.
  */
 export function stockImpliedFlow(rows) {
   const out = [];
@@ -515,25 +973,33 @@ export function stockImpliedFlow(rows) {
     const a = rows[i - 1];
     const b = rows[i];
     if (!Number.isFinite(a.twh) || !Number.isFinite(b.twh)) continue;
-    const days = Math.round((b.period - a.period) / 86400000);
+    const days = Math.round((b.period - a.period) / DAY_MS);
     if (days <= 0) continue;
-    out.push({
-      period: b.period,
-      gwhPerDay: ((b.twh - a.twh) * 1000) / days,
-      days,
-    });
+    out.push({ period: b.period, gwhPerDay: ((b.twh - a.twh) * 1000) / days, days });
   }
   return out;
 }
 
 /**
- * About how many days of EU consumption the stock covers.
- *
- * Volumetric: TWh ÷ daily consumption in TWh/d. Only the caller that has a
- * demand series may compute it, and the conversion factor is passed in rather
- * than embedded here, so the assumption is visible at the call site.
+ * How well the reported flows reconcile with the stock path over the last
+ * `days` observations: mean of (Δstock − reported net), in GWh/d. A large
+ * value means one of the two series is revised or incomplete, and the panel
+ * says so instead of printing two disagreeing "flows".
  */
-export function daysOfCover(twh, demandGwhPerDay) {
-  if (!Number.isFinite(twh) || !Number.isFinite(demandGwhPerDay) || demandGwhPerDay <= 0) return null;
-  return (twh * 1000) / demandGwhPerDay;
+export function flowReconciliation(rows, days = 30) {
+  const tail = (rows || []).slice(-(days + 1));
+  const implied = stockImpliedFlow(tail);
+  const byT = indexRows(tail);
+  let sum = 0;
+  let abs = 0;
+  let n = 0;
+  for (const s of implied) {
+    if (s.days !== 1) continue;
+    const net = netFlow(byT.get(s.period.getTime()));
+    if (net == null) continue;
+    sum += s.gwhPerDay - net;
+    abs += Math.abs(s.gwhPerDay - net);
+    n += 1;
+  }
+  return n ? { meanResidualGwh: sum / n, meanAbsResidualGwh: abs / n, n } : null;
 }

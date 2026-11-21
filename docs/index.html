@@ -169,6 +169,13 @@
           const { buildDivergenceModel, divergenceExport } = await import('./js/panels/divergence.js');
           derived[chapter.id] = () => divergenceExport(buildDivergenceModel(bundle));
         }
+        if (chapter.id === 'europe') {
+          // The table the storage panel prints, per member state and total,
+          // next to the divergence block (same 5-year baseline as the panel default).
+          const { buildEuStorageModel, euStorageExport } = await import('./js/panels/eu-storage.js');
+          const divergence = derived.europe;
+          derived.europe = () => ({ divergence: divergence(), storage: euStorageExport(buildEuStorageModel(bundle)) });
+        }
         if (chapter.id === 'lng') {
           const { fleetExport } = await import('./js/util/fleet-export.js');
           derived.lng = () => fleetExport(bundle);
