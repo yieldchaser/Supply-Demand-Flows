@@ -100,7 +100,21 @@ export function buildTerminalComparison(bundle, terminalKeys) {
     const conf = DOWNTIME_CONF[key];
     if (!t || !conf) return;
 
-    const daily = buildDailyTotal(bundle, conf);
+    const allDays = buildDailyTotal(bundle, conf);
+    // Only days on which the terminal's full measured feed set exists. A
+    // terminal whose feeds start on different dates (Freeport: TETCO from
+    // 2023, Gulf South from May 2026) otherwise draws a years-long "ramp"
+    // that is really one meter of two, at ~10% of its true feedgas.
+    const fullFeeds = allDays.reduce((m, d) => Math.max(m, d.feedsExpected ?? 0), 0);
+    const daily = fullFeeds > 0 ? allDays.filter((d) => (d.feedsExpected ?? fullFeeds) === fullFeeds) : allDays;
+    const dropped = allDays.length - daily.length;
+    if (dropped > 0 && daily.length > 0) {
+      const partialFrom = allDays[0].dateStr;
+      const fewest = allDays.reduce((m, d) => Math.min(m, d.feedsExpected ?? fullFeeds), fullFeeds);
+      caveats.push(
+        `${t.display}: ${dropped.toLocaleString('en-US')} days from ${partialFrom} carried only ${fewest} of its ${fullFeeds} measured feeds and are left out; its line starts ${daily[0].dateStr}, when the full set reports.`
+      );
+    }
     const series = {};
 
     daily.forEach((d) => {

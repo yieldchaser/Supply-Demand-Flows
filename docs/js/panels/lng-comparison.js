@@ -77,8 +77,11 @@ export function renderLngComparisonPanel(panelEl, bundle) {
   // Mode Toggle
   const modeGroup = document.createElement('div');
   modeGroup.className = 'comp-mode-group';
+  modeGroup.style.display = 'flex';
+  modeGroup.style.alignItems = 'center';
+  modeGroup.style.gap = '6px';
   modeGroup.innerHTML = `
-    <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-right: 6px;">Axis Metric:</label>
+    <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-right: 6px;">Axis metric:</label>
     <button class="chip ${mode === 'mmcf' ? 'chip--active' : ''}" data-mode="mmcf">Absolute Flow (MMcf/d)</button>
     <button class="chip ${mode === 'pct' ? 'chip--active' : ''}" data-mode="pct">% of Nameplate</button>
   `;
@@ -97,6 +100,12 @@ export function renderLngComparisonPanel(panelEl, bundle) {
   termGroup.style.display = 'flex';
   termGroup.style.flexWrap = 'wrap';
   termGroup.style.gap = '6px';
+  termGroup.style.alignItems = 'center';
+  // Own row, after the metric toggle and export: the chips used to wrap in
+  // between the two metric buttons.
+  termGroup.style.flexBasis = '100%';
+  termGroup.style.order = '3';
+  termGroup.innerHTML = '<label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-right: 6px;">Terminals:</label>';
 
   LNG_FLEET_ORDER.forEach((id) => {
     const term = LNG_TERMINALS[id];

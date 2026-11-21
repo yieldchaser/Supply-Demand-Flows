@@ -606,6 +606,13 @@
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
+.subst-tab--active,
+.subst-tab--active:hover {
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent-border);
+  color: var(--blue-flame);
+}
+
 .subst-tab:hover {
   border-color: var(--blue-flame-deep);
   color: var(--text-primary);

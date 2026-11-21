@@ -225,3 +225,25 @@ test('AA1: buildTerminalComparison handles mixed-depth terminals with per-termin
 });
 
 
+
+test('buildTerminalComparison leaves out days before a terminal\'s full feed set reports', () => {
+  // TETCO from 2024-01-01, Gulf South only from 2026-05-25: the earlier days
+  // are one meter of two and must not be drawn as Freeport's feedgas.
+  const rows = [];
+  const day = (i) => new Date(Date.UTC(2024, 0, 1) + i * 86400000).toISOString().slice(0, 10);
+  const gsStart = Math.round((Date.UTC(2026, 4, 25) - Date.UTC(2024, 0, 1)) / 86400000);
+  for (let i = 0; i < gsStart + 30; i++) {
+    rows.push({ series_id: 'tetco_sq_79999_d_timely', period: day(i), value: 200000 });
+    if (i >= gsStart) rows.push({ series_id: 'gulf_south_sq_24329_d_timely', period: day(i), value: 1300000 });
+  }
+  const bundle = { sources: {
+    gulf_south: { data: rows.filter((r) => r.series_id.startsWith('gulf_south')) },
+    enbridge: { data: rows.filter((r) => r.series_id.startsWith('tetco')) },
+  } };
+  const comp = buildTerminalComparison(bundle, ['freeport']);
+  const fp = comp.terminals[0];
+  assert.strictEqual(fp.firstDate, '2026-05-25');
+  assert.strictEqual(fp.dayCount, 30);
+  assert.strictEqual(fp.series['2025-01-01'], undefined);
+  assert.ok(comp.caveats.some((c) => c.includes('carried only 1 of its 2 measured feeds')), comp.caveats.join(' | '));
+});
