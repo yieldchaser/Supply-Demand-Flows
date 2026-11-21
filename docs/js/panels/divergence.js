@@ -24,8 +24,7 @@
 
 import * as d3 from 'd3';
 import { seasonalEnvelope, envelopeLookup, dayOnly } from '../util/season.js';
-import { seasonWeekOf, priorSameWeekValues } from '../util/storage-analysis.js';
-import { matchYearAgo } from '../util/season.js';
+import { seasonWeekOf, priorSameWeekValues, endOfSeasonAnalog } from '../util/storage-analysis.js';
 import { frame, yGrid, tooltip, hitArea, legend, fx, sx, tone } from '../util/eu-chart-kit.js';
 import { parsePeriod, formatPeriodKey } from '../util/period.js';
 import { getSeries } from '../util/series.js';
@@ -174,22 +173,14 @@ export function endOfWinterAnalogs(model) {
   if (m > 2 && m < 9) return null;
   const endYear = m >= 9 ? us.period.getFullYear() + 1 : us.period.getFullYear();
   const end = new Date(endYear, 2, 31);
-  const usVals = [];
-  const usEnds = [];
-  for (let k = 1; k <= 5; k++) {
-    const a = matchYearAgo(model.usSeries, us.period, k, 6);
-    const b = matchYearAgo(model.usSeries, end, k, 6);
-    if (!a || !b) continue;
-    usVals.push(us.value + (b.value - a.value));
-    usEnds.push(b.value);
-  }
+  // October is still the US injection season; its end-of-March view comes
+  // from the same analog only once the US withdrawal season has begun.
+  const usA = m === 9 ? null : endOfSeasonAnalog(model.usSeries);
   const euProj = model.euTotal && model.euLatest ? analogProjection(model.euTotal, model.euLatest.period) : null;
-  if (!usVals.length && !euProj?.summary) return null;
-  const sorted = [...usVals].sort((a, b) => a - b);
-  const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  if (!usA && !euProj?.summary) return null;
   return {
     end,
-    us: usVals.length ? { min: sorted[0], max: sorted[sorted.length - 1], median: sorted[Math.floor((sorted.length - 1) / 2)], n: usVals.length, normal: mean(usEnds) } : null,
+    us: usA ? { min: usA.minBcf, max: usA.maxBcf, median: usA.medianBcf, n: usA.n, normal: usA.normalEndBcf } : null,
     eu: euProj?.summary ? { min: euProj.summary.minPct, max: euProj.summary.maxPct, median: euProj.summary.medianPct, n: euProj.analogs.length, normal: euProj.endNormal.mean } : null,
   };
 }

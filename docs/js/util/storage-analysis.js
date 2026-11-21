@@ -826,3 +826,51 @@ export function restOfSeason(rows, asOf = null) {
 }
 
 export { matchYearAgo, percentileRank, ols, currentStreak, seasonalEnvelope };
+
+/**
+ * End-of-season level by analog: the latest print plus each prior year's
+ * realised change from the same week to the end of the current US season
+ * (withdrawal season 1 Nov – 31 Mar, injection season 1 Apr – 31 Oct).
+ *
+ * Each year's change is measured between its own weekly prints nearest the
+ * two dates (within 6 days), so a year with a gap is left out rather than
+ * interpolated. The 5-year average end level is returned alongside so the
+ * range reads against normal. Analogs, not a forecast: each repeats one
+ * year's weather.
+ *
+ * @param {Array<{period: Date, value: number}>} rows ascending weekly
+ * @returns {null | {endDate: Date, season: 'withdrawal'|'injection', n: number,
+ *   years: number[], minBcf: number, medianBcf: number, maxBcf: number, normalEndBcf: number|null}}
+ */
+export function endOfSeasonAnalog(rows, { lookbackYears = 5 } = {}) {
+  const latest = rows?.[rows.length - 1];
+  if (!latest) return null;
+  const m = latest.period.getMonth();
+  const withdrawal = m >= 10 || m <= 2;
+  const endYear = withdrawal ? (m >= 10 ? latest.period.getFullYear() + 1 : latest.period.getFullYear()) : latest.period.getFullYear();
+  const endDate = withdrawal ? new Date(endYear, 2, 31) : new Date(endYear, 9, 31);
+  if (daysBetween(latest.period, endDate) < 7) return null;
+  const ends = [];
+  const years = [];
+  const endsPrior = [];
+  for (let k = 1; k <= lookbackYears; k++) {
+    const a = matchYearAgo(rows, latest.period, k, 6);
+    const b = matchYearAgo(rows, endDate, k, 6);
+    if (!a || !b) continue;
+    ends.push(latest.value + (b.value - a.value));
+    endsPrior.push(b.value);
+    years.push(latest.period.getFullYear() - k);
+  }
+  if (!ends.length) return null;
+  const sorted = [...ends].sort((x, y) => x - y);
+  return {
+    endDate,
+    season: withdrawal ? 'withdrawal' : 'injection',
+    n: ends.length,
+    years,
+    minBcf: sorted[0],
+    medianBcf: quantile(sorted, 0.5),
+    maxBcf: sorted[sorted.length - 1],
+    normalEndBcf: endsPrior.reduce((s, x) => s + x, 0) / endsPrior.length,
+  };
+}

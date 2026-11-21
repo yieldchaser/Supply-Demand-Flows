@@ -38,6 +38,7 @@ import {
   computeRegionSeasonFill,
   seasonProgress,
   priorSameWeekValues,
+  endOfSeasonAnalog,
 } from '../util/storage-analysis.js';
 import { matchYearAgo } from '../util/season.js';
 import { formatPeriodKey } from '../util/period.js';
@@ -1676,6 +1677,20 @@ function renderStorageKpis(sidebarEl, analysis) {
         : '',
     }),
   ];
+
+  const eos = endOfSeasonAnalog(l48);
+  if (eos) {
+    const end = eos.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    cards.push(kpiCardHtml({
+      label: `End of ${eos.season} season (${end}) by analog`,
+      value: `${Math.round(eos.medianBcf).toLocaleString()} Bcf`,
+      delta: {
+        value: `${Math.round(eos.minBcf).toLocaleString()}–${Math.round(eos.maxBcf).toLocaleString()} · 5-yr avg ${Math.round(eos.normalEndBcf).toLocaleString()}`,
+        kind: eos.medianBcf >= eos.normalEndBcf ? 'bullish' : 'bearish',
+      },
+      helpText: `Latest + each of ${eos.n} prior years' change to ${end}; analogs, not a forecast`,
+    }));
+  }
 
   if (projection) {
     cards.push(
