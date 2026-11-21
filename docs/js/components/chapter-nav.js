@@ -38,7 +38,7 @@ export const CHAPTERS = Object.freeze([
   { id: 'lng', label: 'LNG Feedgas', blurb: 'Fleet, hero terminal, comparison', sources: ['quorum', 'gulf_south', 'enbridge', 'gasnom', 'bhe', 'cheniere', 'kinder_morgan'] },
   { id: 'flows', label: 'Flows & Routing', blurb: 'Egress and feed substitution', sources: ['gulf_south', 'enbridge', 'bhe', 'cheniere', 'kinder_morgan'] },
   { id: 'reliability', label: 'Reliability', blurb: 'Downtime, outages, turnarounds', sources: ['gulf_south', 'enbridge', 'bhe', 'cheniere', 'kinder_morgan'] },
-  { id: 'europe', label: 'Europe', blurb: 'Storage, supply routes, transatlantic', sources: ['gie_agsi', 'entsog', 'eia_storage', 'eia_lng_exports'] },
+  { id: 'europe', label: 'Europe', blurb: 'Storage, supply routes, transatlantic', sources: ['gie_agsi', 'entsog', 'eurostat_gas', 'eia_storage', 'eia_lng_exports'] },
   { id: 'macro', label: 'Macro & Trade', blurb: 'EIA export totals & destination shares', sources: ['eia_lng_exports'] },
 ]);
 

@@ -19,6 +19,7 @@ on:
       - "Baker Hughes Rig Count (weekly)"
       - "GIE AGSI+ Storage (daily)"
       - "ENTSOG EU Imports (daily)"
+      - "Eurostat Gas Consumption (weekly)"
       - "EIA LNG Exports (monthly)"
       - "Gulf South SQ (4× daily)"
       - "TETCO via Enbridge rtba (5x daily)"

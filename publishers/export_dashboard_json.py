@@ -327,6 +327,7 @@ BUNDLE_ROW_BASELINES: dict[str, int] = {
     "eia_lng_exports": 2665,
     "eia_storage": 3608,
     "eia_supply": 468,
+    "eurostat_gas": 1028,
     "enbridge": 59516,
     "entsog": 45630,
     "gasnom": 5038,

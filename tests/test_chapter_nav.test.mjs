@@ -114,7 +114,7 @@ test('Chapter nav: 7 primary chapters declared with Europe elevated', () => {
   assert.equal(europe.label, 'Europe');
   assert.equal(europe.blurb, 'Storage, supply routes, transatlantic');
   // ENTSOG feeds the supply-route view; EIA LNG exports the transatlantic LNG link.
-  assert.deepEqual(europe.sources, ['gie_agsi', 'entsog', 'eia_storage', 'eia_lng_exports']);
+  assert.deepEqual(europe.sources, ['gie_agsi', 'entsog', 'eurostat_gas', 'eia_storage', 'eia_lng_exports']);
 
   const macro = CHAPTERS.find((c) => c.id === 'macro');
   assert.equal(macro.label, 'Macro & Trade');

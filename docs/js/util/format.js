@@ -123,6 +123,11 @@ export function classifyVintage(sourceKey, latestPeriod) {
       graceDays: 2,
       criticalAfterOverdueDays: 5,
     },
+    eurostat_gas: {
+      kind: 'monthly_eia_ngm',  // monthly, ~1-2 months behind; same publish arithmetic
+      graceDays: 31,
+      criticalAfterOverdueDays: 60,
+    },
     eia_lng_exports: {
       kind: 'monthly_eia_ngm',
       // EIA LNG export data publishes ~3-5 days into the following month.
