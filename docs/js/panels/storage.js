@@ -1790,11 +1790,13 @@ function appendRegionTable(panelEl, analysis) {
         </tbody>
       </table>
       <span class="panel-table__note">
-        Regional changes sum to ${Math.round(change.sumBcf)} Bcf${
-          change.residualVsL48Bcf != null
-            ? `; ${Math.round(change.residualVsL48Bcf)} Bcf of that is EIA rounding each region independently against the L48 print`
-            : ''
-        }.
+        The five regions' changes sum to ${sgnBcf(change.sumBcf)} Bcf${
+          change.residualVsL48Bcf == null
+            ? ''
+            : Math.abs(change.residualVsL48Bcf) < 0.5
+              ? ', matching the Lower 48 print'
+              : `, ${Math.abs(Math.round(change.residualVsL48Bcf))} Bcf off the Lower 48 print: EIA rounds each region independently`
+        }. Salt and non-salt are the two parts of South Central, not additional regions.
       </span>
     </div>
   `;

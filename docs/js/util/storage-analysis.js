@@ -47,8 +47,10 @@ export const STORAGE_REGIONS = [
   { key: 'mountain', label: 'Mountain', seriesId: 'storage_mountain' },
   { key: 'pacific', label: 'Pacific', seriesId: 'storage_pacific' },
   { key: 'south_central', label: 'South Central', seriesId: 'storage_south_central' },
-  { key: 'sc_salt', label: 'SC · salt', seriesId: 'storage_sc_salt' },
-  { key: 'sc_nonsalt', label: 'SC · non-salt', seriesId: 'storage_sc_nonsalt' },
+  // Components of South Central, not regions of their own: summing them with
+  // the five regions counts South Central's change twice.
+  { key: 'sc_salt', label: 'SC · salt', seriesId: 'storage_sc_salt', subOf: 'south_central' },
+  { key: 'sc_nonsalt', label: 'SC · non-salt', seriesId: 'storage_sc_nonsalt', subOf: 'south_central' },
 ];
 
 export const L48_SERIES_ID = 'storage_lower48';
@@ -523,6 +525,7 @@ export function regionTable(periods, { regions = STORAGE_REGIONS } = {}) {
       key: region.key,
       label: region.label,
       seriesId: region.seriesId,
+      subOf: region.subOf ?? null,
       levelBcf: level,
       fillPctOfObservedMax: observedMax > 0 ? (level / observedMax) * 100 : null,
       roomToObservedMaxBcf: observedMax > 0 ? observedMax - level : null,
@@ -554,7 +557,8 @@ export function regionTable(periods, { regions = STORAGE_REGIONS } = {}) {
  * @param {number|null} l48WowBcf
  */
 export function regionChangeSum(regions, l48WowBcf) {
-  const contributing = (regions || []).filter((r) => r.wowBcf != null);
+  // The five EIA regions only: salt / non-salt are inside South Central.
+  const contributing = (regions || []).filter((r) => r.wowBcf != null && !r.subOf);
   const total = contributing.reduce((s, r) => s + r.wowBcf, 0);
   return {
     n: contributing.length,

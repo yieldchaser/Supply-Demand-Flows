@@ -45,6 +45,7 @@ import { kpiCardHtml } from '../components/kpi-card.js';
 import { getSeries, referenceDate } from '../util/series.js';
 import { formatPeriodKey, parsePeriod } from '../util/period.js';
 import { LNG_TERMINALS } from '../util/lng-terminals.js';
+import { dth_to_mmcf } from '../util/lng-metrics.js';
 import { redrawOnResize } from '../util/responsive-chart.js';
 import { registerChartSnapshot } from '../util/chart-snapshot.js';
 
@@ -426,8 +427,11 @@ export function buildFeedgasByMonth(sources) {
         if (!day || !Number.isFinite(v)) continue;
         perDay.set(day, v);
       }
-      for (const [day, mmcfd] of perDay) {
-        if (!(mmcfd > 0)) continue;
+      // EBB rows are raw Dth/d (as everywhere else in the LNG panels); summing
+      // them as MMcf/d printed the fleet at ~13,300 "Bcf/d", 1,000x too large.
+      for (const [day, dthd] of perDay) {
+        if (!(dthd > 0)) continue;
+        const mmcfd = dth_to_mmcf(dthd);
         const key = day.slice(0, 7);
         const acc = byMonth.get(key) ?? { bcf: 0, days: 0, terminals: new Set(), dates: new Set() };
         acc.bcf += mmcfd / 1000; // MMcf/d × one day = MMcf → Bcf

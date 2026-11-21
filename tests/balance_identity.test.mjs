@@ -270,6 +270,18 @@ describe('LNG join', () => {
 });
 
 describe('feedgas cross-check', () => {
+  it('is in Bcf: fleet feedgas is a few to ~25 Bcf/d, not thousands', () => {
+    // EBB meters post Dth/d; treating them as MMcf/d inflated this 1,000x.
+    const fg = buildFeedgasByMonth(bundle.sources);
+    // Months with a fleet's worth of meters; 2021 history is one small meter.
+    const months = [...fg.values()].filter((m) => m.calendarDays >= 20 && m.terminals >= 3);
+    assert.ok(months.length > 0);
+    for (const m of months) {
+      const rate = m.bcf / m.calendarDays;
+      assert.ok(rate > 0.2 && rate < 30, `feedgas ${rate.toFixed(1)} Bcf/d is implausible`);
+    }
+  });
+
   const feedgas = buildFeedgasByMonth(bundle.sources);
   // `buildFeedgasByMonth` returns months, not per-feed day counts, so the
   // expected meter-days are recomputed here from the same registry rules.
