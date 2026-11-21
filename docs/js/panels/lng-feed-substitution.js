@@ -171,9 +171,14 @@ function renderTerminal(chartEl, sidebarEl, footEl, bundle, terminal) {
 
 function drawChart(container, records, terminal) {
   container.innerHTML = '';
-  const margin = { top: 24, right: 176, bottom: 48, left: 48 };
-  const totalH = 340;
-  const width = Math.max((container.getBoundingClientRect().width || 600) - margin.left - margin.right, 300);
+  // On a phone the legend moves under the plot: beside it, it took a third of
+  // the width and the whole chart scaled down to unreadable text.
+  const cw = container.getBoundingClientRect().width || 600;
+  const narrow = cw < 560;
+  const legendRows = terminal.feeds.length + 1;
+  const margin = { top: 24, right: narrow ? 44 : 176, bottom: narrow ? 48 + legendRows * 16 : 48, left: 40 };
+  const totalH = 340 + (narrow ? legendRows * 16 : 0);
+  const width = Math.max(cw - margin.left - margin.right, narrow ? 200 : 300);
   const height = totalH - margin.top - margin.bottom;
 
   const svg = d3.select(container).append('svg')
@@ -236,13 +241,15 @@ function drawChart(container, records, terminal) {
   });
 
   // legend (feeds + total line)
-  const legendX = width + 56;
+  const legendX = narrow ? 0 : width + 56;
+  const legendY0 = narrow ? height + 44 : 20;
+  const step = narrow ? 16 : 22;
   terminal.feeds.forEach((f, i) => {
-    const ly = i * 22 + 20;
+    const ly = i * step + legendY0;
     g.append('rect').attr('x', legendX).attr('y', ly - 10).attr('width', 12).attr('height', 12).attr('rx', 2).style('fill', f.color);
     g.append('text').attr('x', legendX + 16).attr('y', ly).attr('font-size', 10).attr('font-family', 'var(--font-sans)').style('fill', 'var(--text-secondary)').text(f.label);
   });
-  const ly2 = terminal.feeds.length * 22 + 20;
+  const ly2 = terminal.feeds.length * step + legendY0;
   g.append('line').attr('x1', legendX).attr('x2', legendX + 12).attr('y1', ly2 - 4).attr('y2', ly2 - 4)
     .style('stroke', 'rgba(255,255,255,0.55)').style('stroke-dasharray', '3,2');
   g.append('text').attr('x', legendX + 16).attr('y', ly2).attr('font-size', 10).attr('font-family', 'var(--font-sans)').style('fill', 'var(--text-secondary)').text('Total (right axis)');

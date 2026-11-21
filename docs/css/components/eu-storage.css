@@ -235,7 +235,9 @@
 }
 .eu-panel .eu-table th,
 .eu-panel .eu-table td {
-  padding: 7px 10px;
+  /* 8px sides: at 10px the 15-column member table ran 47px past a 1440px
+     layout and hid its last column behind a sideways scroll. */
+  padding: 7px 8px;
   border-bottom: 1px solid var(--border-subtle);
   text-align: left;
   white-space: nowrap;

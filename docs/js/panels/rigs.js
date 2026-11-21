@@ -127,7 +127,8 @@ function drawRigsChart(container, gasRows, oilRows) {
   const oilP = oilRows.length > 1 ? panel(oilRows, gasH + gap, oilH, 'rgba(156, 163, 175, 0.85)', 'Oil rigs', false) : null;
 
   g.append('g').attr('transform', `translate(0,${bottom})`)
-    .call(d3.axisBottom(x).ticks(d3.timeMonth.every(3)).tickFormat(d3.timeFormat("%b '%y")))
+    // Quarterly labels collide below ~500px; half-yearly there.
+    .call(d3.axisBottom(x).ticks(d3.timeMonth.every(width < 500 ? 6 : 3)).tickFormat(d3.timeFormat("%b '%y")))
     .call((sel) => {
       sel.selectAll('line, path').attr('stroke', 'var(--chart-axis)');
       sel.selectAll('text').style('fill', 'var(--chart-label)').attr('font-size', 10).attr('font-family', 'var(--font-mono)');

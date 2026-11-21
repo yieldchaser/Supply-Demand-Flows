@@ -235,7 +235,8 @@ export function classifyVintage(sourceKey, latestPeriod) {
   // date answers that in one clause.
   const dueStr = nextExpectedPublishDate.toISOString().slice(0, 10);
   const labelText =
-    freshness === 'fresh' ? `Updated ${formatAgeShort(ageDays)} ago` :
+    // "today" takes no "ago": the label read "Updated today ago".
+    freshness === 'fresh' ? (ageDays === 0 ? 'Updated today' : `Updated ${formatAgeShort(ageDays)} ago`) :
     freshness === 'stale' ? 'Awaiting next release' :
     'Awaiting next release';
 

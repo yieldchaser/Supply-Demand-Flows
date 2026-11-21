@@ -323,7 +323,9 @@ function drawHistory(host, rows) {
   const lim = Math.max(10, ...vals.map(Math.abs)) * 1.08;
   const y = d3.scaleLinear().domain([-lim, lim]).nice().range([h, 0]);
   yGrid(g, y, w, (t) => `${t}%`, 4, true);
-  for (const t of x.ticks(5)) g.append('text').attr('x', x(t)).attr('y', h + 16).attr('text-anchor', 'middle').attr('class', 'eu-axis').text(d3.timeFormat('%b %y')(t));
+  // Every six months on a wide chart, yearly on a phone: ticks(5) picked
+  // yearly marks and left two labels across two-plus years.
+  for (const t of x.ticks(d3.timeMonth.every(w > 600 ? 6 : 12))) g.append('text').attr('x', x(t)).attr('y', h + 16).attr('text-anchor', 'middle').attr('class', 'eu-axis').text(d3.timeFormat('%b %y')(t));
   const line = (key) => d3.line().defined((r) => Number.isFinite(r[key])).x((r) => x(r.period)).y((r) => y(r[key]));
   g.append('path').datum(rows).attr('d', line('us')).attr('fill', 'none').attr('stroke', '#7dd3fc').attr('stroke-width', 1.8);
   g.append('path').datum(rows).attr('d', line('eu')).attr('fill', 'none').attr('stroke', '#fbbf24').attr('stroke-width', 1.8);
