@@ -1,0 +1,78 @@
+name: Branch probe - GIE AGSI+ (temporary)
+
+# Temporary, branch-only. Verifies the GIE scraper changes in PR #3 against the
+# live API with the repository's GIE_API_KEY, and commits the refreshed curated
+# parquet back to THIS branch only. It never touches main. Delete before merge.
+
+on:
+  push:
+    branches:
+      - claude/supply-demand-flows-audit-fwh61b
+    paths:
+      - '.github/workflows/branch-gie-probe.yml'
+      - 'scrapers/gie_agsi/**'
+      - 'transformers/gie_agsi.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: branch-gie-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run GIE scraper (branch code)
+        env:
+          GIE_API_KEY: ${{ secrets.GIE_API_KEY }}
+        run: python -m scrapers.gie_agsi.european_storage | tee /tmp/gie_result.json
+
+      - name: Report what each target returned
+        run: |
+          python - <<'EOF'
+          import json, collections
+          res = json.load(open('/tmp/gie_result.json'))
+          print('RESULT', json.dumps({k: v for k, v in res.items() if k != 'data'}))
+          raw = json.load(open('data/raw/gie_agsi/european_storage.json'))
+          by = collections.defaultdict(list)
+          for r in raw['data']:
+              by[r['country_code']].append(r)
+          for cc, rows in sorted(by.items()):
+              rows.sort(key=lambda r: r['gas_day'])
+              last = rows[-1]
+              print(f"TARGET {cc}: rows={len(rows)} first={rows[0]['gas_day']} last={last['gas_day']} "
+                    f"full={last['full_pct']} gas={last['gas_in_storage_twh']} wgv={last['working_gas_volume_twh']} "
+                    f"inj={last['injection_gwh']} wd={last['withdrawal_gwh']}")
+          EOF
+
+      - name: Transform
+        run: python -m transformers.gie_agsi
+
+      - name: Commit refreshed curated data to this branch only
+        run: |
+          git config user.name "blue-tide-bot"
+          git config user.email "bot@bluetide.local"
+          git add data/curated/gie_agsi.parquet data/health/gie_agsi.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data(gie): branch probe refresh incl. EU-wide aggregate"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
