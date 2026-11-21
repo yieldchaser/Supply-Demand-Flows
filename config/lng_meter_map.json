@@ -13,38 +13,38 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-11-21T22:17:18Z",
+    "last_inventory_run": "2026-11-21T23:52:26Z",
     "total_locations_seen": 779,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1902585.0
+        "scheduled_quantity_dth": 1903675.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1174008.0
+        "scheduled_quantity_dth": 1174007.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 714359.0
+        "scheduled_quantity_dth": 714645.0
+      },
+      {
+        "loc_id": 23700,
+        "loc_name": "Gulf South Transfer To Coastal Bend",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 565766.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
         "scheduled_quantity_dth": 546396.0
-      },
-      {
-        "loc_id": 23700,
-        "loc_name": "Gulf South Transfer To Coastal Bend",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 542029.0
       },
       {
         "loc_id": 23365,
@@ -56,13 +56,13 @@
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 491901.0
+        "scheduled_quantity_dth": 491762.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 270898.0
+        "scheduled_quantity_dth": 278287.0
       },
       {
         "loc_id": 24229,
@@ -74,7 +74,7 @@
         "loc_id": 22128,
         "loc_name": "Clarke County (To Destin)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 256171.0
+        "scheduled_quantity_dth": 253814.0
       }
     ]
   }
