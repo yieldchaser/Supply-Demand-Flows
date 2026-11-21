@@ -205,6 +205,13 @@ export const SECTION_ORDER = Object.freeze({
       panels: ['panel-eu-storage'],
     },
     {
+      id: 'europe-supply',
+      label: 'Supply routes',
+      title: "Where Europe's Gas Comes From",
+      blurb: 'Imports by route since 2021 · the US LNG link',
+      panels: ['panel-eu-supply'],
+    },
+    {
       id: 'europe-method',
       label: 'Method note',
       title: 'Methodology & Capacities',

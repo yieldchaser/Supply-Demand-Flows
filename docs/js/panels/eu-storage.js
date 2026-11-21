@@ -39,6 +39,8 @@ import { kpiCardHtml } from '../components/kpi-card.js';
 import { getSeries, referenceDate } from '../util/series.js';
 import { formatIsoDate } from '../util/format.js';
 import { registerChartSnapshot } from '../util/chart-snapshot.js';
+import { consumptionMap, sumConsumption, demandCover } from '../util/eu-supply-analysis.js';
+import { escapeHtml, isNum, fx, sx, tone, frame, yGrid, tooltip, hitArea, blockHead, legend } from '../util/eu-chart-kit.js';
 import {
   EU_COUNTRIES,
   AGGREGATE_CC,
@@ -118,6 +120,16 @@ export function buildEuStorageModel(bundle) {
     if (euWide) euWide.isEuWide = true;
   }
   const coverage = euWide?.capacityTwh > 0 && aggregate.capacityTwh > 0 ? aggregate.capacityTwh / euWide.capacityTwh : null;
+
+  // Eurostat monthly consumption, when the bundle carries it: lets each
+  // entity's stock be read against the demand it serves.
+  const es = bundle?.sources?.eurostat_gas?.data ?? [];
+  if (es.length) {
+    const cons = (geo) => consumptionMap(getSeries(es, `eurostat_gas_consumption_${geo}`));
+    for (const v of views) v.consumption = cons(v.cc);
+    aggregate.consumption = sumConsumption(views.map((v) => v.consumption).filter((m) => m.size));
+    if (euWide) euWide.consumption = cons('eu');
+  }
   return {
     source,
     views,
@@ -202,7 +214,11 @@ export function renderEuStoragePanel(panelEl, bundle) {
   };
   const entity = () => entities.find((e) => e.cc === state.selected) ?? aggregate;
   const baseline = () => EU_BASELINES[state.baseline];
-  const metricsFor = (v) => memo(`m|${v.cc}|${state.baseline}`, () => countryStorageMetrics(v, null, { minDate: baseline().minDate }));
+  const metricsFor = (v) => memo(`m|${v.cc}|${state.baseline}`, () => {
+    const m = countryStorageMetrics(v, null, { minDate: baseline().minDate });
+    if (m && v.consumption?.size) m.cover = demandCover(m.latest.twh, v.consumption, m.latest.period);
+    return m;
+  });
 
   // Register before the chrome so the header's CSV button renders.
   registerLevelSnapshot(entity(), metricsFor(entity()), state);
@@ -324,19 +340,6 @@ export function renderEuStoragePanel(panelEl, bundle) {
 /*  Formatting                                                        */
 /* ================================================================== */
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-}
-const isNum = (x) => Number.isFinite(x);
-function fx(x, d = 1) {
-  return isNum(x) ? x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
-}
-function sx(x, d = 1) {
-  if (!isNum(x)) return '—';
-  const s = fx(Math.abs(x), d);
-  return x > 0 ? `+${s}` : x < 0 ? `−${s}` : s;
-}
-const tone = (x) => (!isNum(x) ? 'muted' : x > 0 ? 'pos' : x < 0 ? 'neg' : '');
 const unitOf = (u) => (u === 'twh' ? 'TWh' : '%');
 const pickFor = (u) => (u === 'twh' ? (r) => r.twh : (r) => r.pct);
 function yearsSpan(years) {
@@ -457,34 +460,16 @@ function readingSentence(v, m, base) {
   if (proj?.summary && proj.analogs.length >= 2) {
     parts.push(`Repeating the remaining ${proj.seasonKind} season of each of the last ${proj.analogs.length} years would leave it at ${fx(proj.summary.minPct, 0)}–${fx(proj.summary.maxPct, 0)}% on ${proj.endLabel}${isNum(proj.endNormal.median) ? `, against a normal ${fx(proj.endNormal.median, 0)}%` : ''}.`);
   }
+  const c = m.cover;
+  if (c?.winterDays != null) {
+    parts.push(`The stock equals ${fx(c.winterDays, 0)} days of typical December–February consumption${c.annualSharePct != null ? ` and ${fx(c.annualSharePct, 0)}% of the last 12 months' use` : ''} (Eurostat).`);
+  }
   return parts.join(' ');
 }
 
 /* ================================================================== */
 /*  Shared chart scaffolding                                          */
 /* ================================================================== */
-
-function frame(host, { height, margin }) {
-  const width = Math.max(host.getBoundingClientRect().width || 640, 280);
-  const w = width - margin.left - margin.right;
-  const h = height - margin.top - margin.bottom;
-  const svg = d3.select(host).append('svg')
-    .attr('viewBox', `0 0 ${width} ${height}`)
-    .attr('width', width)
-    .attr('height', height)
-    .attr('class', 'eu-svg');
-  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-  return { svg, g, w, h, width, margin };
-}
-
-function yGrid(g, y, w, fmt, ticks = 5, zeroMajor = false) {
-  for (const t of y.ticks(ticks)) {
-    g.append('line').attr('x1', 0).attr('x2', w).attr('y1', y(t)).attr('y2', y(t))
-      .attr('class', zeroMajor && t === 0 ? 'eu-grid eu-grid--zero' : 'eu-grid');
-    g.append('text').attr('x', -8).attr('y', y(t)).attr('dy', '0.32em').attr('text-anchor', 'end')
-      .attr('class', 'eu-axis').text(fmt(t));
-  }
-}
 
 function syAxis(g, x, h) {
   // Narrow charts label every other month so the names never run together.
@@ -500,49 +485,6 @@ function syAxis(g, x, h) {
   g.append('line').attr('x1', x(0.5)).attr('x2', x(0.5)).attr('y1', 0).attr('y2', h).attr('class', 'eu-season-rule');
   g.append('text').attr('x', x(0.25)).attr('y', -6).attr('text-anchor', 'middle').attr('class', 'eu-season-label').text('Injection season');
   g.append('text').attr('x', x(0.75)).attr('y', -6).attr('text-anchor', 'middle').attr('class', 'eu-season-label').text('Withdrawal season');
-}
-
-/** Absolute-positioned tooltip inside `host`; positions are host pixels. */
-function tooltip(host) {
-  const el = document.createElement('div');
-  el.className = 'eu-tt';
-  el.setAttribute('role', 'status');
-  el.style.opacity = '0';
-  host.appendChild(el);
-  return {
-    show(html, px, py) {
-      el.innerHTML = html;
-      el.style.opacity = '1';
-      const hw = host.clientWidth;
-      const tw = el.offsetWidth;
-      const left = px + 16 + tw > hw ? px - tw - 16 : px + 16;
-      el.style.left = `${Math.max(0, left)}px`;
-      el.style.top = `${Math.max(0, py)}px`;
-    },
-    hide() { el.style.opacity = '0'; },
-  };
-}
-
-function hitArea(g, w, h, onMove, onLeave) {
-  g.append('rect').attr('class', 'eu-hit').attr('width', w).attr('height', h)
-    .attr('fill', 'transparent')
-    .on('pointermove', (ev) => onMove(d3.pointer(ev, g.node())))
-    .on('pointerleave', onLeave);
-}
-
-function blockHead(title, desc = '', right = '') {
-  return `
-    <header class="eu-block__head">
-      <div>
-        <h3 class="eu-block__title">${title}</h3>
-        ${desc ? `<p class="eu-block__desc">${desc}</p>` : ''}
-      </div>
-      ${right}
-    </header>`;
-}
-
-function legend(items) {
-  return `<div class="eu-legend">${items.map((it) => `<span class="eu-legend__item"><span class="eu-key eu-key--${it.kind}"${it.color ? ` style="--c:${it.color}"` : ''}></span>${it.label}</span>`).join('')}</div>`;
 }
 
 /* ================================================================== */
@@ -797,6 +739,8 @@ const TABLE_COLS = [
   { key: 'net7', label: 'Net 7d GWh/d', title: 'Mean reported injection − withdrawal, last 7 days' },
   { key: 'pace', label: 'Pace vs normal', title: '7-day net flow minus the median of the same 7 days in prior years (GWh/d). Negative = stock falling faster / rising slower than usual.' },
   { key: 'outlook', label: 'Analog end level', title: 'Median (range) of end-of-season fill if each prior season’s remaining flows repeat' },
+  { key: 'winterDays', label: 'Winter days', title: 'Stock ÷ typical Dec–Feb daily consumption (median of the last 3 winters, Eurostat). A yardstick of size, not a run-out date: imports and production also supply demand.' },
+  { key: 'annualShare', label: '% of annual use', title: 'Stock as a share of the last 12 reported months of consumption (Eurostat)' },
 ];
 
 function tableValue(key, v, m) {
@@ -812,6 +756,8 @@ function tableValue(key, v, m) {
     case 'net7': return m?.flow7d?.avgNetGwh;
     case 'pace': return m?.pace7d?.diffGwh;
     case 'outlook': return m?.projection?.summary?.medianPct;
+    case 'winterDays': return m?.cover?.winterDays;
+    case 'annualShare': return m?.cover?.annualSharePct;
     default: return null;
   }
 }
@@ -858,6 +804,8 @@ function drawTable(host, entities, metricsFor, state, onSelect, onSort) {
         <td class="num">${sx(m.flow7d?.avgNetGwh, 0)}</td>
         <td class="num ${tone(m.pace7d?.diffGwh)}">${sx(m.pace7d?.diffGwh, 0)}</td>
         <td class="eu-td-outlook">${outlook}</td>
+        <td class="num">${fx(m.cover?.winterDays, 0)}</td>
+        <td class="num">${m.cover?.annualSharePct == null ? '—' : `${fx(m.cover.annualSharePct, 0)}%`}</td>
       </tr>`;
   };
 

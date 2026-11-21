@@ -137,7 +137,7 @@ test('Chapter nav: chapter sections configuration and sectionDomId parity', () =
 
   // Europe section order
   const europeSectionIds = SECTION_ORDER.europe.map((s) => s.id);
-  assert.deepEqual(europeSectionIds, ['europe-divergence', 'europe-storage', 'europe-method']);
+  assert.deepEqual(europeSectionIds, ['europe-divergence', 'europe-storage', 'europe-supply', 'europe-method']);
   assert.ok(SECTION_ORDER.europe.find((s) => s.id === 'europe-divergence').panels.includes('panel-divergence'));
   assert.ok(SECTION_ORDER.europe.find((s) => s.id === 'europe-storage').panels.includes('panel-eu-storage'));
 
