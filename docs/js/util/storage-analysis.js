@@ -241,6 +241,7 @@ export function environmentComparison(rows, asOf) {
     observedMinBcf: Number.isFinite(observedMin) ? observedMin : null,
     rankPct: rank.pct,
     rankN: rank.n,
+    rankBelow: rank.rank,
   };
 }
 
@@ -444,13 +445,22 @@ export function projectLevel(rows, { windowWeeks = 4, horizonWeeks = 8, historyY
     residualQ50: realised.length ? quantile(realised.map((r) => r.deltaBcf), 0.50) : null,
     residualQ90: realised.length >= 3 ? quantile(realised.map((r) => r.deltaBcf), 0.90) : null,
     residualMax: realised.length ? Math.max(...realised.map((r) => r.deltaBcf)) : null,
+    // Analog level: the latest print plus each prior year's realised change
+    // over the same weeks. The `residual*` fields above are those changes, not
+    // regression residuals; the linear `modelBcf` cannot see a season turn
+    // (a mid-November fit extrapolates injections into January).
+    analogBcf: realised.length ? latest.value + quantile(realised.map((r) => r.deltaBcf), 0.5) : null,
+    analogLowBcf: realised.length ? latest.value + Math.min(...realised.map((r) => r.deltaBcf)) : null,
+    analogHighBcf: realised.length ? latest.value + Math.max(...realised.map((r) => r.deltaBcf)) : null,
     sameWeekLastYear: sameWeek ? sameWeek.value : null,
     sameWeekLastYearLagDays: sameWeek ? sameWeek.lagDays : null,
     riskN: risk.length,
     riskToPeakBcf: risk.length ? risk.reduce((s, r) => s + r.residual, 0) / risk.length : null,
     riskToPeakBcfMedian: risk.length >= 3 ? quantile(risk.map((r) => r.residual), 0.5) : null,
     riskToPeakBcfP90: risk.length >= 3 ? quantile(risk.map((r) => r.residual), 0.9) : null,
-    endsSeasonAbove2750Bcf: realised.length >= 3 ? modelBcf + quantile(realised.map((r) => r.deltaBcf), 0.10) > 2750 : null,
+    // Base is the latest print: adding a realised change to the trend-model
+    // level counted the next eight weeks twice.
+    endsSeasonAbove2750Bcf: realised.length >= 3 ? latest.value + quantile(realised.map((r) => r.deltaBcf), 0.10) > 2750 : null,
     pastPeakBcf,
     pastPeakDate,
   };

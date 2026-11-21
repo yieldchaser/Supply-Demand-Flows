@@ -232,6 +232,16 @@ describe('golden figures (bundle 2026-09-11)', () => {
   });
 });
 
+describe('analog projection (any bundle vintage)', () => {
+  it('is the latest print plus prior years\u2019 realised change over the same weeks', () => {
+    const p = analysis.projection;
+    if (!p || p.analogBcf == null) return;
+    assert.ok(Math.abs(p.analogBcf - (analysis.latest.value + p.residualQ50)) < 1e-9);
+    assert.ok(p.analogLowBcf <= p.analogBcf && p.analogBcf <= p.analogHighBcf);
+    assert.equal(p.empiricalDeltas.length, p.empiricalN);
+  });
+});
+
 describe('assertStorageInvariants on synthetic breakage', () => {
   it('catches a salt/non-salt split that does not close', () => {
     const bad = buildStorageSeries([

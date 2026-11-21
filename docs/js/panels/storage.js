@@ -1656,9 +1656,11 @@ function renderStorageKpis(sidebarEl, analysis) {
       helpText: `4,000 Bcf nominal · observed peak ${env.observedMaxBcf?.toLocaleString() ?? 'n/a'} Bcf`,
     }),
     kpiCardHtml({
-      label: `Rank ${env.rankPct != null ? `p${Math.round(env.rankPct)}` : '—'}`,
-      value: `of n=${env.rankN}`,
-      helpText: env.rankN ? 'Same calendar week, prior years' : 'Insufficient prior years',
+      label: 'Prior years at or below',
+      value: env.rankN ? `${env.rankBelow} of ${env.rankN}` : 'n/a',
+      helpText: env.rankN
+        ? `Same calendar week · percentile ${Math.round(env.rankPct)}`
+        : 'Insufficient prior years',
     }),
     kpiCardHtml({
       label: `Season wk ${season.weeksElapsed}/${season.weeksTotal}`,
@@ -1678,19 +1680,18 @@ function renderStorageKpis(sidebarEl, analysis) {
   if (projection) {
     cards.push(
       kpiCardHtml({
-        label: `+${projection.horizonWeeks}w model`,
-        value: `${Math.round(projection.modelBcf).toLocaleString()} Bcf`,
+        label: `+${projection.horizonWeeks}w by analog`,
+        value: projection.analogBcf != null ? `${Math.round(projection.analogBcf).toLocaleString()} Bcf` : 'n/a',
         delta:
-          projection.residualQ50 != null
+          projection.analogLowBcf != null
             ? {
-                value: `median residual ${signed(projection.residualQ50)} (n=${projection.empiricalN})`,
+                value: `${Math.round(projection.analogLowBcf).toLocaleString()}–${Math.round(projection.analogHighBcf).toLocaleString()} (n=${projection.empiricalN})`,
                 kind: 'neutral',
               }
             : null,
-        helpText:
-          projection.residualQ10 != null && projection.residualQ90 != null
-            ? `Realised 8w band ${Math.round(projection.residualQ10)} to ${Math.round(projection.residualQ90)} Bcf`
-            : 'Insufficient prior years for a band',
+        helpText: projection.analogBcf != null
+          ? `Latest + prior years' change over the same ${projection.horizonWeeks} weeks (median ${signed(projection.residualQ50)} Bcf). A ${projection.windowN - 1}-week trend line would say ${Math.round(projection.modelBcf).toLocaleString()} Bcf; it cannot see the season turn.`
+          : 'Insufficient prior years',
       }),
     );
   }
