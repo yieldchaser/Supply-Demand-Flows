@@ -47,6 +47,25 @@ jobs:
         run: |
           python -m scrapers.eia_api.lng_exports
           python -m transformers.eia_lng_exports
+      - name: Probe - storage legs in Table 1 (read-only, prints to log)
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.parse, urllib.request
+          k = os.environ["EIA_API_KEY"]
+          base = "https://api.eia.gov/v2/natural-gas/stor/sum"
+          def get(url, **q):
+              q["api_key"] = k
+              with urllib.request.urlopen(url + "?" + urllib.parse.urlencode(q, doseq=True), timeout=60) as r:
+                  return json.load(r)["response"]
+          for f in get(base + "/facet/process/")["facets"]:
+              print("PROCESS", f.get("id"), "|", f.get("name"))
+          rows = get(base + "/data/", frequency="monthly", **{"data[]": "value", "facets[duoarea][]": "NUS", "start": "2022-01", "end": "2022-07", "length": "500"})["data"]
+          for r in rows:
+              if r["period"] in ("2022-01", "2022-07"):
+                  print("ROW", r["period"], r["process"], r.get("process-name"), r.get("series-description"), r["value"], r.get("units"))
+          PY
       - name: Commit to this branch only
         run: |
           git config user.name "blue-tide-bot"
