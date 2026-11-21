@@ -844,7 +844,7 @@ function drawTable(host, entities, metricsFor, state, onSelect, onSort) {
       : '<span class="muted">—</span>';
     return `
       <tr data-cc="${v.cc}" class="${sel ? 'is-selected' : ''}${v.isAggregate || v.isEuWide ? ' is-total' : ''}" tabindex="0" aria-selected="${sel}">
-        <th scope="row"><span class="eu-cc">${v.isAggregate ? 'Σ10' : v.cc.toUpperCase()}</span>${escapeHtml(v.label)}</th>
+        <th scope="row"><span class="eu-cc">${v.isAggregate ? 'Σ' : v.cc.toUpperCase()}</span>${escapeHtml(v.label)}</th>
         <td class="eu-td-fill">
           <span class="num">${fx(m.latest.pct)}%</span>
           <span class="eu-bullet" aria-hidden="true"><span class="eu-bullet__bar" style="width:${Math.min(100, m.latest.pct)}%"></span>${bulletNorm}</span>

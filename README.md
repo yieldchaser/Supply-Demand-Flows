@@ -15,7 +15,7 @@ Twelve ingestion pipelines run on schedule in CI. The **LNG Feedgas Observatory*
 The observatory dashboard (`docs/index.html`) renders 18 specialized panels organized into eight domain sections:
 1. **National Balance & Macro**: Storage Trajectory (EIA weekly), Supply & Demand Balance (EIA monthly), Rig Counts (Baker Hughes weekly), Basin Production Trajectories.
 2. **Basin Momentum Deep Dive**: Basin Metrics Table, Trajectory Scatter, Regional Share Trends, Historical Basin Extremes.
-3. **Cross-Market Context**: Transatlantic Storage Divergence (US vs EU derived), European Storage Inventory (GIE AGSI+ daily).
+3. **Cross-Market Context**: Transatlantic Storage Divergence (US and EU stock vs their seasonal averages, in the same unit) and European Gas Storage (GIE AGSI+ daily): 10-country total and each member state on a storage-year axis against a daily same-day prior-year band, per-day working-gas capacity, flow pace vs the same week in prior years, analog end-of-season outlook, distance-from-normal history and additive country attribution of the gap.
 4. **Macro LNG Exports**: U.S. LNG Export Volumes (EIA monthly), Export Destination Shares (EIA monthly).
 5. **LNG Feedgas Fleet**: Fleet Overview Cards (Section 7, all 8 terminals with 8-day sparklines and latest utilization).
 6. **LNG Feedgas Detail**: Hero Terminal Feedgas (Section 5, multi-feed stacked and single-meter with full cycle revision tracking).
@@ -31,7 +31,7 @@ The observatory dashboard (`docs/index.html`) renders 18 specialized panels orga
 | **EIA Supply** | U.S. Energy Information Administration | Monthly dry production, net imports, and total consumption | 78 monthly periods (2020–2026) |
 | **EIA LNG Exports** | U.S. Energy Information Administration | Monthly gross LNG export volumes and country shares | 65 monthly periods (2021–2026) |
 | **Baker Hughes** | Baker Hughes Rig Count | Weekly oil and gas drilling rig counts by basin | 139 weekly periods (2024–2026) |
-| **GIE AGSI+** | Gas Infrastructure Europe | Daily European underground gas storage inventory and fullness % | 2,069 daily periods (2021–2026) |
+| **GIE AGSI+** | Gas Infrastructure Europe | Daily storage, % full, injection and withdrawal for 10 member states (EU-wide aggregate requested via `type=eu`) | 2,148 daily periods (2021–2026) |
 | **Quorum** | myQuorumCloud IPWS (Tsp 2 & 10) | Plaquemines (Gator Express) and Calcasieu Pass (TransCameron) SQ | 1,996 gas days (2021–2026) |
 | **Enbridge** | Enbridge Link EBB | TETCO delivery into Freeport LNG (loc 79999) + Southeast/Midwest egress | 1,107 gas days (2023–2026) |
 | **BHE** | Berkshire Hathaway Energy / EGTS | Cove Point LNG consolidated plant intake delivery meter (loc 10001) | 612 gas days (2024–2026) |
