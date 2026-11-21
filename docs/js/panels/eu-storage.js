@@ -102,7 +102,31 @@ export function buildEuStorageModel(bundle) {
   if (!views.length) return null;
   const aggregate = buildAggregateView(views);
   const latestDate = aggregate.latest?.period ?? referenceDate(...views.map((v) => v.rows));
-  return { source, views, aggregate, entities: [aggregate, ...views], latestDate };
+
+  // GIE's own EU-wide aggregate, when the pipeline has it (scraper `type=eu`).
+  // It is shown as its own row, never mixed into the 10-country arithmetic,
+  // and it is what lets the panel say how much of the EU the ten cover.
+  const euSeries = {
+    pct: getSeries(source.data, 'gie_storage_eu_full_pct'),
+    gas: getSeries(source.data, 'gie_storage_eu_gas_in_storage'),
+    injection: getSeries(source.data, 'gie_storage_eu_injection'),
+    withdrawal: getSeries(source.data, 'gie_storage_eu_withdrawal'),
+  };
+  let euWide = null;
+  if (euSeries.pct.length && euSeries.gas.length) {
+    euWide = buildCountryViews({ eu: euSeries }, [{ cc: 'eu', label: 'EU total (GIE)' }])[0] ?? null;
+    if (euWide) euWide.isEuWide = true;
+  }
+  const coverage = euWide?.capacityTwh > 0 && aggregate.capacityTwh > 0 ? aggregate.capacityTwh / euWide.capacityTwh : null;
+  return {
+    source,
+    views,
+    aggregate,
+    euWide,
+    coverage,
+    entities: [aggregate, ...(euWide ? [euWide] : []), ...views],
+    latestDate,
+  };
 }
 
 /**
@@ -187,7 +211,7 @@ export function renderEuStoragePanel(panelEl, bundle) {
   const totalCap = aggregate.capacityTwh;
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'European Gas Storage',
-    subtitle: `GIE AGSI+ · ${views.length} member states · ${totalCap ? `${Math.round(totalCap).toLocaleString('en-US')} TWh working gas` : ''} · daily`,
+    subtitle: `GIE AGSI+ · ${views.length} member states · ${totalCap ? `${Math.round(totalCap).toLocaleString('en-US')} TWh working gas` : ''}${model.coverage ? ` (${Math.round(model.coverage * 100)}% of EU)` : ''} · daily`,
     sourceKey: 'gie_agsi',
     latestPeriod: source.latest_period,
     chartExport: CHART_ID,
@@ -291,7 +315,7 @@ export function renderEuStoragePanel(panelEl, bundle) {
 
   // Written once: it does not depend on the selection, and main.js folds it
   // behind a disclosure after the first render, which a rewrite would undo.
-  methodEl.innerHTML = methodNote(views, aggregate);
+  methodEl.innerHTML = methodNote(views, aggregate, model);
   drawRef.current = drawAll;
   drawAll();
 }
@@ -793,7 +817,9 @@ function tableValue(key, v, m) {
 }
 
 function drawTable(host, entities, metricsFor, state, onSelect, onSort) {
-  const [agg, ...countries] = entities;
+  const pinned = entities.filter((e) => e.isAggregate || e.isEuWide);
+  const countries = entities.filter((e) => !e.isAggregate && !e.isEuWide);
+  const agg = pinned[0];
   const ms = new Map(entities.map((e) => [e.cc, metricsFor(e)]));
   const { key, dir } = state.sort;
   const sorted = [...countries].sort((a, b) => {
@@ -817,8 +843,8 @@ function drawTable(host, entities, metricsFor, state, onSelect, onSort) {
       ? `<span class="num">${fx(p.summary.medianPct, 0)}%</span> <span class="eu-sub num">${fx(p.summary.minPct, 0)}–${fx(p.summary.maxPct, 0)}${p.analogs.some((a) => a.clipped) ? '*' : ''}</span>`
       : '<span class="muted">—</span>';
     return `
-      <tr data-cc="${v.cc}" class="${sel ? 'is-selected' : ''}${v.isAggregate ? ' is-total' : ''}" tabindex="0" aria-selected="${sel}">
-        <th scope="row"><span class="eu-cc">${v.isAggregate ? 'Σ' : v.cc.toUpperCase()}</span>${escapeHtml(v.label)}</th>
+      <tr data-cc="${v.cc}" class="${sel ? 'is-selected' : ''}${v.isAggregate || v.isEuWide ? ' is-total' : ''}" tabindex="0" aria-selected="${sel}">
+        <th scope="row"><span class="eu-cc">${v.isAggregate ? 'Σ10' : v.cc.toUpperCase()}</span>${escapeHtml(v.label)}</th>
         <td class="eu-td-fill">
           <span class="num">${fx(m.latest.pct)}%</span>
           <span class="eu-bullet" aria-hidden="true"><span class="eu-bullet__bar" style="width:${Math.min(100, m.latest.pct)}%"></span>${bulletNorm}</span>
@@ -844,7 +870,7 @@ function drawTable(host, entities, metricsFor, state, onSelect, onSort) {
           const arrow = active ? (dir > 0 ? ' ↑' : ' ↓') : '';
           return `<th scope="col"${c.num === false ? '' : ' class="num"'} aria-sort="${active ? (dir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" data-sort="${c.key}"${c.title ? ` title="${escapeHtml(c.title)}"` : ''}>${c.label}${arrow}</button></th>`;
         }).join('')}</tr></thead>
-        <tbody>${row(agg)}${sorted.map(row).join('')}</tbody>
+        <tbody>${pinned.map(row).join('')}${sorted.map(row).join('')}</tbody>
       </table>
     </div>`;
 
@@ -1118,7 +1144,7 @@ function drawDaily(host, v) {
 /*  Method note                                                       */
 /* ================================================================== */
 
-function methodNote(views, aggregate) {
+function methodNote(views, aggregate, model = {}) {
   const capRows = views.map((v) => {
     const moved = isNum(v.capacityFirstTwh) && isNum(v.capacityTwh) ? v.capacityTwh - v.capacityFirstTwh : null;
     return `<tr><th scope="row">${escapeHtml(v.label)}</th><td class="num">${fx(v.capacityFirstTwh)}</td><td class="num">${fx(v.capacityTwh)}</td><td class="num ${Math.abs(moved ?? 0) >= 1 ? tone(moved) : ''}">${sx(moved)}</td></tr>`;
@@ -1127,7 +1153,9 @@ function methodNote(views, aggregate) {
   const last = aggregate.latest?.period;
   return `
     <div class="data-provenance eu-method__body">
-      <p><b>Source.</b> GIE AGSI+ daily country aggregates (gas in storage, % full, injection, withdrawal) for ${views.length} member states, ${first ? formatIsoDate(first) : '—'} to ${last ? formatIsoDate(last) : '—'}. The total is these ten countries, about nine-tenths of EU working-gas capacity; it is not GIE's EU-wide figure, which this pipeline does not yet ingest. AGSI publishes each gas day the next morning and operators revise recent days.</p>
+      <p><b>Source.</b> GIE AGSI+ daily country aggregates (gas in storage, % full, injection, withdrawal) for ${views.length} member states, ${first ? formatIsoDate(first) : '—'} to ${last ? formatIsoDate(last) : '—'}. ${model.coverage
+    ? `The 10-country total is these ten countries, ${fx(model.coverage * 100, 0)}% of EU working-gas capacity on the latest day; GIE's own EU-wide aggregate is shown separately as "EU total (GIE)".`
+    : 'The total is these ten countries, roughly nine-tenths of EU working-gas capacity; GIE\'s EU-wide aggregate is requested by the pipeline but not yet in this bundle.'} AGSI publishes each gas day the next morning and operators revise recent days.</p>
       <p><b>Capacity.</b> Read per day as gas in storage ÷ % full × 100 (GIE's own definition of % full). Capacities moved during the window, so no single constant is used: the total's % is Σ stock ÷ Σ that day's capacities. Days with fill below 3% borrow the nearest stable day's capacity (marked * in the daily table).</p>
       <p><b>Normal.</b> The same calendar day in each prior year of the baseline (last 5 years, or storage years from April 2022 to exclude the 2021/22 supply crisis), with the sample size printed. pp deviations use the % series and TWh deviations the TWh series, so they agree in sign but not always in proportion when capacity changed.</p>
       <p><b>Storage year.</b> 1 April to 31 March: injection season April–September, withdrawal season October–March. The ${FILL_TARGET_PCT}% line is the EU filling reference (Reg. 2022/1032 as amended in 2025); national obligations differ and are not tested here.</p>

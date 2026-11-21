@@ -51,6 +51,22 @@ describe('EU panel model and export', { skip: !haveBundle && 'bundle not built' 
     }
   });
 
+  it('adds GIE\'s EU-wide aggregate as its own entity when the bundle carries it', () => {
+    const bundle = JSON.parse(readFileSync(bundleUrl, 'utf8'));
+    const src = bundle.sources.gie_agsi;
+    // Stand-in EU series: Germany's rows relabelled, scaled to 4x capacity.
+    const extra = src.data.filter((r) => r.series_id.startsWith('gie_storage_de_')).map((r) => ({
+      ...r,
+      series_id: r.series_id.replace('gie_storage_de_', 'gie_storage_eu_'),
+      value: r.series_id.endsWith('_full_pct') ? r.value : r.value * 4,
+    }));
+    const m = mod.buildEuStorageModel({ sources: { gie_agsi: { ...src, data: [...src.data, ...extra] } } });
+    assert.equal(m.entities.length, 12);
+    assert.ok(m.entities[1].isEuWide);
+    assert.ok(m.coverage > 0.9 && m.coverage < 1.1, `coverage ${m.coverage}`);
+    assert.equal(m.views.length, 10, 'EU-wide rows never enter the 10-country arithmetic');
+  });
+
   it('post-2022 baseline uses fewer prior years than the 5-year baseline', () => {
     const a = mod.euStorageExport(model, '5y').entities[0];
     const b = mod.euStorageExport(model, 'post2022').entities[0];
