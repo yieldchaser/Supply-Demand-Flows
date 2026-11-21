@@ -38,6 +38,8 @@ import {
   countryStorageMetrics,
   indexRows,
   seasonToDate,
+  seasonScorecard,
+  deviationGrid,
 } from '../docs/js/util/eu-storage-analysis.js';
 import { getSeries } from '../docs/js/util/series.js';
 
@@ -279,6 +281,41 @@ describe('Attribution adds up', () => {
     assert.equal(att.rows.length, 3);
     assert.ok(Math.abs(att.residualTwh) < 1e-9, `residual ${att.residualTwh}`);
     assert.ok(Math.abs(att.rows.reduce((s, r) => s + r.sharePct, 0) - 100) < 1e-9);
+  });
+});
+
+describe('Season scorecard and deviation grid', () => {
+  // Fill rises 0.2 pp/day from 20% on 1 Apr to a peak on 1 Nov, then falls 0.3 pp/day.
+  const rows = synth(d(2023, 4, 1), d(2025, 11, 30), (t) => {
+    const sy = storageYearOf(t);
+    const since = Math.round((t - new Date(sy, 3, 1)) / DAY);
+    const peakDay = Math.round((new Date(sy, 10, 1) - new Date(sy, 3, 1)) / DAY);
+    const pct = since <= peakDay ? 20 + 0.2 * since : 20 + 0.2 * peakDay - 0.3 * (since - peakDay);
+    return { pct, twh: pct };
+  });
+  const v = viewFrom('sc', rows);
+
+  it('finds start, peak on 1 Nov, the winter low and the volumes', () => {
+    const sc = seasonScorecard(v);
+    assert.deepEqual(sc.map((r) => r.label), ['2023/24', '2024/25', '2025/26']);
+    const y = sc[0];
+    assert.equal(y.partial, false);
+    assert.equal(y.start.pct, 20);
+    assert.equal(y.peak.period.getTime(), d(2023, 11, 1).getTime());
+    assert.equal(y.nov1.pct, y.peak.pct);
+    assert.equal(y.low.period.getTime(), d(2024, 3, 31).getTime());
+    assert.ok(Math.abs(y.injectedTwh - (y.peak.twh - y.start.twh)) < 1e-9);
+    assert.ok(Math.abs(y.drawnTwh - (y.peak.twh - y.low.twh)) < 1e-9);
+    assert.equal(sc[2].partial, true);
+  });
+
+  it('grid is weekly, aligned to the latest day, null without enough prior years', () => {
+    const g = deviationGrid([v], d(2025, 9, 1));
+    assert.equal(g.dates[g.dates.length - 1].getTime(), d(2025, 11, 30).getTime());
+    assert.ok(g.dates.every((t, i) => i === 0 || (t - g.dates[i - 1]) === 7 * DAY));
+    assert.ok(g.rows[0].values.every((x) => x === null), 'only two prior years exist: below minN');
+    const g2 = deviationGrid([v], d(2025, 9, 1), { minN: 2 });
+    assert.ok(g2.rows[0].values.every((x) => Math.abs(x) < 1e-9), 'identical seasons sit exactly on normal');
   });
 });
 

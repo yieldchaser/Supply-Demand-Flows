@@ -1003,3 +1003,82 @@ export function flowReconciliation(rows, days = 30) {
   }
   return n ? { meanResidualGwh: sum / n, meanAbsResidualGwh: abs / n, n } : null;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Season scorecard and deviation grid                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One row per storage year (1 Apr – 31 Mar): where it started, how high it
+ * filled and when, where it stood on 1 November (the EU's former filling
+ * deadline and still the conventional checkpoint), how low it drew by the
+ * end of winter, and the volumes injected (start -> peak) and drawn
+ * (peak -> low). The current storage year is flagged partial.
+ *
+ * @returns {Array<{sy: number, label: string, partial: boolean, days: number,
+ *   start: {period: Date, pct: number, twh: number}, peak: object, nov1: object|null,
+ *   low: object|null, injectedTwh: number, drawnTwh: number|null}>}
+ */
+export function seasonScorecard(view) {
+  const by = new Map();
+  for (const r of view.rows) {
+    if (!Number.isFinite(r.pct) || !Number.isFinite(r.twh)) continue;
+    const sy = storageYearOf(r.period);
+    if (!by.has(sy)) by.set(sy, []);
+    by.get(sy).push(r);
+  }
+  const out = [];
+  for (const [sy, rows] of [...by.entries()].sort((a, b) => a[0] - b[0])) {
+    if (rows.length < 30) continue;
+    const start = rows[0];
+    if (start.period.getTime() !== storageYearStart(sy).getTime()) continue; // partial first year in the data
+    let peak = rows[0];
+    for (const r of rows) if (r.twh > peak.twh) peak = r;
+    let low = null;
+    for (const r of rows) if (r.period > peak.period && (!low || r.twh < low.twh)) low = r;
+    const nov1 = view.index.get(new Date(sy, 10, 1).getTime()) ?? null;
+    const pick = (r) => (r ? { period: r.period, pct: r.pct, twh: r.twh } : null);
+    out.push({
+      sy,
+      label: storageYearLabel(sy),
+      partial: rows[rows.length - 1].period < storageYearEnd(sy),
+      days: rows.length,
+      start: pick(start),
+      peak: pick(peak),
+      nov1: pick(nov1),
+      low: pick(low),
+      injectedTwh: peak.twh - start.twh,
+      drawnTwh: low ? peak.twh - low.twh : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Distance from the same-day prior-year median (pp of fill) for several views,
+ * sampled every `stepDays` from `from` to the latest common day: the data of
+ * the country heatmap. Cells with fewer than `minN` prior years are null.
+ *
+ * @returns {{dates: Date[], rows: Array<{cc: string, label: string, values: Array<number|null>}>}}
+ */
+export function deviationGrid(views, from, { stepDays = 7, minN = 3, minDate = null } = {}) {
+  let last = null;
+  for (const v of views) {
+    const l = v.latest?.period;
+    if (l && (!last || l < last)) last = l;
+  }
+  if (!last) return { dates: [], rows: [] };
+  const dates = [];
+  for (let t = dayOnly(last); t >= from; t = new Date(t.getFullYear(), t.getMonth(), t.getDate() - stepDays)) dates.unshift(t);
+  const rows = views.map((v) => ({
+    cc: v.cc,
+    label: v.label,
+    values: dates.map((t) => {
+      const r = v.index.get(t.getTime());
+      if (!r || !Number.isFinite(r.pct)) return null;
+      const n = positionalNormal(v.index, t, { pick: (x) => x.pct, minDate });
+      return n.n >= minN ? r.pct - n.median : null;
+    }),
+  }));
+  return { dates, rows };
+}

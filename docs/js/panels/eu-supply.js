@@ -278,8 +278,9 @@ function drawLink(host, link) {
   const withShare = rows.filter((r) => isNum(r.share12));
   g.append('path').datum(withShare).attr('class', 'eu-median')
     .attr('d', d3.line().x((r) => x(r.month) + x.bandwidth() / 2).y((r) => y2(r.share12)));
+  const every = Math.ceil(rows.length / (w < 420 ? 3 : 6));
   rows.forEach((r, i) => {
-    if (i % Math.ceil(rows.length / 6) !== 0 && i !== rows.length - 1) return;
+    if (i % every !== 0) return;
     g.append('text').attr('x', x(r.month) + x.bandwidth() / 2).attr('y', h + 18).attr('text-anchor', 'middle').attr('class', 'eu-axis').text(r.month);
   });
   const tt = tooltip(chartHost);
@@ -305,7 +306,7 @@ function drawTerminals(host, model) {
   const rowH = 22;
   const { g, w } = frame(chartHost, { height: rows.length * rowH + 28, margin: { top: 4, right: 110, bottom: 24, left: 86 } });
   const x = d3.scaleLinear().domain([0, d3.max(rows, (r) => Math.max(r.now ?? 0, r.prior ?? 0)) * 1.05]).nice().range([0, w]);
-  for (const t of x.ticks(4)) {
+  for (const t of x.ticks(w < 320 ? 2 : 4)) {
     g.append('line').attr('x1', x(t)).attr('x2', x(t)).attr('y1', 0).attr('y2', rows.length * rowH).attr('class', 'eu-grid');
     g.append('text').attr('x', x(t)).attr('y', rows.length * rowH + 16).attr('text-anchor', 'middle').attr('class', 'eu-axis').text(d3.format(',')(t));
   }

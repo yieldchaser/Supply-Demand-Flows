@@ -61,6 +61,8 @@ import {
   deviationAttribution,
   flowReconciliation,
   netFlow,
+  seasonScorecard,
+  deviationGrid,
 } from '../util/eu-storage-analysis.js';
 
 const CHART_ID = 'eu-storage-level';
@@ -275,6 +277,8 @@ export function renderEuStoragePanel(panelEl, bundle) {
       <section class="eu-block" data-role="deviation"></section>
       <section class="eu-block" data-role="attribution"></section>
     </div>
+    <section class="eu-block" data-role="scorecard"></section>
+    <section class="eu-block" data-role="heatmap"></section>
     <details class="eu-block eu-daily" data-role="daily"></details>
   `;
 
@@ -326,6 +330,8 @@ export function renderEuStoragePanel(panelEl, bundle) {
     drawOutlook($('outlook'), v, m, baseline());
     drawDeviation($('deviation'), v, state, memo, baseline());
     drawAttribution($('attribution'), views, aggregate, model.latestDate, baseline(), memo, state, (cc) => select(cc));
+    drawScorecard($('scorecard'), v, memo);
+    drawHeatmap($('heatmap'), views, model.latestDate, baseline(), memo, state, (cc) => select(cc));
     drawDaily($('daily'), v);
   }
 
@@ -1045,6 +1051,89 @@ function drawAttribution(host, views, aggregate, asOf, base, memo, state, onSele
     grp.append('text').attr('x', w + 8).attr('y', rowH / 2).attr('dy', '0.32em').attr('class', 'eu-attr__value')
       .text(`${sx(r.devTwh)}${r.sharePct != null && Math.sign(r.devTwh) === Math.sign(att.totalDevTwh) ? ` · ${fx(r.sharePct, 0)}%` : ''}`);
   });
+}
+
+/* ================================================================== */
+/*  Season scorecard                                                  */
+/* ================================================================== */
+
+function drawScorecard(host, v, memo) {
+  const rows = memo(`score|${v.cc}`, () => seasonScorecard(v)).slice().reverse();
+  if (!rows.length) { host.innerHTML = ''; return; }
+  const cell = (pt, withDate = false) => (pt
+    ? `<span class="num">${fx(pt.pct)}%</span>${withDate ? ` <span class="eu-sub">${fmtDayShort(pt.period)}</span>` : ''}`
+    : '<span class="muted">—</span>');
+  host.innerHTML = `
+    ${blockHead(`Season scorecard · ${escapeHtml(v.label)}`, 'Each storage year from 1 April: peak fill and when it came, the level on 1 November, the end-of-winter low, and the volumes injected (start to peak) and drawn (peak to low). The current year is partial: its "low" is the latest reading.')}
+    <div class="eu-table-scroll">
+      <table class="eu-table eu-table--compact">
+        <thead><tr>
+          <th scope="col">Storage year</th><th scope="col" class="num">1 Apr</th><th scope="col" class="num">Peak</th>
+          <th scope="col" class="num">1 Nov</th><th scope="col" class="num">Winter low</th>
+          <th scope="col" class="num">Injected TWh</th><th scope="col" class="num">Drawn TWh</th>
+        </tr></thead>
+        <tbody>${rows.map((r) => `
+          <tr${r.partial ? ' class="is-selected"' : ''}>
+            <th scope="row">${r.label}${r.partial ? ' <span class="eu-sub">so far</span>' : ''}</th>
+            <td class="num">${cell(r.start)}</td>
+            <td class="num">${cell(r.peak, true)}</td>
+            <td class="num">${cell(r.nov1)}</td>
+            <td class="num">${cell(r.low, true)}</td>
+            <td class="num">${fx(r.injectedTwh, 0)}</td>
+            <td class="num">${r.drawnTwh == null ? '—' : fx(r.drawnTwh, 0)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+/* ================================================================== */
+/*  Country heatmap                                                   */
+/* ================================================================== */
+
+function drawHeatmap(host, views, asOf, base, memo, state, onSelect) {
+  if (!asOf) { host.innerHTML = ''; return; }
+  const from = storageYearStart(storageYearOf(asOf) - 1);
+  const grid = memo(`heat|${state.baseline}`, () => deviationGrid(views, from, { minDate: base.minDate }));
+  if (!grid.dates.length) { host.innerHTML = ''; return; }
+  host.innerHTML = blockHead('Where and when the gap built', `Each country's fill minus its same-day prior-year median (pp), weekly since ${fmtDay(from)}. Blue above normal, red below; click a row to select the country.`);
+  const chartHost = document.createElement('div');
+  chartHost.className = 'eu-chart';
+  host.appendChild(chartHost);
+  const rowH = 20;
+  const { g, w } = frame(chartHost, { height: grid.rows.length * rowH + 30, margin: { top: 4, right: 12, bottom: 26, left: 96 } });
+  const cw = w / grid.dates.length;
+  const color = d3.scaleDiverging([-40, 0, 40], (t) => d3.interpolateRdBu(t));
+  grid.rows.forEach((row, i) => {
+    const grp = g.append('g').attr('class', `eu-attr${row.cc === state.selected ? ' is-selected' : ''}`).attr('transform', `translate(0,${i * rowH})`)
+      .attr('role', 'button').attr('tabindex', 0).attr('aria-label', row.label)
+      .on('click', () => onSelect(row.cc)).on('keydown', (ev) => { if (ev.key === 'Enter') onSelect(row.cc); });
+    grp.append('text').attr('x', -8).attr('y', rowH / 2).attr('dy', '0.32em').attr('text-anchor', 'end').attr('class', 'eu-attr__label').text(row.label);
+    row.values.forEach((v, j) => {
+      grp.append('rect').attr('x', j * cw).attr('y', 1).attr('width', Math.max(1, cw - 0.5)).attr('height', rowH - 2)
+        .attr('fill', v == null ? 'var(--surface-muted)' : color(Math.max(-40, Math.min(40, v))));
+    });
+  });
+  const months = grid.dates.map((d, j) => ({ d, j })).filter(({ d }, k, arr) => k === 0 || d.getMonth() !== arr[k - 1].d.getMonth());
+  const step = cw * 4 < 30 ? 3 : 1;
+  months.forEach(({ d, j }, k) => {
+    if (k % step) return;
+    g.append('text').attr('x', j * cw).attr('y', grid.rows.length * rowH + 16).attr('class', 'eu-axis').text(d3.timeFormat('%b %y')(d));
+  });
+  const tt = tooltip(chartHost);
+  g.append('rect').attr('class', 'eu-hit').attr('width', w).attr('height', grid.rows.length * rowH).attr('fill', 'transparent')
+    .style('pointer-events', 'none');
+  chartHost.querySelector('svg').addEventListener('pointermove', (ev) => {
+    const [mx, my] = d3.pointer(ev, g.node());
+    const j = Math.floor(mx / cw);
+    const i = Math.floor(my / rowH);
+    const row = grid.rows[i];
+    if (!row || j < 0 || j >= grid.dates.length) { tt.hide(); return; }
+    const v = row.values[j];
+    tt.show(`<div class="eu-tt__title">${escapeHtml(row.label)} · ${fmtDay(grid.dates[j])}</div>
+      <div class="eu-tt__row"><span>vs same-day median</span><span class="num ${tone(v)}">${v == null ? 'n/a' : `${sx(v)} pp`}</span></div>`, mx + 96, my);
+  });
+  chartHost.querySelector('svg').addEventListener('pointerleave', () => tt.hide());
 }
 
 /* ================================================================== */
