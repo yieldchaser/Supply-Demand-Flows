@@ -11,7 +11,7 @@ What:
     Three EIA v2 requests (monthly, US totals and partners, since 2019):
       natural-gas/move/impc   IM0 total, IRP pipeline, IML LNG
                               at NUS-Z00 (all partners), NUS-NCA, NUS-NMX
-      natural-gas/move/expc   EEX total, ENP pipeline, ENG LNG
+      natural-gas/move/expc   EEX total, ENP pipeline, ENG LNG, EVE by vessel
                               at NUS-Z00, NUS-NCA, NUS-NMX
       natural-gas/cons/sum    VRS residential, VCS commercial, VIN industrial,
                               VEU electric power, VGL lease & plant fuel,
@@ -47,7 +47,7 @@ PARTNERS = ["NUS-Z00", "NUS-NCA", "NUS-NMX"]
 
 REQUESTS: list[dict[str, Any]] = [
     {"key": "import", "route": "natural-gas/move/impc", "process": ["IM0", "IRP", "IML"], "duoarea": PARTNERS},
-    {"key": "export", "route": "natural-gas/move/expc", "process": ["EEX", "ENP", "ENG"], "duoarea": PARTNERS},
+    {"key": "export", "route": "natural-gas/move/expc", "process": ["EEX", "ENP", "ENG", "EVE"], "duoarea": PARTNERS},
     {"key": "cons", "route": "natural-gas/cons/sum", "process": ["VRS", "VCS", "VIN", "VEU", "VGL", "VGP", "VDV", "VC0"], "duoarea": ["NUS"]},
 ]
 

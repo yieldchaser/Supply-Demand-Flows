@@ -5,6 +5,7 @@ Series (MMcf per month, period YYYY-MM, same unit as eia_supply):
     trade_import_canada | trade_import_mexico         (total by partner)
     trade_export_total | _pipeline | _lng
     trade_export_canada | trade_export_mexico
+    trade_export_vessel                               (EIA 'exports by vessel', US total)
     cons_residential | cons_commercial | cons_industrial | cons_electric_power
     cons_lease_plant | cons_pipeline | cons_vehicle | cons_total
 
@@ -31,7 +32,7 @@ log = logging.getLogger(__name__)
 RAW_PATH = Path("data/raw/eia_flows/eia_flows.json")
 CURATED_PATH = Path("data/curated/eia_flows.parquet")
 
-TRADE_MODE = {"IM0": "total", "IRP": "pipeline", "IML": "lng", "EEX": "total", "ENP": "pipeline", "ENG": "lng"}
+TRADE_MODE = {"IM0": "total", "IRP": "pipeline", "IML": "lng", "EEX": "total", "ENP": "pipeline", "ENG": "lng", "EVE": "vessel"}
 PARTNER = {"NUS-NCA": "canada", "NUS-NMX": "mexico"}
 CONS = {
     "VRS": "residential", "VCS": "commercial", "VIN": "industrial", "VEU": "electric_power",
@@ -44,8 +45,10 @@ def series_id_for(row: dict[str, Any]) -> str | None:
     if kind in ("import", "export"):
         if area == "NUS-Z00" and proc in TRADE_MODE:
             return f"trade_{kind}_{TRADE_MODE[proc]}"
-        if area in PARTNER and TRADE_MODE.get(proc) == "total":
-            return f"trade_{kind}_{PARTNER[area]}"
+        if area in PARTNER and TRADE_MODE.get(proc) in ("total", "pipeline"):
+            # EIA reports Canada/Mexico trade under the pipeline codes; the
+            # partner total is used when present (see transform's de-dup).
+            return f"trade_{kind}_{PARTNER[area]}_{TRADE_MODE[proc]}"
         return None
     if kind == "cons" and area == "NUS" and proc in CONS:
         return f"cons_{CONS[proc]}"
@@ -78,6 +81,18 @@ def transform(raw_path: Path = RAW_PATH, curated_path: Path = CURATED_PATH) -> d
     if not recs:
         raise TransformError("EIA flows transformer produced zero rows")
     df = pd.DataFrame(recs).drop_duplicates(subset=["series_id", "period"], keep="last")
+    # Partner series: prefer the partner total, fall back to its pipeline
+    # figure, and publish one series per partner (trade_<kind>_<partner>).
+    out = []
+    for (kind, partner) in [(k, p) for k in ("import", "export") for p in PARTNER.values()]:
+        tot = df[df.series_id == f"trade_{kind}_{partner}_total"].set_index("period")
+        pipe = df[df.series_id == f"trade_{kind}_{partner}_pipeline"].set_index("period")
+        merged_p = tot.combine_first(pipe) if not tot.empty else pipe
+        if not merged_p.empty:
+            merged_p = merged_p.reset_index()
+            merged_p["series_id"] = f"trade_{kind}_{partner}"
+            out.append(merged_p)
+    df = pd.concat([df[~df.series_id.str.contains(r"_(canada|mexico)_")]] + out, ignore_index=True)
     merged = merge_into_curated(df, curated_path)
     return {"rows": len(merged), "series": sorted(merged["series_id"].unique().tolist()),
             "period_range": (merged["period"].min(), merged["period"].max())}
