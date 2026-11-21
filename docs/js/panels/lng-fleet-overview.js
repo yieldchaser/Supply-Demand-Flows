@@ -241,7 +241,7 @@ export function renderLngFleetOverview(
   const freeportCaveat = document.createElement('p');
   freeportCaveat.className = 'fleet-footnote';
   freeportCaveat.innerHTML =
-    '<strong>Freeport</strong> — Gulf South + TETCO interconnects, 1,111 MMcf/d median (53% of the 2,100 MMcf/d nameplate). ' +
+    '<strong>Freeport</strong> — Gulf South + TETCO interconnects, 1,597 MMcf/d median over the last 100 operating days (76% of the 2,100 MMcf/d nameplate). ' +
     'The KMTP intrastate lateral (~400–450 MMcf/d) sits outside this meter.';
   caveats.appendChild(freeportCaveat);
   const cameronCaveat = document.createElement('p');
@@ -257,6 +257,6 @@ export function renderLngFleetOverview(
   footnote.className = 'fleet-footnote';
   footnote.innerText =
     'Fleet total 12,826 MMcf/d, median across complete gas days, at terminal and lateral interconnects. '
-    + 'Sabine (~31%), Freeport (~53%) and Cameron (~73%) cover the shares listed above.';
+    + 'Sabine (~31%), Freeport (~76%) and Cameron (~73%) cover the shares listed above.';
   panelEl.appendChild(footnote);
 }
