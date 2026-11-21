@@ -501,7 +501,7 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .style('font-feature-settings', '"tnum"')
     .style('letter-spacing', '0.02em')
     .style('fill', 'rgba(255,255,255,0.45)')
-    .text(`Nameplate ${nameplate.toLocaleString()} MMcf/d`);
+    .text(`FERC nameplate ${nameplate.toLocaleString()} MMcf/d`);
 
   // Median reference marker — only when today deviates >25% from the
   // trailing-90-day median, so an unusual day is never read as normal.
@@ -942,7 +942,8 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
         .style('top', '20px')
         .html(`<div class="tt-date">${day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · by gas year (Feb–Jan)</div>
           ${rowsAt.map(({ yr, r }) => `<div class="tt-row${yr === currentGasYear ? ' tt-row--accent' : ''}"><span class="tt-label">${yr}${yr === currentGasYear ? ' (current)' : ''}</span><span class="num">${Math.round(r.value).toLocaleString()} MMcf/d${nameplate ? ` · ${Math.round((r.value / nameplate) * 100)}%` : ''}</span></div>`).join('')}
-          ${nameplate ? `<div class="tt-row"><span class="tt-label">Nameplate</span><span class="num">${Math.round(nameplate).toLocaleString()} MMcf/d</span></div>` : ''}`);
+          ${nameplate ? `<div class="tt-row"><span class="tt-label">FERC-authorized nameplate</span><span class="num">${Math.round(nameplate).toLocaleString()} MMcf/d</span></div>` : ''}
+          ${nameplate && rowsAt.some(({ r }) => r.value > nameplate) ? '<div class="tt-row"><span class="tt-label" style="white-space:normal">Above 100%: measured flow exceeds the certificated rate — the meter reading, not a data error</span></div>' : ''}`);
     })
     .on('mouseleave', () => { tip.style('opacity', 0); guide.style('opacity', 0); });
 }

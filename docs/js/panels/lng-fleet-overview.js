@@ -62,8 +62,10 @@ export function sparklineSvg(values, colorClass) {
   const pts = values.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
   const lx = xOf(values.length - 1);
   const ly = yOf(values[values.length - 1]);
+  const fmt = (v) => Math.round(v).toLocaleString('en-US');
   return `
     <svg class="fleet-sparkline" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+      <title>Last ${values.length} days · low ${fmt(min)}, high ${fmt(max)}, latest ${fmt(values[values.length - 1])} MMcf/d</title>
       <polyline fill="none" stroke-width="1.5" class="fleet-sparkline__path ${colorClass}"
         points="${pts}" />
       <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2.2"

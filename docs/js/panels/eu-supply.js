@@ -164,7 +164,7 @@ function renderKpis(sidebarEl, model) {
       label: 'US share of EU LNG · 12 months',
       value: lastLink ? `${fx(lastLink.share12, 0)}%` : 'n/a',
       delta: lastLink ? { value: `${fx(lastLink.share, 0)}% in ${lastLink.month}`, kind: 'neutral' } : null,
-      helpText: 'EIA exports to EU-27 ÷ ENTSOG LNG send-out',
+      helpText: 'EIA exports to EU-27 ÷ ENTSOG LNG send-out · a single month mixes loading and arrival timing, so read the 12-month figure',
     }),
   ].join('');
 }
