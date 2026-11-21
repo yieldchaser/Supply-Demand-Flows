@@ -9,9 +9,10 @@ Series (MMcf per month, period YYYY-MM, same unit as eia_supply):
     cons_residential | cons_commercial | cons_industrial | cons_electric_power
     cons_lease_plant | cons_pipeline | cons_vehicle | cons_total
 
-Only the partner totals (IM0/EEX) are kept for Canada and Mexico: trade with
-both is almost entirely by pipeline, and the mode split per partner would
-add rows without adding information the panel uses.
+For Canada and Mexico EIA publishes some months only under the pipeline codes
+(IRP/ENP) and others under the partner total (IM0/EEX). Both are read; the
+partner total wins where present and the pipeline figure fills the rest, so
+one series per partner and direction is published (trade_<kind>_<partner>).
 """
 
 from __future__ import annotations

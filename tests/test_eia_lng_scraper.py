@@ -235,3 +235,37 @@ async def test_run_http_error_returns_failed(
 
     assert result["status"] == "failed"
     mock_hw.record_failure.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_fetch_pages_until_eia_total() -> None:
+    """A single 5,000-row request truncated the response; the fetch must page."""
+    from scrapers.eia_api.lng_exports import _fetch_lng_rows
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.offsets: list[int] = []
+
+        async def get_series(self, **kw):  # type: ignore[no-untyped-def]
+            off = kw.get("offset", 0)
+            self.offsets.append(off)
+            total = 12000
+            n = max(0, min(5000, total - off))
+            return {"response": {"total": total, "data": [{"period": "2026-01", "duoarea": "NUS-NJA", "value": 1, "units": "MMCF", "process": "EVE"}] * n}}
+
+    c = FakeClient()
+    rows = await _fetch_lng_rows(c)  # type: ignore[arg-type]
+    assert len(rows) == 12000
+    assert c.offsets == [0, 5000, 10000]
+
+
+def test_us_aggregate_rows_are_kept_separately() -> None:
+    from scrapers.eia_api.lng_exports import _coerce_rows, _us_aggregate
+
+    rows = [
+        {"period": "2026-08", "duoarea": "NUS-Z00", "value": 514600, "units": "MMCF", "process": "EVE"},
+        {"period": "2026-08", "duoarea": "NUS-Z00", "value": 11.2, "units": "$/MCF", "process": "EVE"},
+        {"period": "2026-08", "duoarea": "NUS-NJA", "value": 1000, "units": "MMCF", "process": "EVE"},
+    ]
+    assert _us_aggregate(rows) == [{"period": "2026-08", "value_mmcf": 514600.0}]
+    assert [r["destination_code"] for r in _coerce_rows(rows)] == ["JPN"]

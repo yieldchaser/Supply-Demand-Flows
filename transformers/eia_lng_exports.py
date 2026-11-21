@@ -171,6 +171,18 @@ def transform(
     total_by_period = (
         base_df.groupby("period")["value_bcf"].sum().reset_index()
     )
+    # EIA's own national total (NUS-Z00 'exports by vessel') wins where the
+    # scraper captured it: a sum of destination rows is only as complete as
+    # the response that carried them (a truncated response once understated
+    # the total by ~25%). The gap is logged so a shortfall is visible.
+    agg = {r["period"]: float(r["value_mmcf"]) / 1000.0 for r in (payload.get("us_aggregate") or []) if r.get("period")}
+    if agg:
+        total_by_period["key"] = total_by_period["period"].dt.strftime("%Y-%m")
+        gap = total_by_period.apply(lambda r: agg.get(r["key"], r["value_bcf"]) - r["value_bcf"], axis=1)
+        if gap.abs().max() > 1.0:
+            log.warning("Destination sum differs from EIA total by up to %.1f Bcf/month", gap.abs().max())
+        total_by_period["value_bcf"] = total_by_period.apply(lambda r: agg.get(r["key"], r["value_bcf"]), axis=1)
+        total_by_period = total_by_period.drop(columns=["key"])
     for _, r in total_by_period.iterrows():
         out_rows.append(
             {

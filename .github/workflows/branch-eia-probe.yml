@@ -12,6 +12,8 @@ on:
       - '.github/workflows/branch-eia-probe.yml'
       - 'scrapers/eia_api/flows.py'
       - 'transformers/eia_flows.py'
+      - 'scrapers/eia_api/lng_exports.py'
+      - 'transformers/eia_lng_exports.py'
 
 permissions:
   contents: read
@@ -39,12 +41,18 @@ jobs:
         run: python -m scrapers.eia_api.flows
       - name: Transform
         run: python -m transformers.eia_flows
+      - name: LNG exports by destination (paginated) + transform
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: |
+          python -m scrapers.eia_api.lng_exports
+          python -m transformers.eia_lng_exports
       - name: Commit to this branch only
         run: |
           git config user.name "blue-tide-bot"
           git config user.email "bot@bluetide.local"
-          git add data/curated/eia_flows.parquet data/health/eia_flows.json
+          git add data/curated/eia_flows.parquet data/health/eia_flows.json data/curated/eia_lng_exports.parquet data/health/eia_lng.json
           if ! git diff --cached --quiet; then
-            git commit -m "data(eia-flows): branch run, trade & consumption since 2019"
+            git commit -m "data(eia): branch run, trade & consumption; LNG exports re-fetched with pagination"
             git push origin HEAD:${{ github.ref_name }}
           fi

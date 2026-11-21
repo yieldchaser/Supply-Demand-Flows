@@ -379,7 +379,10 @@ function getGasYearInfo(date) {
     gasYear = y - 1;
     start = new Date(y - 1, 1, 1);
   }
-  const dayIndex = Math.floor((date.getTime() - start.getTime()) / 86400000);
+  // Round, not floor: dates are local midnight, and across a daylight-saving
+  // change a day is 23 or 25 hours, which floor turned into two days sharing
+  // one index (a kink in every line after the clock change).
+  const dayIndex = Math.round((date.getTime() - start.getTime()) / 86400000);
   return { gasYear, dayIndex };
 }
 
@@ -917,6 +920,31 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .style('letter-spacing', 'normal')
     .style('fill', 'var(--chart-label)')
     .text((d) => `${d}`);
+
+  // Hover: every gas year's value on the same day, current year first, with
+  // utilisation of nameplate.
+  const tip = d3.select(container).append('div').attr('class', 'chart-tooltip').style('opacity', 0);
+  container.style.position = container.style.position || 'relative';
+  const guide = g.append('line').attr('y1', 0).attr('y2', height).attr('stroke', 'rgba(255,255,255,0.3)').attr('stroke-dasharray', '2 2').style('opacity', 0);
+  const byYearIdx = new Map([...seriesByGasYear].map(([yr, rows]) => [yr, new Map(rows.map((r) => [r.dayIndex, r]))]));
+  const years = [...byYearIdx.keys()].sort((a, b) => b - a);
+  g.append('rect').attr('width', width).attr('height', height).attr('fill', 'transparent')
+    .on('mousemove', (ev) => {
+      const [mx] = d3.pointer(ev);
+      const idx = Math.max(0, Math.min(365, Math.round(x.invert(mx))));
+      const rowsAt = years.map((yr) => ({ yr, r: byYearIdx.get(yr).get(idx) })).filter((o) => o.r);
+      if (!rowsAt.length) { tip.style('opacity', 0); guide.style('opacity', 0); return; }
+      guide.attr('x1', x(idx)).attr('x2', x(idx)).style('opacity', 1);
+      const day = new Date(currentGasYear, 1, 1 + idx);
+      const k = svg.node().getBoundingClientRect().width / (width + margin.left + margin.right);
+      tip.style('opacity', 1)
+        .style('left', `${Math.min((margin.left + x(idx)) * k + 14, container.clientWidth - 230)}px`)
+        .style('top', '20px')
+        .html(`<div class="tt-date">${day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · by gas year (Feb–Jan)</div>
+          ${rowsAt.map(({ yr, r }) => `<div class="tt-row${yr === currentGasYear ? ' tt-row--accent' : ''}"><span class="tt-label">${yr}${yr === currentGasYear ? ' (current)' : ''}</span><span class="num">${Math.round(r.value).toLocaleString()} MMcf/d${nameplate ? ` · ${Math.round((r.value / nameplate) * 100)}%` : ''}</span></div>`).join('')}
+          ${nameplate ? `<div class="tt-row"><span class="tt-label">Nameplate</span><span class="num">${Math.round(nameplate).toLocaleString()} MMcf/d</span></div>` : ''}`);
+    })
+    .on('mouseleave', () => { tip.style('opacity', 0); guide.style('opacity', 0); });
 }
 
 /**

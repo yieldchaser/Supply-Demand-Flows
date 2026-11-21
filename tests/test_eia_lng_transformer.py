@@ -230,3 +230,26 @@ def test_transform_returns_summary(tmp_path: Path) -> None:
     assert "series_count" in result
     assert result["rows"] > 0
     assert result["series_count"] >= 1
+
+
+def test_total_uses_eia_national_aggregate_when_present(tmp_path: Path) -> None:
+    """EIA's own national total wins over a (possibly incomplete) destination sum."""
+    import json as _json
+
+    import pandas as _pd
+
+    from transformers.eia_lng_exports import transform as _transform
+
+    raw = tmp_path / "raw.json"
+    raw.write_text(_json.dumps({
+        "data": [
+            {"period": "2026-08", "destination_code": "JPN", "destination_name": "JPN", "value_mmcf": 100000},
+            {"period": "2026-08", "destination_code": "NLD", "destination_name": "NLD", "value_mmcf": 200000},
+        ],
+        "us_aggregate": [{"period": "2026-08", "value_mmcf": 514600}],
+    }))
+    out = tmp_path / "out.parquet"
+    _transform(raw, out)
+    df = _pd.read_parquet(out)
+    total = df[df.series_id == "lng_export_total"]["value"].iloc[0]
+    assert abs(total - 514.6) < 1e-6
