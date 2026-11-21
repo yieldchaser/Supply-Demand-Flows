@@ -83,14 +83,20 @@ export const SECTION_ORDER = Object.freeze({
       id: 'overview-balance',
       label: 'Supply / demand',
       title: 'Supply & Demand Balance',
-      blurb: 'EIA supply against the storage-implied change · the residual is the feedgas floor',
+      blurb: 'Supply including storage against consumption · the gap between them is net exports',
       panels: ['panel-balance'],
     },
     {
       id: 'overview-bridge',
       label: 'Balance bridge',
       title: 'Balance Bridge',
-      blurb: 'The latest complete month, leg by leg, with the imbalance named',
+      blurb: 'The latest complete month, leg by leg, closed with measured trade',
+    },
+    {
+      id: 'overview-disposition',
+      label: 'Where it goes',
+      title: 'Demand by Sector & Net Trade',
+      blurb: 'Consumption by sector and measured exports by route, against the same month in earlier years',
     },
     {
       id: 'overview-activity',
@@ -203,6 +209,13 @@ export const SECTION_ORDER = Object.freeze({
       title: 'European Gas Storage',
       blurb: '10 countries · daily updates · multi-year history',
       panels: ['panel-eu-storage'],
+    },
+    {
+      id: 'europe-supply',
+      label: 'Supply routes',
+      title: "Where Europe's Gas Comes From",
+      blurb: 'Imports by route since 2021 · the US LNG link',
+      panels: ['panel-eu-supply'],
     },
     {
       id: 'europe-method',

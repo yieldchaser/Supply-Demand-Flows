@@ -59,6 +59,15 @@ REGIONS: dict[str, list[str]] = {
     "LatAm": [
         "BRA", "CHL", "ARG", "COL", "DOM", "MEX", "JAM", "PAN", "TTO",
         "CRI", "GTM", "HND", "SLV", "ECU", "PER", "VEN", "BOL",
+        # Caribbean islands (small-scale and ISO-container cargoes)
+        "BHS", "BRB", "HTI", "ATG", "CUW", "ABW", "LCA", "GRD", "KNA", "VCT", "PRI",
+    ],
+    # Middle East & Africa: Egypt alone took ~10% of US LNG in the year to
+    # Aug 2026, which an unlabelled "Other" bucket hid.
+    "MEA": [
+        "EGY", "JOR", "ISR", "ARE", "KWT", "BHR", "QAT", "OMN", "SAU", "LBN",
+        "SEN", "MRT", "MAR", "TUN", "DZA", "LBY", "NGA", "GHA", "CIV", "ZAF",
+        "MOZ", "AGO", "CMR", "GNQ", "BEN", "TGO", "KEN", "TZA", "SDN",
     ],
 }
 
@@ -171,6 +180,18 @@ def transform(
     total_by_period = (
         base_df.groupby("period")["value_bcf"].sum().reset_index()
     )
+    # EIA's own national total (NUS-Z00 'exports by vessel') wins where the
+    # scraper captured it: a sum of destination rows is only as complete as
+    # the response that carried them (a truncated response once understated
+    # the total by ~25%). The gap is logged so a shortfall is visible.
+    agg = {r["period"]: float(r["value_mmcf"]) / 1000.0 for r in (payload.get("us_aggregate") or []) if r.get("period")}
+    if agg:
+        total_by_period["key"] = total_by_period["period"].dt.strftime("%Y-%m")
+        gap = total_by_period.apply(lambda r: agg.get(r["key"], r["value_bcf"]) - r["value_bcf"], axis=1)
+        if gap.abs().max() > 1.0:
+            log.warning("Destination sum differs from EIA total by up to %.1f Bcf/month", gap.abs().max())
+        total_by_period["value_bcf"] = total_by_period.apply(lambda r: agg.get(r["key"], r["value_bcf"]), axis=1)
+        total_by_period = total_by_period.drop(columns=["key"])
     for _, r in total_by_period.iterrows():
         out_rows.append(
             {
@@ -186,13 +207,10 @@ def transform(
         )
 
     # ── Emit regional aggregate series ────────────────────────────────────────
-    for region in ("Europe", "Asia", "LatAm", "Other"):
-        if region == "Other":
-            region_df = base_df[~base_df["destination_code"].isin(
-                [c for codes in REGIONS.values() for c in codes]
-            )].copy()
-        else:
-            region_df = base_df[base_df["region"] == region].copy()
+    # Every region, Other included, is selected on the remapped region column,
+    # so a destination EIA sends under an alias (UK -> GBR) is counted once.
+    for region in ("Europe", "Asia", "LatAm", "MEA", "Other"):
+        region_df = base_df[base_df["region"] == region].copy()
 
         if region_df.empty:
             log.info("No rows for region %s — skipping regional series.", region)

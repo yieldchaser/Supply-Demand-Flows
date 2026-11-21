@@ -59,7 +59,13 @@ export function formatRelativeTime(date) {
  * @returns {string} e.g. "2026-04-17"
  */
 export function formatIsoDate(date) {
-  return date.toISOString().slice(0, 10);
+  // Local calendar fields, not the UTC instant: periods are parsed to local
+  // midnight (util/period.js), so `toISOString()` printed the previous day for
+  // every reader east of Greenwich — i.e. every European reader of the GIE data.
+  const d = date instanceof Date ? date : new Date(date);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 /**
@@ -96,6 +102,11 @@ export function classifyVintage(sourceKey, latestPeriod) {
       graceDays: 14,
       criticalAfterOverdueDays: 30,
     },
+    eia_flows: {
+      kind: 'monthly_eia_ngm',  // trade + sector consumption, same Natural Gas Monthly release
+      graceDays: 14,
+      criticalAfterOverdueDays: 30,
+    },
     baker_hughes_weekly: {
       kind: 'weekly',
       publishLag: 0,           // period date IS Friday publish day
@@ -109,6 +120,18 @@ export function classifyVintage(sourceKey, latestPeriod) {
       cadenceDays: 1,
       graceDays: 1,
       criticalAfterOverdueDays: 3,
+    },
+    entsog: {
+      kind: 'daily',
+      publishLag: 2,           // the newest gas day completes once every operator has published
+      cadenceDays: 1,
+      graceDays: 2,
+      criticalAfterOverdueDays: 5,
+    },
+    eurostat_gas: {
+      kind: 'monthly_eia_ngm',  // monthly, ~1-2 months behind; same publish arithmetic
+      graceDays: 31,
+      criticalAfterOverdueDays: 60,
     },
     eia_lng_exports: {
       kind: 'monthly_eia_ngm',
@@ -212,7 +235,8 @@ export function classifyVintage(sourceKey, latestPeriod) {
   // date answers that in one clause.
   const dueStr = nextExpectedPublishDate.toISOString().slice(0, 10);
   const labelText =
-    freshness === 'fresh' ? `Updated ${formatAgeShort(ageDays)} ago` :
+    // "today" takes no "ago": the label read "Updated today ago".
+    freshness === 'fresh' ? (ageDays === 0 ? 'Updated today' : `Updated ${formatAgeShort(ageDays)} ago`) :
     freshness === 'stale' ? 'Awaiting next release' :
     'Awaiting next release';
 

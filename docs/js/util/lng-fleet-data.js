@@ -179,8 +179,15 @@ export function summarizeDaily(daily, nameplate, headlineSource = null) {
   const spark = sparkWindow.map((d) => d.value);
 
   let wow = null;
-  const target = new Date(latestPoint.date);
-  target.setDate(target.getDate() - 7);
+  // UTC arithmetic end to end: `new Date('YYYY-MM-DD')` is UTC midnight, and
+  // stepping it with the local `setDate` moved the wall clock across a DST
+  // change, so the week-ago key could land on the wrong calendar day.
+  // `date` here is `new Date(dateStr)`, i.e. UTC midnight, so its ISO day is
+  // the label; prefer the label itself when the point carries one.
+  const latestKey = latestPoint.dateStr
+    ?? (latestPoint.date instanceof Date ? latestPoint.date.toISOString() : String(latestPoint.date)).slice(0, 10);
+  const target = new Date(`${latestKey}T00:00:00Z`);
+  target.setUTCDate(target.getUTCDate() - 7);
   const targetStr = target.toISOString().slice(0, 10);
   const weekAgo = daily.find((d) => d.dateStr === targetStr);
   if (weekAgo) {

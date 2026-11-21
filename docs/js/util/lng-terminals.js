@@ -88,16 +88,21 @@ export const LNG_TERMINALS = {
     ],
     locName: 'Stratton Ridge — dual feed (Gulf South + TETCO)',
     nameplate: 2100,
-    expectedCoveragePct: 52.9,
-    expectedMedianMmcf: 1111.5,
+    // Re-measured 2026-11-20 over the last 100 operating days (Gulf South +
+    // TETCO). The earlier 52.9% / 1,111.5 MMcf/d was measured over Jun–Aug 2026
+    // while the plant ran degraded; partial-outage days are not floor days, so
+    // they depressed that median. Visible coverage is capped near 78–80% by the
+    // unposted KMTP lateral (~400–450 MMcf/d), which 76.1% now matches.
+    expectedCoveragePct: 76.1,
+    expectedMedianMmcf: 1597.3,
     coverageTolerancePct: 10.0,
     coverageNote:
-      'MEASURED-PARTIAL: interstate-visible feeds only (Gulf South + TETCO, 52.9% median coverage of 2,100 MMcf/d nameplate). KMTP intrastate lateral (~400–450 MMcf/d capacity) is unmetered on public EBBs.',
+      'MEASURED-PARTIAL: interstate-visible feeds only (Gulf South + TETCO, 76.1% median coverage of 2,100 MMcf/d nameplate over the last 100 operating days). KMTP intrastate lateral (~400–450 MMcf/d capacity) is unmetered on public EBBs.',
     signal: 'sq',
     cycles: ['id1', 'id2', 'id3'],
     platformLabel: 'Boardwalk OAC + Enbridge rtba',
     platformNote:
-      'Gulf South posts ID1/ID2/ID3 only; TETCO (Enbridge rtba) posts Timely/Evening/Intraday. Figures are interstate-visible feedgas only (52.9% median of 2,100 MMcf/d nameplate over 100-day overlap). KMTP (intrastate) is not publicly posted.',
+      'Gulf South posts ID1/ID2/ID3 only; TETCO (Enbridge rtba) posts Timely/Evening/Intraday. Figures are interstate-visible feedgas only (76.1% median of 2,100 MMcf/d nameplate over the last 100 operating days). KMTP (intrastate) is not publicly posted.',
     methodLine:
       'Combined TSQ into Freeport LNG: Gulf South Stratton Ridge 24329 + TETCO Stratton Ridge 79999 (both delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Interstate-visible only',
   },

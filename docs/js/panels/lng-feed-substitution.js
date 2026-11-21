@@ -50,7 +50,7 @@ const TERMINALS = [
       { src: 'gulf_south', stem: 'gulf_south_sq_24329_d', label: 'Gulf South 24329', color: 'rgba(56,189,248,0.85)' },
       { src: 'enbridge',    stem: 'tetco_sq_79999_d',       label: 'TETCO 79999',     color: 'rgba(34,211,164,0.80)' },
     ],
-    honesty: 'Share = Gulf South + TETCO only (52.9% median coverage of 2,100 MMcf/d nameplate over 100-day overlap). The unposted KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates and other unmeasured feeds account for the remaining ~988 MMcf/d, so an interstate share shift may reflect shifts to/from unmeasured supplies rather than pure pipeline routing.',
+    honesty: 'Share = Gulf South + TETCO only (76.1% median coverage of 2,100 MMcf/d nameplate over the last 100 operating days). The unposted KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates account for the remaining ~500 MMcf/d, so an interstate share shift may reflect shifts to/from unmeasured supplies rather than pure pipeline routing.',
   },
   {
     id: 'cove_point',
@@ -79,6 +79,7 @@ import {
   detectSubstitutionEvents as detectEvents,
   N_SHARE_PTS,
   M_TOTAL_PCT,
+  SUPPLY_DROP_RATIO,
 } from '../util/lng-substitution-data.js';
 
 /* ------------------------------------------------------------------ */
@@ -170,9 +171,14 @@ function renderTerminal(chartEl, sidebarEl, footEl, bundle, terminal) {
 
 function drawChart(container, records, terminal) {
   container.innerHTML = '';
-  const margin = { top: 24, right: 130, bottom: 48, left: 48 };
-  const totalH = 340;
-  const width = Math.max((container.getBoundingClientRect().width || 600) - margin.left - margin.right, 300);
+  // On a phone the legend moves under the plot: beside it, it took a third of
+  // the width and the whole chart scaled down to unreadable text.
+  const cw = container.getBoundingClientRect().width || 600;
+  const narrow = cw < 560;
+  const legendRows = terminal.feeds.length + 1;
+  const margin = { top: 24, right: narrow ? 44 : 176, bottom: narrow ? 48 + legendRows * 16 : 48, left: 40 };
+  const totalH = 340 + (narrow ? legendRows * 16 : 0);
+  const width = Math.max(cw - margin.left - margin.right, narrow ? 200 : 300);
   const height = totalH - margin.top - margin.bottom;
 
   const svg = d3.select(container).append('svg')
@@ -186,8 +192,9 @@ function drawChart(container, records, terminal) {
   const x = d3.scaleTime().domain(d3.extent(dates)).range([0, width]);
   const yShare = d3.scaleLinear().domain([0, 100]).range([height, 0]);
 
+  // Totals are Dth/d; the right axis reads MMcf/d (Dth ÷ 1,025).
   const maxTotal = d3.max(records, (r) => r.total) || 1;
-  const yVol = d3.scaleLinear().domain([0, maxTotal * 1.1]).range([height, 0]);
+  const yVol = d3.scaleLinear().domain([0, (maxTotal * 1.1) / 1025]).nice(4).range([height, 0]);
 
   // grid
   [25, 50, 75, 100].forEach((v) => {
@@ -207,7 +214,15 @@ function drawChart(container, records, terminal) {
   });
 
   // total volume line (secondary axis)
-  const line = d3.line().x((_, i) => x(dates[i])).y((r) => yVol(r.total)).curve(d3.curveMonotoneX);
+  const line = d3.line().x((_, i) => x(dates[i])).y((r) => yVol(r.total / 1025)).curve(d3.curveMonotoneX);
+  // Right axis for the dashed total: without it the line had no scale.
+  yVol.ticks(4).forEach((v) => {
+    g.append('text').attr('x', width + 6).attr('y', yVol(v) + 4).attr('text-anchor', 'start')
+      .attr('font-size', 10).attr('font-family', 'var(--font-mono)').style('fill', 'rgba(255,255,255,0.45)')
+      .text(v.toLocaleString('en-US'));
+  });
+  g.append('text').attr('x', width + 6).attr('y', -10).attr('font-size', 10)
+    .style('fill', 'rgba(255,255,255,0.45)').text('MMcf/d');
   g.append('path').datum(records).attr('d', line)
     .style('fill', 'none').style('stroke', 'rgba(255,255,255,0.55)').style('stroke-width', 1.2)
     .style('stroke-dasharray', '3,2');
@@ -226,16 +241,18 @@ function drawChart(container, records, terminal) {
   });
 
   // legend (feeds + total line)
-  const legendX = width + 12;
+  const legendX = narrow ? 0 : width + 56;
+  const legendY0 = narrow ? height + 44 : 20;
+  const step = narrow ? 16 : 22;
   terminal.feeds.forEach((f, i) => {
-    const ly = i * 22 + 20;
+    const ly = i * step + legendY0;
     g.append('rect').attr('x', legendX).attr('y', ly - 10).attr('width', 12).attr('height', 12).attr('rx', 2).style('fill', f.color);
     g.append('text').attr('x', legendX + 16).attr('y', ly).attr('font-size', 10).attr('font-family', 'var(--font-sans)').style('fill', 'var(--text-secondary)').text(f.label);
   });
-  const ly2 = terminal.feeds.length * 22 + 20;
+  const ly2 = terminal.feeds.length * step + legendY0;
   g.append('line').attr('x1', legendX).attr('x2', legendX + 12).attr('y1', ly2 - 4).attr('y2', ly2 - 4)
     .style('stroke', 'rgba(255,255,255,0.55)').style('stroke-dasharray', '3,2');
-  g.append('text').attr('x', legendX + 16).attr('y', ly2).attr('font-size', 10).attr('font-family', 'var(--font-sans)').style('fill', 'var(--text-secondary)').text('Total intake');
+  g.append('text').attr('x', legendX + 16).attr('y', ly2).attr('font-size', 10).attr('font-family', 'var(--font-sans)').style('fill', 'var(--text-secondary)').text('Total (right axis)');
 
   setupHover(svg, g, x, yShare, yVol, width, height, dates, records, terminal, margin);
 }
@@ -290,8 +307,8 @@ function renderKpis(sidebarEl, records, terminal, events) {
     kpiCardHtml({
       label: 'Supply events',
       value: `${supplyEvents}`,
-      delta: { value: 'both feeds down', kind: supplyEvents ? 'bearish' : 'neutral' },
-      helpText: 'Both feeds falling = possible outage/demand drop',
+      delta: { value: `total ≤ ${Math.round(SUPPLY_DROP_RATIO * 100)}% of 7-day median`, kind: supplyEvents ? 'bearish' : 'neutral' },
+      helpText: 'Every feed below its own 7-day median at once: the terminal took less gas, it did not switch pipes',
     }),
     kpiCardHtml({
       label: 'Overlap window',
@@ -307,7 +324,8 @@ function renderEventTable(footEl, events, terminal) {
   wrap.className = 'subst-events';
   const h = document.createElement('h3');
   h.className = 'subst-events__title';
-  h.textContent = `Substitution events (share ≥${N_SHARE_PTS} pts, |Δtotal|≤${M_TOTAL_PCT}%) — ${events.length} found`;
+  const nR = events.filter((e) => e.kind === 'routing').length;
+  h.textContent = `Events — ${nR} routing (share ≥${N_SHARE_PTS} pts at |Δtotal| ≤${M_TOTAL_PCT}%), ${events.length - nR} supply (all feeds down, total ≤${Math.round(SUPPLY_DROP_RATIO * 100)}% of its 7-day median)`;
   wrap.appendChild(h);
 
   if (!events.length) {
@@ -319,7 +337,7 @@ function renderEventTable(footEl, events, terminal) {
     const table = document.createElement('table');
     table.className = 'subst-table';
     table.innerHTML = `
-      <thead><tr><th>Date</th><th>Mover</th><th>Share Δ</th><th>Total Δ</th><th>Read</th></tr></thead>
+      <thead><tr><th>Date</th><th>Feed</th><th>Share Δ</th><th>Total Δ</th><th>Read</th></tr></thead>
       <tbody>
         ${events.map((e) => `
           <tr>
@@ -329,7 +347,7 @@ function renderEventTable(footEl, events, terminal) {
             <td class="num ${e.totalChg >= 0 ? 'pos' : 'neg'}">${e.totalChg >= 0 ? '+' : ''}${e.totalChg.toFixed(1)}%</td>
             <td>${e.kind === 'routing'
               ? `${e.mover} ${e.moverChg >= 0 ? 'gained' : 'lost'} share at stable total → routing`
-              : `both feeds down → supply event`}</td>
+              : `every feed down, total ${e.totalChg.toFixed(0)}% vs its 7-day median → supply event (${e.mover} fell most)`}</td>
           </tr>`).join('')}
       </tbody>`;
     wrap.appendChild(table);

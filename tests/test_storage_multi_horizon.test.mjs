@@ -187,10 +187,14 @@ globalThis.document = {
     assert.ok(chart.innerHTML.includes('Lower 48 National'), 'national view pill missing');
     assert.ok(chart.innerHTML.includes('Regional Drill-down'), 'regional view pill missing');
     assert.ok(chart.innerHTML.includes('Texas 527 Bcf & Salt Caverns'), 'Texas salt view pill missing');
-    assert.ok(chart.innerHTML.includes('5Y Tactical'), '5Y horizon missing');
-    assert.ok(chart.innerHTML.includes('10Y Decadal'), '10Y horizon missing');
-    assert.ok(chart.innerHTML.includes('All-Time Secular'), 'All-Time horizon missing');
-    assert.ok(chart.innerHTML.includes('Observed History (2018–present, n=8)'), 'Observed History horizon missing');
+    // Baselines are named from the data's own span: a 10-year option only
+    // exists when ten prior years do, and 'all history' prints its real years.
+    const first = analysis.periods[0].period.getFullYear();
+    const lastYear = analysis.periods[analysis.periods.length - 1].period.getFullYear();
+    const prior = lastYear - first;
+    assert.ok(chart.innerHTML.includes('Last 5 years'), '5-year baseline missing');
+    assert.equal(chart.innerHTML.includes('Last 10 years'), prior >= 10, '10-year option must match available history');
+    assert.ok(chart.innerHTML.includes(`All history (${first}–${lastYear - 1}, n=${prior})`), 'all-history label not derived from data');
   });
 
   it('desk commentary computes chronological YoY weekly net change and actual 5-year average net change', () => {

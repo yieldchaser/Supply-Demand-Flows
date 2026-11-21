@@ -172,6 +172,7 @@ export function buildEgressSeries(rows) {
 
   const daily = sortedDates.map((dateStr) => {
     const byCorridor = {};
+    const byCorridorHigh = {};
     const byCorridorSqShared = {};
     const byCorridorOac = {};
     const oacLevelByCorridor = {};
@@ -182,7 +183,10 @@ export function buildEgressSeries(rows) {
       if (v !== undefined) {
         byCorridor[meter.corridor] = (byCorridor[meter.corridor] || 0) + v;
         allTotal += v;
-        if (meter.inHeadline) highTotal += v;
+        if (meter.inHeadline) {
+          highTotal += v;
+          byCorridorHigh[meter.corridor] = (byCorridorHigh[meter.corridor] || 0) + v;
+        }
       }
       // Share-in-use population: meters with BOTH sq and oac on this day.
       if (oacDaily) {
@@ -205,6 +209,7 @@ export function buildEgressSeries(rows) {
       dateStr,
       date: new Date(`${dateStr}T00:00:00Z`),
       byCorridor,
+      byCorridorHigh,
       highTotal,
       allTotal,
       byCorridorSqShared,
@@ -445,6 +450,9 @@ export function drawCorridorChart(container, daily) {
     : [minDate, maxDate];
 
   const x = d3.scaleTime().domain(xDomain).range([0, width]);
+  // The stack is the headline meters only, so the headline total bounds it.
+  // (It used to stack every meter on this axis: medium-confidence meters carry
+  // more than the headline, and over half the stack ran out of the frame.)
   const maxVal = d3.max(daily, (d) => dth_to_mmcf(d.highTotal)) || 0;
   const yMax = Math.max(maxVal * 1.15, dth_to_mmcf(1)); // guard empty
   const y = d3.scaleLinear().domain([0, yMax]).range([height, 0]);
@@ -462,9 +470,12 @@ export function drawCorridorChart(container, daily) {
     .attr('y2', (dd) => y(dd))
     .attr('stroke', 'rgba(255,255,255,0.04)');
 
-  // One stacked band per corridor (registry order = bottom to top).
+  // One stacked band per corridor (registry order = bottom to top), built
+  // from the headline (high-confidence) meters only, so the top of the stack
+  // IS the headline line. Medium-confidence meters are the dotted line above.
+  const highOf = (r) => r.byCorridorHigh ?? r.byCorridor;
   const activeCorridors = CORRIDORS.filter(
-    (c) => daily.some((r) => (r.byCorridor[c.key] || 0) > 0)
+    (c) => daily.some((r) => (highOf(r)[c.key] || 0) > 0)
   );
   const cum = new Map();
   activeCorridors.forEach((corridor, fi) => {
@@ -472,7 +483,7 @@ export function drawCorridorChart(container, daily) {
     const upper = new Map();
     daily.forEach((row) => {
       const prev = cum.get(row.dateStr) || 0;
-      const raw = row.byCorridor[corridor.key] || 0;
+      const raw = highOf(row)[corridor.key] || 0;
       upper.set(row.dateStr, prev + dth_to_mmcf(raw));
     });
     const color = CORRIDOR_COLORS[fi % CORRIDOR_COLORS.length];
@@ -635,11 +646,13 @@ export function drawCorridorChart(container, daily) {
   // Legend under the chart.
   const legend = svg
     .append('g')
-    .attr('transform', `translate(${margin.left}, ${totalH - 6})`);
+    .attr('transform', `translate(${margin.left}, ${totalH - 12})`);
+  // Measured offsets, wrapping to a second row: fixed 150px slots overlapped
+  // the longer corridor names.
+  let lx = 0;
+  let ly = 0;
   activeCorridors.forEach((corridor, fi) => {
-    const item = legend
-      .append('g')
-      .attr('transform', `translate(${fi * 150}, 0)`);
+    const item = legend.append('g');
     item.append('rect')
       .attr('width', 8).attr('height', 8).attr('ry', 1)
       .style('fill', CORRIDOR_COLORS[fi % CORRIDOR_COLORS.length].area)
@@ -650,7 +663,15 @@ export function drawCorridorChart(container, daily) {
       .attr('font-family', 'var(--font-sans)')
       .style('fill', 'rgba(255,255,255,0.65)')
       .text(corridor.label);
+    const w = item.node().getBBox().width + 18;
+    if (lx > 0 && lx + w > width) { lx = 0; ly += 13; }
+    item.attr('transform', `translate(${lx}, ${ly})`);
+    lx += w;
   });
+  if (ly > 0) {
+    const vb = svg.attr('viewBox').split(' ').map(Number);
+    svg.attr('viewBox', `${vb[0]} ${vb[1]} ${vb[2]} ${vb[3] + ly}`);
+  }
 
   // Interactive tooltip + hover inspector
   setupEgressHover(svg, g, x, width, height, margin, daily, activeCorridors);
@@ -711,7 +732,7 @@ function setupEgressHover(svg, g, x, width, height, margin, daily, activeCorrido
 
       const corridorRows = activeCorridors
         .map((c) => {
-          const val = dth_to_mmcf(row.byCorridor[c.key] || 0);
+          const val = dth_to_mmcf((row.byCorridorHigh ?? row.byCorridor)[c.key] || 0);
           if (val <= 0) return '';
           return `
             <div class="tt-row">
@@ -730,9 +751,18 @@ function setupEgressHover(svg, g, x, width, height, margin, daily, activeCorrido
           <div class="tt-date">${dateStr}</div>
           ${corridorRows}
           <div class="tt-row tt-row--accent">
-            <span class="tt-label">High-Confidence Total</span>
+            <span class="tt-label">Headline · high-confidence meters</span>
             <span class="num">${dth_to_mmcf(row.highTotal).toFixed(0)} MMcf/d</span>
           </div>
+          ${(row.allTotal ?? 0) > row.highTotal ? `
+          <div class="tt-row">
+            <span class="tt-label">+ medium-confidence meters</span>
+            <span class="num">${dth_to_mmcf(row.allTotal - row.highTotal).toFixed(0)} MMcf/d</span>
+          </div>
+          <div class="tt-row">
+            <span class="tt-label">All meters (not stacked)</span>
+            <span class="num">${dth_to_mmcf(row.allTotal).toFixed(0)} MMcf/d</span>
+          </div>` : ''}
         `);
     })
     .on('mouseleave', () => {

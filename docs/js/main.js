@@ -13,6 +13,7 @@ import {
   renderBasinExtremes,
 } from './panels/basin-deep.js';
 import { renderEuStoragePanel } from './panels/eu-storage.js';
+import { renderEuSupplyPanel } from './panels/eu-supply.js';
 import { renderDivergencePanel } from './panels/divergence.js';
 import { renderLngTotalPanel } from './panels/lng-total.js';
 import { renderLngSharesPanel } from './panels/lng-shares.js';
@@ -152,7 +153,7 @@ async function lazySection(bundle, sourceKeys, sectionName, renderFn) {
 /** Sources needed by each dashboard section (bundle.sources keys). */
 const SECTIONS = {
   storage: ['eia_storage', 'eia_supply'],
-  balance: ['eia_supply'],
+  balance: ['eia_supply', 'eia_flows'],
   rigs: ['baker_hughes_weekly'],
   basins: ['baker_hughes_weekly'],
   'basin-table': ['baker_hughes_weekly'],
@@ -160,7 +161,8 @@ const SECTIONS = {
   'basin-share': ['baker_hughes_weekly'],
   'basin-extremes': ['baker_hughes_weekly'],
   divergence: ['eia_storage', 'gie_agsi'],
-  'eu-storage': ['gie_agsi'],
+  'eu-storage': ['gie_agsi', 'eurostat_gas'],
+  'eu-supply': ['entsog', 'eia_lng_exports'],
   'lng-total': ['eia_lng_exports'],
   'lng-shares': ['eia_lng_exports'],
   lng: [
@@ -295,6 +297,8 @@ async function main() {
   // Section 3: European Storage Context
   deferSection('panel-eu-storage', SECTIONS['eu-storage'], 'eu-storage', () =>
     renderEuStoragePanel(document.getElementById('panel-eu-storage'), bundle));
+  deferSection('panel-eu-supply', SECTIONS['eu-supply'], 'eu-supply', () =>
+    renderEuSupplyPanel(document.getElementById('panel-eu-supply'), bundle));
 
   // Section 4: US LNG Exports Tracker
   deferSection('panel-lng-total', SECTIONS['lng-total'], 'lng-total', () =>

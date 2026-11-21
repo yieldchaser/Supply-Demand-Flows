@@ -113,6 +113,26 @@ def _read_prior_state() -> tuple[str | None, int]:
         return None, 0
 
 
+def _us_aggregate(api_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """EIA's own national exports-by-vessel total per month (NUS-Z00 volume rows).
+
+    Kept so the transformer can publish EIA's total rather than a sum of
+    whichever destination rows arrived.
+    """
+    out = []
+    for row in api_rows:
+        if row.get("duoarea") != AGGREGATE_DUOAREA:
+            continue
+        units = str(row.get("units", ""))
+        if "MCF" not in units.upper() or "$" in units:
+            continue
+        try:
+            out.append({"period": row["period"], "value_mmcf": float(row["value"])})
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
 def _coerce_rows(api_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Normalise EIA response rows into our canonical output shape.
 
@@ -215,16 +235,30 @@ async def _fetch_lng_rows(client: EIAClient) -> list[dict[str, Any]]:
 
     Falls back to unfiltered + in-memory filter if the facet returns empty.
     """
-    resp = await client.get_series(
-        route=ROUTE,
-        frequency="monthly",
-        start=START_DATE,
-        data_columns=["value"],
-        facets={"process": [PROCESS_FACET]},
-        length=5000,
-    )
-    api_rows: list[dict[str, Any]] = resp.get("response", {}).get("data", [])
-    log.info("LNG facet (process=%s) fetch returned %d API rows.", PROCESS_FACET, len(api_rows))
+    # Page until EIA's own row total. A single 5,000-row request silently
+    # truncated the response (EVE carries volume and price rows for ~50
+    # destinations x 70 months), dropping ~25% of US LNG exports from the
+    # destination sum and the derived total.
+    api_rows: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        resp = await client.get_series(
+            route=ROUTE,
+            frequency="monthly",
+            start=START_DATE,
+            data_columns=["value"],
+            facets={"process": [PROCESS_FACET]},
+            length=5000,
+            offset=offset,
+        )
+        body = resp.get("response", {})
+        page = body.get("data", []) if isinstance(body, dict) else []
+        api_rows.extend(page)
+        total = int(body.get("total", 0) or 0) if isinstance(body, dict) else 0
+        offset += len(page)
+        if not page or offset >= total:
+            break
+    log.info("LNG facet (process=%s) fetch returned %d API rows (EIA total %s).", PROCESS_FACET, len(api_rows), total)
 
     if not api_rows:
         log.warning(
@@ -300,6 +334,7 @@ async def run() -> dict[str, Any]:
                 "latest_period": actual_latest,
                 "row_count": len(coerced),
                 "data": coerced,
+                "us_aggregate": _us_aggregate(api_rows),
             }
             return data_to_write
 

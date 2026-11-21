@@ -86,6 +86,21 @@ def test_eu_storage_print_detector(mock_curated):
     assert "Germany: <code>60.0%</code>" in result["html_body"]
 
 
+def test_eu_storage_print_ignores_eu_wide_aggregate(mock_curated):
+    """GIE's EU-wide rows are a total of the countries and must not be added to them."""
+    rows = [
+        {"period": "2026-11-02", "series_id": "gie_storage_de_gas_in_storage", "value": 150.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_de_full_pct", "value": 60.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_eu_gas_in_storage", "value": 800.0},
+        {"period": "2026-11-02", "series_id": "gie_storage_eu_full_pct", "value": 70.0},
+    ]
+    pd.DataFrame(rows).to_parquet(mock_curated / "gie_agsi.parquet")
+    result = detect_eu_storage_print()
+    assert result is not None
+    assert "150.0 TWh" in result["html_body"]
+    assert "950.0 TWh" not in result["html_body"]
+
+
 def test_rig_reversal_detector_fires_on_big_move(mock_curated):
     """Verify rig reversal fires on WoW move >= 20."""
     df = pd.DataFrame(

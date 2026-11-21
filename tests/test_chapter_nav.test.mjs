@@ -112,8 +112,9 @@ test('Chapter nav: 7 primary chapters declared with Europe elevated', () => {
 
   const europe = CHAPTERS.find((c) => c.id === 'europe');
   assert.equal(europe.label, 'Europe');
-  assert.equal(europe.blurb, '10 countries, 5-yr norms, daily flows');
-  assert.deepEqual(europe.sources, ['gie_agsi', 'eia_storage']);
+  assert.equal(europe.blurb, 'Storage, supply routes, transatlantic');
+  // ENTSOG feeds the supply-route view; EIA LNG exports the transatlantic LNG link.
+  assert.deepEqual(europe.sources, ['gie_agsi', 'entsog', 'eurostat_gas', 'eia_storage', 'eia_lng_exports']);
 
   const macro = CHAPTERS.find((c) => c.id === 'macro');
   assert.equal(macro.label, 'Macro & Trade');
@@ -136,7 +137,7 @@ test('Chapter nav: chapter sections configuration and sectionDomId parity', () =
 
   // Europe section order
   const europeSectionIds = SECTION_ORDER.europe.map((s) => s.id);
-  assert.deepEqual(europeSectionIds, ['europe-divergence', 'europe-storage', 'europe-method']);
+  assert.deepEqual(europeSectionIds, ['europe-divergence', 'europe-storage', 'europe-supply', 'europe-method']);
   assert.ok(SECTION_ORDER.europe.find((s) => s.id === 'europe-divergence').panels.includes('panel-divergence'));
   assert.ok(SECTION_ORDER.europe.find((s) => s.id === 'europe-storage').panels.includes('panel-eu-storage'));
 

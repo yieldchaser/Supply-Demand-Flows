@@ -327,7 +327,10 @@ BUNDLE_ROW_BASELINES: dict[str, int] = {
     "eia_lng_exports": 2665,
     "eia_storage": 3608,
     "eia_supply": 468,
+    "eia_flows": 1748,
+    "eurostat_gas": 1028,
     "enbridge": 59516,
+    "entsog": 45630,
     "gasnom": 5038,
     "gie_agsi": 82720,
     "gulf_south": 57226,
@@ -680,7 +683,7 @@ def build() -> dict[str, Any]:
 
     #: Sources parsed during boot (small, power above-the-fold panels).
     #: Everything else loads lazily on first panel access.
-    core_sources = ["eia_storage", "eia_supply", "baker_hughes_weekly"]
+    core_sources = ["eia_storage", "eia_supply", "eia_flows", "baker_hughes_weekly"]
 
     index = {
         "bundle_url": hashed_name,

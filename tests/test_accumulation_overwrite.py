@@ -208,6 +208,12 @@ def test_restore_gie_agsi_has_full_daily_coverage() -> None:
         pytest.skip("gie_agsi curated parquet not present in this checkout")
 
     df = pd.read_parquet(curated)
+    # The guarantee is about the ten countries' 40 series. GIE's EU-wide
+    # aggregate (gie_storage_eu_*, fetched with type=eu since 2026-11) is
+    # additive and checked separately below.
+    eu_wide = df[df["series_id"].str.startswith("gie_storage_eu_")]
+    df = df[~df["series_id"].str.startswith("gie_storage_eu_")]
+    assert eu_wide["series_id"].nunique() in (0, 4)
     assert df["series_id"].nunique() == 40, f"expected 40 series, got {df['series_id'].nunique()}"
     assert df["period"].nunique() >= 2069, f"expected at least 2,069 days, got {df['period'].nunique()}"
     assert len(df) >= 82756, f"expected at least 82,756 rows, got {len(df)}"

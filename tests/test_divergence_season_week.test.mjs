@@ -51,7 +51,7 @@ registerHooks({
   },
 });
 
-const { buildDivergenceModel, divergenceExport } = await import('../docs/js/panels/divergence.js');
+const { buildDivergenceModel, divergenceExport, classifyRegime } = await import('../docs/js/panels/divergence.js');
 
 /** `count` weekly Fridays from 3 January of `startYear`, value from `fn`. */
 function fridays(startYear, count, fn) {
@@ -133,11 +133,38 @@ describe('buildDivergenceModel — week-of-season comparison', () => {
     const exp = divergenceExport(buildDivergenceModel(makeBundle()));
     assert.ok(exp.basis.includes('week-of-season'));
     assert.equal(exp.normal.us.n, 5);
-    // US +50pp, EU flat → spread +50 pp on the num US% − num EUpp scale.
-    assert.ok(Math.abs(exp.spread_pp - 50) < 1e-9);
+    // US +50 %, EU flat → spread +50 pts (US % − EU %, both % of average stock).
+    assert.ok(Math.abs(exp.spread_pts - 50) < 1e-9);
     // Calendar day, not an instant: periods are parsed in local time, so an
     // ISO comparison would read a day earlier east of Greenwich and a day
     // later west of it.
     assert.equal(exp.us.period, '2026-10-03');
+  });
+});
+
+describe('Commensurate units and complete regimes', () => {
+  it('measures the EU side as % of average stock, like the US side', () => {
+    // EU stock 20% below a flat prior-year stock: 80 vs 100 TWh per country.
+    const bundle = makeBundle({ euPct: 50 });
+    const lastYear = String(Math.max(...bundle.sources.gie_agsi.data.map((r) => Number(String(r.period).slice(0, 4)))));
+    const inLast = (r) => String(r.period).startsWith(lastYear);
+    const rows = bundle.sources.gie_agsi.data.map((r) => {
+      if (!inLast(r)) return r;
+      if (r.series_id.endsWith('gas_in_storage')) return { ...r, value: 80 };
+      if (r.series_id.endsWith('full_pct')) return { ...r, value: 40 };
+      return r;
+    });
+    const model = buildDivergenceModel({ sources: { eia_storage: bundle.sources.eia_storage, gie_agsi: { data: rows } } });
+    assert.ok(Math.abs(model.eu_signal - -20) < 1e-9, `eu_signal ${model.eu_signal}`);
+    assert.ok(Math.abs(model.eu_fill_pp - -10) < 1e-9, 'fill deviation reported separately in pp');
+  });
+
+  it('never calls a one-sided deviation "balanced"', () => {
+    assert.equal(classifyRegime(0, -20).label, 'Europe-Led Tightness');
+    assert.equal(classifyRegime(-10, 0).label, 'US-Led Tightness');
+    assert.equal(classifyRegime(1, 2).label, 'Both Near Normal');
+    const labels = new Set();
+    for (const us of [-10, 0, 10]) for (const eu of [-10, 0, 10]) labels.add(classifyRegime(us, eu).label);
+    assert.equal(labels.size, 9);
   });
 });

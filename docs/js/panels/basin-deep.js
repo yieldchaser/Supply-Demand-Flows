@@ -76,6 +76,7 @@ function computeBasinMetrics(bundle) {
     };
 
     let extreme = null;
+    let priorRange = null;
     // Only flag as extreme if the latest reading is strictly outside the 52w range
     // (the 52w window itself includes the latest point, so we compare to all prior
     //  points, not the window that includes the latest)
@@ -83,6 +84,7 @@ function computeBasinMetrics(bundle) {
     if (priorWindow.length >= 4) {
       const priorMin = Math.min(...priorWindow.map((r) => r.value));
       const priorMax = Math.max(...priorWindow.map((r) => r.value));
+      priorRange = { min: priorMin, max: priorMax };
       if (latest.value > priorMax) extreme = 'high';
       else if (latest.value < priorMin) extreme = 'low';
     }
@@ -113,6 +115,7 @@ function computeBasinMetrics(bundle) {
       avg12m,
       range12m,
       extreme,
+      priorRange,
       _total: total,
       _gas:   gas,
       _oil:   oil,
@@ -154,6 +157,19 @@ export function renderBasinTable(panelEl, bundle) {
   let sortKey = 'latest';
   let sortDir = -1; // -1 = descending
 
+  // How much of the national count the listed basins explain: Baker Hughes
+  // reports the rest as "other" basins, so the rows do not sum to the US total.
+  const data = bundle.sources.baker_hughes_weekly.data;
+  const usTotal = getSeries(data, 'bh_rollup_us_total').at(-1)?.value;
+  const usGas = getSeries(data, 'bh_rollup_us_gas').at(-1)?.value;
+  const listed = metrics.reduce((t, m) => t + m.latest, 0);
+  const listedGas = metrics.reduce((t, m) => t + m.gasLatest, 0);
+  const coverageNote = usTotal
+    ? `<span class="panel-table__note">Listed basins: ${listed} of ${usTotal} US rigs (${Math.round((listed / usTotal) * 100)}%)${
+      usGas ? ` and ${listedGas} of ${usGas} gas-directed rigs (${Math.round((listedGas / usGas) * 100)}%)` : ''
+    }; Baker Hughes counts the rest under other basins. Badges follow the gas-directed share: gas ≥ 70%, mixed 30–70%, oil below.</span>`
+    : '';
+
   function fmtDelta(v) {
     if (v == null) return `<span style="color:var(--text-tertiary)">—</span>`;
     const cls  = v > 0 ? 'delta-pos' : v < 0 ? 'delta-neg' : '';
@@ -170,11 +186,12 @@ export function renderBasinTable(panelEl, bundle) {
       return (av - bv) * sortDir;
     });
 
+    const maxRigs = Math.max(...metrics.map((m) => m.latest), 1);
     const rows = sorted.map((m) => `
       <tr>
         <td>${m.label}<span class="badge badge--${m.flavor}">${m.flavor.toUpperCase()}</span></td>
-        <td>${m.latest}</td>
-        <td>${m.gasShare.toFixed(0)}%</td>
+        <td><span class="basin-table__bar" style="width:${Math.max(2, (m.latest / maxRigs) * 60)}px"></span>${m.latest}</td>
+        <td>${m.gasLatest} <span class="basin-table__muted">(${m.gasShare.toFixed(0)}%)</span></td>
         <td>${fmtDelta(m.d1w)}</td>
         <td>${fmtDelta(m.d4w)}</td>
         <td>${fmtDelta(m.d12w)}</td>
@@ -190,7 +207,7 @@ export function renderBasinTable(panelEl, bundle) {
         <thead><tr>
           <th data-key="label"   class="${thClass('label')}">Basin</th>
           <th data-key="latest"  class="${thClass('latest')}">Rigs</th>
-          <th data-key="gasShare" class="${thClass('gasShare')}">Gas %</th>
+          <th data-key="gasLatest" class="${thClass('gasLatest')}" title="Rigs Baker Hughes classes as gas-directed, and their share of the basin's rigs. Permian gas is associated gas from oil-directed rigs, so it reads 0% here.">Gas-directed</th>
           <th data-key="d1w"    class="${thClass('d1w')}">1w Δ</th>
           <th data-key="d4w"    class="${thClass('d4w')}">4w Δ</th>
           <th data-key="d12w"   class="${thClass('d12w')}">12w Δ</th>
@@ -199,6 +216,7 @@ export function renderBasinTable(panelEl, bundle) {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      ${coverageNote}
     `;
 
     chartEl.querySelectorAll('th[data-key]').forEach((th) => {
@@ -265,8 +283,11 @@ export function renderBasinScatter(panelEl, bundle) {
 
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-  const x = d3.scaleLinear()
-    .domain([0, d3.max(metrics, (m) => m.latest) * 1.15])
+  // Log scale: counts run 1 to ~275, and on a linear axis Permian pinned the
+  // range and every other basin piled into the corner under its labels.
+  const x = d3.scaleLog()
+    .domain([0.8, d3.max(metrics, (m) => Math.max(m.latest, 1)) * 1.4])
+    .clamp(true)
     .range([0, width]);
 
   const yVals = metrics.map((m) => m.d4w);
@@ -278,7 +299,8 @@ export function renderBasinScatter(panelEl, bundle) {
     .range([5, 30]);
 
   // Faint gridlines
-  g.selectAll('.grid-x').data(x.ticks(6)).enter().append('line')
+  const xTicks = [1, 2, 5, 10, 20, 50, 100, 200, 500].filter((t) => t >= x.domain()[0] && t <= x.domain()[1]);
+  g.selectAll('.grid-x').data(xTicks).enter().append('line')
     .attr('x1', (d) => x(d)).attr('x2', (d) => x(d))
     .attr('y1', 0).attr('y2', height)
     .attr('stroke', 'rgba(255,255,255,0.04)');
@@ -296,22 +318,36 @@ export function renderBasinScatter(panelEl, bundle) {
 
   // Bubbles — paint in two passes: fill first, stroke on top
   g.selectAll('.bubble').data(metrics).enter().append('circle')
-    .attr('cx', (m) => x(m.latest))
+    .attr('cx', (m) => x(Math.max(m.latest, 1)))
     .attr('cy', (m) => y(m.d4w))
     .attr('r',  (m) => r(m.avg12m))
     .style('fill',         (m) => `rgba(125,211,252,${0.10 + (m.gasShare / 100) * 0.45})`)
     .style('stroke',       (m) => m.gasShare > 50 ? '#7dd3fc' : 'rgba(156,163,175,0.4)')
     .attr('stroke-width', 1.5)
-    .append('title')
-    .text((m) => `${m.label}: ${m.latest} rigs (4-week delta: ${m.d4w >= 0 ? '+' : ''}${m.d4w}, 12-month avg: ${m.avg12m.toFixed(1)}, gas share: ${m.gasShare.toFixed(1)}%)`);
+    .style('cursor', 'pointer')
+    .on('mousemove', (ev, m) => {
+      const [px, py] = d3.pointer(ev, chartEl);
+      tip.style('opacity', 1)
+        .style('left', `${Math.min(px + 14, chartEl.clientWidth - 220)}px`)
+        .style('top', `${Math.max(0, py - 10)}px`)
+        .html(`<div class="tt-date">${m.label}</div>
+          <div class="tt-row"><span class="tt-label">Rigs now</span><span class="num">${m.latest}</span></div>
+          <div class="tt-row"><span class="tt-label">4-week change</span><span class="num">${m.d4w > 0 ? '+' : ''}${m.d4w}</span></div>
+          <div class="tt-row"><span class="tt-label">12-month average</span><span class="num">${m.avg12m.toFixed(1)}</span></div>
+          <div class="tt-row tt-row--accent"><span class="tt-label">Gas-directed share</span><span class="num">${m.gasShare.toFixed(0)}%</span></div>`);
+    })
+    .on('mouseleave', () => tip.style('opacity', 0));
+  const tip = d3.select(chartEl).append('div').attr('class', 'chart-tooltip').style('opacity', 0);
 
   // Simple label collision avoidance: if a label would overlap a previously-placed
   // label, push it down by 12px. Sort by latest desc so larger basins get priority.
-  const labeled = [...metrics].sort((a, b) => b.latest - a.latest);
+  // Small, flat basins crowd the origin; they keep their bubble and tooltip but
+  // only basins with >= 8 rigs or a 4-week move of 3+ get a printed label.
+  const labeled = [...metrics].filter((m) => m.latest >= 8 || Math.abs(m.d4w) >= 3).sort((a, b) => b.latest - a.latest);
   const placed = [];
   labeled.forEach(m => {
     let yOffset = -r(m.avg12m) - 4;
-    const cx = x(m.latest);
+    const cx = x(Math.max(m.latest, 1));
     let cy = y(m.d4w) + yOffset;
     // Check collision with previously placed labels (within 50px x and 14px y)
     let bumps = 0;
@@ -333,7 +369,7 @@ export function renderBasinScatter(panelEl, bundle) {
     .text((d) => d.basin.label);
 
   // X-axis tick labels
-  g.selectAll('.xt').data(x.ticks(6)).enter().append('text')
+  g.selectAll('.xt').data(xTicks).enter().append('text')
     .attr('x', (d) => x(d)).attr('y', height + 18)
     .attr('text-anchor', 'middle')
     .attr('font-size', 10).attr('font-family', 'JetBrains Mono, monospace')
@@ -352,7 +388,7 @@ export function renderBasinScatter(panelEl, bundle) {
     .attr('x', width / 2).attr('y', height + 38)
     .attr('text-anchor', 'middle').attr('font-size', 10)
     .style('fill', 'rgba(255,255,255,0.45)')
-    .text('Current rig count →');
+    .text('Current rig count (log scale) →');
 
   g.append('text')
     .attr('transform', 'rotate(-90)')
@@ -381,7 +417,7 @@ export function renderBasinShare(panelEl, bundle) {
   const drawRef = { current: null };
   const { chartEl } = renderPanelChrome(panelEl, {
     title:        'Gas-Rig Share by Basin',
-    subtitle:     '24-month evolution · top 6 gas basins',
+    subtitle:     '24-month evolution · share of all US gas rigs · top 6 basins + other',
     sourceKey:    'baker_hughes_weekly',
     latestPeriod: bundle.sources.baker_hughes_weekly.latest_period,
     draw:         () => drawRef.current?.(),
@@ -421,24 +457,31 @@ export function renderBasinShare(panelEl, bundle) {
     return;
   }
 
-  // Build per-period share rows
-  // Each row: { period, [slug]: sharePct, _total: totalGasRigs }
-  const stacked = periods.map((p) => {
-    const row = { period: p };
-    let total = 0;
+  // Shares are of the NATIONAL gas-rig count (bh_rollup_us_gas), with the
+  // basins outside the top six as 'Other'. Dividing by the top six's own sum
+  // (the previous build) left out ~20% of US gas rigs and overstated every
+  // share while the subtitle claimed 'share of the total gas-rig pool'.
+  const usGas = new Map(getSeries(data, 'bh_rollup_us_gas').map((r) => [r.period.getTime(), r.value]));
+  const stacked = periods.filter((p) => usGas.has(p.getTime())).map((p) => {
+    const row = { period: p, _counts: {} };
+    const total = usGas.get(p.getTime());
+    let named = 0;
     withGas.forEach((b) => {
       const match = b.gas.find((r) => r.period.getTime() === p.getTime());
       const v = match ? match.value : 0;
-      row[b.slug] = v;
-      total += v;
+      row._counts[b.slug] = v;
+      named += v;
     });
+    row._counts.other = Math.max(0, total - named);
     row._total = total;
-    // Convert counts to % shares
-    withGas.forEach((b) => {
-      row[b.slug] = total > 0 ? (row[b.slug] / total) * 100 : 0;
-    });
+    for (const k of Object.keys(row._counts)) row[k] = total > 0 ? (row._counts[k] / total) * 100 : 0;
     return row;
   });
+  if (stacked.length < 2) {
+    chartEl.innerHTML = '<div class="extremes-empty">National gas-rig series unavailable for the share view.</div>';
+    return;
+  }
+  const layers = [...withGas, { slug: 'other', label: 'Other basins' }];
 
   const CHART_HEIGHT = 380;
   const LEGEND_W = 110;
@@ -463,11 +506,10 @@ export function renderBasinShare(panelEl, bundle) {
   const x = d3.scaleTime().domain(d3.extent(stacked, (d) => d.period)).range([0, width]);
   const y = d3.scaleLinear().domain([0, 100]).range([height, 0]);
 
-  const COLORS = ['#7dd3fc', '#38bdf8', '#22d3a4', '#0ea5e9', '#06b6d4', '#0891b2'];
+  const COLORS = ['#7dd3fc', '#38bdf8', '#22d3a4', '#a78bfa', '#fbbf24', '#f472b6', '#475569'];
 
   const stackGen = d3.stack()
-    .keys(withGas.map((b) => b.slug))
-    .order(d3.stackOrderDescending);
+    .keys(layers.map((b) => b.slug));
   const series = stackGen(stacked);
 
   const areaGen = d3.area()
@@ -486,9 +528,7 @@ export function renderBasinShare(panelEl, bundle) {
   g.selectAll('.layer').data(series).enter().append('path')
     .attr('d', areaGen)
     .style('fill', (_, i) => COLORS[i % COLORS.length])
-    .style('opacity', 0.82)
-    .append('title')
-    .text((d) => withGas.find((b) => b.slug === d.key)?.label || d.key);
+    .style('opacity', 0.82);
 
   // Y-axis labels
   g.selectAll('.yt').data([0, 25, 50, 75, 100]).enter().append('text')
@@ -511,7 +551,7 @@ export function renderBasinShare(panelEl, bundle) {
   const legend = svg.append('g')
     .attr('transform', `translate(${margin.left + width + 16}, ${margin.top})`);
 
-  withGas.forEach((b, i) => {
+  layers.forEach((b, i) => {
     const grp = legend.append('g').attr('transform', `translate(0, ${i * 22})`);
     grp.append('rect')
       .attr('width', 10).attr('height', 10).attr('rx', 2)
@@ -522,6 +562,26 @@ export function renderBasinShare(panelEl, bundle) {
       .style('fill', 'rgba(255,255,255,0.72)')
       .text(b.label);
   });
+
+  // Hover: every layer's rigs and share on the nearest week.
+  const tip = d3.select(chartEl).append('div').attr('class', 'chart-tooltip').style('opacity', 0);
+  const guide = g.append('line').attr('y1', 0).attr('y2', height).attr('stroke', 'rgba(255,255,255,0.3)').attr('stroke-dasharray', '2 2').style('opacity', 0);
+  const bis = d3.bisector((d) => d.period).center;
+  g.append('rect').attr('width', width).attr('height', height).attr('fill', 'transparent')
+    .on('mousemove', (ev) => {
+      const [mx] = d3.pointer(ev);
+      const row = stacked[bis(stacked, x.invert(mx))];
+      if (!row) return;
+      guide.attr('x1', x(row.period)).attr('x2', x(row.period)).style('opacity', 1);
+      const k = chartEl.getBoundingClientRect().width / VB_WIDTH;
+      tip.style('opacity', 1)
+        .style('left', `${Math.min((margin.left + x(row.period)) * k + 14, chartEl.clientWidth - 220)}px`)
+        .style('top', '24px')
+        .html(`<div class="tt-date">Week of ${d3.timeFormat('%b %d, %Y')(row.period)}</div>
+          ${layers.map((b) => `<div class="tt-row"><span class="tt-label">${b.label}</span><span class="num">${row._counts[b.slug]} · ${row[b.slug].toFixed(0)}%</span></div>`).join('')}
+          <div class="tt-row tt-row--accent"><span class="tt-label">US gas rigs</span><span class="num">${row._total}</span></div>`);
+    })
+    .on('mouseleave', () => { tip.style('opacity', 0); guide.style('opacity', 0); });
   };
 
   draw();
@@ -540,6 +600,23 @@ export function renderBasinShare(panelEl, bundle) {
  * Note: this panel does NOT use renderPanelChrome — it's a raw slim strip
  * where the panel element itself is the content container (panel--slim class).
  */
+/**
+ * Sharpest 12-week movers, ranked by change relative to the basin's own size
+ * (a 1-rig basin going to 2 is +100% and not news, so basins under 5 rigs
+ * twelve weeks ago are left out of the ranking).
+ *
+ * @returns {{up: Array<object>, down: Array<object>}}
+ */
+export function sharpestMovers(metrics, { minBase = 5, n = 3 } = {}) {
+  const ranked = metrics
+    .filter((m) => m.d12w != null && m.latest - m.d12w >= minBase && m.d12w !== 0)
+    .map((m) => ({ ...m, base12w: m.latest - m.d12w, pct12w: (m.d12w / (m.latest - m.d12w)) * 100 }));
+  return {
+    up: ranked.filter((m) => m.d12w > 0).sort((a, b) => b.pct12w - a.pct12w).slice(0, n),
+    down: ranked.filter((m) => m.d12w < 0).sort((a, b) => a.pct12w - b.pct12w).slice(0, n),
+  };
+}
+
 export function renderBasinExtremes(panelEl, bundle) {
   if (!bundle.sources?.baker_hughes_weekly?.data) {
     panelEl.innerHTML = '<div class="panel-error"><p>Baker Hughes rig data is currently unavailable.</p></div>';
@@ -548,20 +625,12 @@ export function renderBasinExtremes(panelEl, bundle) {
   const metrics = computeBasinMetrics(bundle);
   const extremes = metrics.filter((m) => m.extreme);
 
-  if (extremes.length === 0) {
-    panelEl.innerHTML = `
-      <div class="extremes-empty">
-        <span style="color:var(--color-bullish-supply)">●</span>
-        &nbsp;No basins in extreme territory · all ${metrics.length} basins within their 52-week range
-      </div>
-    `;
-    return;
-  }
-
   const cards = extremes.map((m) => {
     const dirLabel = m.extreme === 'high'
-      ? `↑ above 52w max (${m.range12m.max})`
-      : `↓ below 52w min (${m.range12m.min})`;
+      // The prior 52 weeks, not the window that includes this week: printing
+      // the latter read "275 above 52w max (275)".
+      ? `↑ above prior 52w max (${m.priorRange?.max ?? m.range12m.max})`
+      : `↓ below prior 52w min (${m.priorRange?.min ?? m.range12m.min})`;
     return `
       <span class="extreme-card extreme-card--${m.extreme}">
         <strong>${m.label}</strong>
@@ -570,10 +639,35 @@ export function renderBasinExtremes(panelEl, bundle) {
       </span>
     `;
   }).join('');
+  const extremeBlock = extremes.length
+    ? `<div class="movers__head">At a 52-week extreme</div><div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">${cards}</div>`
+    : `<div class="extremes-empty"><span style="color:var(--color-bullish-supply)">●</span>
+        &nbsp;No basin at a 52-week extreme · all ${metrics.length} within their prior range</div>`;
+
+  const { up, down } = sharpestMovers(metrics);
+  const row = (m) => `
+    <tr>
+      <td>${m.label}<span class="badge badge--${m.flavor}">${m.flavor.toUpperCase()}</span></td>
+      <td class="num">${m.base12w} → ${m.latest}</td>
+      <td class="num ${m.d12w > 0 ? 'delta-pos' : 'delta-neg'}">${m.d12w > 0 ? '+' : ''}${m.d12w}</td>
+      <td class="num ${m.d12w > 0 ? 'delta-pos' : 'delta-neg'}">${m.pct12w > 0 ? '+' : ''}${m.pct12w.toFixed(0)}%</td>
+    </tr>`;
+  const table = (title, list) => `
+    <div class="movers__col">
+      <div class="movers__head">${title}</div>
+      ${list.length ? `<table class="basin-table movers__table">
+        <thead><tr><th>Basin</th><th>12 weeks</th><th>Rigs</th><th>%</th></tr></thead>
+        <tbody>${list.map(row).join('')}</tbody></table>`
+        : '<div class="extremes-empty">None</div>'}
+    </div>`;
 
   panelEl.innerHTML = `
-    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)">
-      ${cards}
+    <div class="movers">
+      ${table('Sharpest risers · 12 weeks', up)}
+      ${table('Sharpest fallers · 12 weeks', down)}
     </div>
+    <div class="movers__extremes">${extremeBlock}</div>
+    <span class="panel-table__note">Ranked by change relative to the basin's rig count 12 weeks ago; basins that
+      started below 5 rigs are left out, where one rig is a large percentage and little signal.</span>
   `;
 }

@@ -3,8 +3,8 @@
     "id": "freeport",
     "display": "Freeport",
     "nameplate": 2100.0,
-    "expectedCoveragePct": 52.9,
-    "expectedMedianMmcf": 1111.5,
+    "expectedCoveragePct": 76.1,
+    "expectedMedianMmcf": 1597.3,
     "coverageTolerancePct": 10.0,
     "operational": true
   },

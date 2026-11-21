@@ -173,9 +173,8 @@ async def test_run_empty_response_skips_country(
     async def _mock_get_json(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
         nonlocal call_count
         call_count += 1
-        country = (params or {}).get("country", "")
-        if country == "EU":
-            return _single_page_response([{**SAMPLE_ROW, "code": "EU", "name": "EU"}])
+        if (params or {}).get("type") == "eu":
+            return _single_page_response([{**SAMPLE_ROW, "code": None, "name": "EU"}])
         return _single_page_response([])
 
     with (
@@ -192,9 +191,40 @@ async def test_run_empty_response_skips_country(
 
     assert result["status"] == "ok"
     assert result["row_count"] == 1
-    # All countries returned HTTP 200 (even with empty data[]), so all are "ok"
-    assert "EU" in result["countries_ok"]
+    # Only a target that returned rows is "ok"; HTTP 200 with data: [] is
+    # "empty", so health can no longer claim rows that were never written.
+    assert result["countries_ok"] == ["EU"]
+    assert result["countries_empty"] == [c for c in COUNTRIES if c != "EU"]
     assert result["countries_failed"] == []
+    payload = json.loads(raw_path.read_text())
+    assert payload["data"][0]["country_code"] == "EU", "aggregate rows are tagged with the target"
+
+
+@pytest.mark.asyncio
+async def test_eu_aggregate_uses_type_query(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The EU aggregate is requested with type=eu; member states with country=XX."""
+    monkeypatch.setenv("GIE_API_KEY", "test-key")
+    monkeypatch.setattr("scrapers.gie_agsi.european_storage.RAW_PATH", tmp_path / "raw.json")
+    seen: list[dict[str, str]] = []
+
+    async def _get(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
+        seen.append(dict(params or {}))
+        return _single_page_response([SAMPLE_ROW])
+
+    with (
+        patch("scrapers.gie_agsi.european_storage.HealthWriter"),
+        patch("scrapers.gie_agsi.european_storage.HttpClient") as MockClient,
+    ):
+        inst = AsyncMock()
+        inst.get_json = _get
+        inst.__aenter__ = AsyncMock(return_value=inst)
+        inst.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = inst
+        await run()
+
+    eu = [p for p in seen if p.get("type") == "eu"]
+    assert len(eu) == 1 and "country" not in eu[0]
+    assert sorted(p["country"] for p in seen if "country" in p) == sorted(c for c in COUNTRIES if c != "EU")
 
 
 @pytest.mark.asyncio

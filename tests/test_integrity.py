@@ -664,6 +664,8 @@ class TestShippedRules:
             "eia_storage",
             "eia_lng_exports",
             "eia_supply",
+            # EIA trade by partner/mode and consumption by sector (balance panel)
+            "eia_flows",
             "gasnom",
             "quorum",
             "bhe",
@@ -672,6 +674,10 @@ class TestShippedRules:
             "enbridge",
             # Kinder Morgan pipeline2 OpAvail (Sabine/Corpus measured feeds)
             "kinder_morgan",
+            # ENTSOG Transparency: EU imports by supply route
+            "entsog",
+            # Eurostat monthly gas consumption (days of cover)
+            "eurostat_gas",
             # SHELVED 2026-08-25: transco removed — legacy 1Line JSP endpoints
             # are gone (portal-app migration); stanza commented out in
             # config/integrity_rules.yaml to stop permanent WARN noise.
@@ -688,7 +694,7 @@ class TestShippedRules:
         assert band["min"] == 0.0 and band["max"] == 2860000.0
 
     def test_monthly_sources_use_publication_lag_thresholds(self, rules: dict[str, Any]) -> None:
-        for key in ("eia_lng_exports", "eia_supply"):
+        for key in ("eia_lng_exports", "eia_supply", "eia_flows"):
             source = rules["sources"][key]
             assert source["month_end_normalize"] is True
             assert source["staleness"]["fail_days"] == 135
