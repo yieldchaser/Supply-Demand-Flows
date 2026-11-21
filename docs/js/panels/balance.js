@@ -11,21 +11,28 @@
  *               month later than the others)
  * Periods are `YYYY-MM` strings; values are converted to Bcf and Bcf/d here.
  *
-* The identity EIA publishes (Natural Gas Monthly, Table 1) is
+ * The identity EIA publishes (Natural Gas Monthly, Table 1, "supply and
+ * disposition") is
  *
- *   dry production + supplemental gaseous fuels + net imports
- *       − net storage withdrawals = consumption + balancing item
+ *   consumption = dry production + supplemental gaseous fuels + net imports
+ *                 + net storage withdrawals + balancing item
  *
- * `supply_vg4` is EIA's own reconciliation line: "the difference between the
- * sum of the components of natural gas supply and the sum of the components of
- * natural gas disposition". It is *not* an import term and *not* demand — the
- * two legs it is commonly mistaken for have opposite signs, and net imports in
- * fact runs roughly eleven times larger than it.
+ * Net storage withdrawals (withdrawals − injections) is a *supply* leg: gas
+ * taken out of storage is delivered this month, gas injected is not consumed.
+ * The balancing item is EIA's reconciliation line, also on the supply side.
  *
- * This API route carries four of the six legs. There is no net-imports leg
- * (`natural-gas/move/expc` · `impc`), so the identity cannot be closed here and
- * the panel prints what it can balance, states the imbalance, and names the two
- * missing legs instead of folding them into a residual labelled "unexplained".
+ * This API route carries every leg except net imports (`natural-gas/move/expc`
+ * · `impc`). Solving the identity for it gives
+ *
+ *   implied net exports = production + supplemental + net withdrawals
+ *                         + balancing item − consumption
+ *
+ * which the panel prints as an inference and checks against the LNG export
+ * total. A previous version put storage and the balancing item on the wrong
+ * side (`− net withdrawals`, `− balancing item`): its "imbalance" swung between
+ * −55 and +50 Bcf/d with the storage season, implied the US *imported* 33 Bcf/d
+ * in summer, and the panel then doubted EIA's sign convention. With EIA's signs
+ * the same data give 11–21 Bcf/d of net exports, rising with LNG capacity.
  * See `tests/balance_identity.test.mjs`.
  */
 
@@ -50,18 +57,16 @@ export function daysInMonth(period) {
 /**
  * The legs of the identity this bundle can supply, in EIA's published order.
  *
- * Sign convention: `+` adds to supply, `−` adds to disposition. Net storage
- * withdrawals sit on the **supply** side of Table 1 — gas leaving storage is
- * delivered this month — so its term is `− swd`: a withdrawal month reduces the
- * imbalance exactly as a production month raises it, and a net injection
- * (negative `swd`) adds to it.
+ * Sign convention: `+` is supply, `−` is disposition. Net storage withdrawals
+ * and the balancing item are supply legs, so both enter with `+` and their own
+ * published sign (a net-injection month has negative `swd`).
  */
 const KNOWN_LEGS = [
   { key: 'fpd', sign: 1 },
   { key: 'ovi', sign: 1 },
-  { key: 'swd', sign: -1 },
+  { key: 'swd', sign: 1 },
+  { key: 'vg4', sign: 1 },
   { key: 'vc0', sign: -1 },
-  { key: 'vg4', sign: -1 },
 ];
 
 /**
@@ -83,10 +88,9 @@ const MISSING_LEGS = [
 /**
  * One month's balance in Bcf (monthly totals) and Bcf/d (per-day rates).
  *
- * The identity is *not* closed here: `imbalanceBcf` is EIA's published function
- * of the terms this bundle has, and the residual it leaves is attributed — in
- * the panel — to the legs that are missing, never to a fiction that this route
- * is a closed system.
+ * `imbalanceBcf` is supply on the legs this route carries minus consumption,
+ * i.e. what net imports would have to be, with the opposite sign, to close the
+ * identity: positive = the US exported that much more than it imported.
  *
  * `null` means a leg is unpublished, not that the month balances.
  */
@@ -105,20 +109,20 @@ export function monthBalance(row, days) {
   const imbalanceBcf = complete
     ? KNOWN_LEGS.reduce((sum, { key, sign }) => sum + sign * known[key], 0)
     : null;
-  // Known supply is production + supplemental fuels; the storage term is the
-  // third supply leg and belongs in the imbalance, not in this line, or a
-  // withdrawal month and a rejection month draw at the same height.
-  const suppliedBcf = fpd != null && ovi != null ? fpd + ovi : null;
+  // The chart's two sides: everything available to the domestic market before
+  // trade (production, supplemental, net withdrawals, balancing item) against
+  // consumption. The gap between them is the implied net export.
+  const suppliedBcf = complete ? fpd + ovi + swd + vg4 : null;
   const drainedBcf = vc0 != null ? vc0 : null;
 
   return {
     netBcf: imbalanceBcf,
     residualBcf: imbalanceBcf,
     imbalanceBcf,
-    // What the missing leg is worth, by subtraction: the identity solved for
-    // net imports. It is an inference from one published month, not a
-    // measurement, and it is labelled that way wherever it is printed.
-    impliedNetImportsBcf: imbalanceBcf == null || vg4 == null ? null : imbalanceBcf - vg4,
+    // The identity solved for the one leg this route lacks. An inference from
+    // the published legs, not a measurement, and labelled so where printed.
+    impliedNetImportsBcf: imbalanceBcf == null ? null : -imbalanceBcf,
+    impliedNetExportsBcf: imbalanceBcf,
     storageChangeBcf: swd,
     // The figure this panel used to print, kept so the correction to the
     // identity is visible rather than an unremarked change of definition.
@@ -195,6 +199,8 @@ export function buildBalanceModel(rows) {
     medianAbsResidualBcf: withResidual.length
       ? d3.median(withResidual, (m) => Math.abs(m.imbalanceBcf))
       : null,
+    minImpliedBcfd: withResidual.length ? Math.min(...withResidual.map((m) => m.imbalanceBcfd)) : null,
+    maxImpliedBcfd: withResidual.length ? Math.max(...withResidual.map((m) => m.imbalanceBcfd)) : null,
   };
 }
 
@@ -312,7 +318,7 @@ export function renderBalancePanel(panelEl, bundle) {
   const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'Supply & Demand Balance',
-    subtitle: 'EIA · monthly US48 Table 1 identity — four of six legs in this route, imbalance named',
+    subtitle: 'EIA · monthly US48 Table 1 identity · net trade solved from the other five legs',
     sourceKey: 'eia_supply',
     latestPeriod: source.latest_period,
     draw: () => drawRef.current?.(),
@@ -396,48 +402,25 @@ function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
 
   const residualD = latest.imbalanceBcf;
   const residualPerDay = residualD / latest.days;
-  const impliedNetImports = latest.impliedNetImportsBcf;
-  const impliedNote = impliedNetImports == null
+  const lngPerDay = lngBcf == null ? null : lngBcf / latest.days;
+  const pipelinePerDay = lngPerDay == null ? null : residualPerDay - lngPerDay;
+  const plausible = residualPerDay > 0 && residualPerDay < (latest.vc0Bcfd ?? Infinity) * 0.5;
+
+  const impliedNote = `<br>Solving the identity for the missing leg gives <strong>${signedBcfd(residualPerDay, 1)} Bcf/d of
+       net exports</strong> (${signedBcfd(residualD, 0)} Bcf). That is an inference from the published legs, not a
+       measurement: EIA's own trade series is not in this bundle.${lngPerDay == null ? '' : ` LNG exports were
+       ${formatNumber(lngPerDay, 1)} Bcf/d that month, which leaves ${signedBcfd(pipelinePerDay, 1)} Bcf/d for net
+       pipeline trade (exports to Mexico less imports from Canada) plus the measurement noise of five legs.`}`;
+  const impliedCaveat = plausible
     ? ''
-    : `<br>What that missing leg is worth, by subtraction: solving the identity for net imports gives
-       ${signedBcfd(impliedNetImports, 0)} Bcf (${signedBcfd(impliedNetImports / latest.days, 1)} Bcf/d).
-       That is an inference from the published legs, not a measurement — EIA's real net imports are not
-       in this bundle — but it would have to be physically implausible for the imbalance to mean anything
-       else.`;
+    : `<br><strong>Check:</strong> the implied figure is outside the range US net trade can take
+       (positive and well under half of consumption); one of the published legs may be provisional.`;
 
-  // Implying the missing import leg is only defensible when it lands somewhere
-  // real net imports can land; a seasonal swing of this size is not one of them.
-  const impliedShare = latest.vc0 == null || impliedNetImports == null
-    ? null
-    : impliedNetImports / latest.vc0;
-  const impliedSuspicious = impliedShare != null && (impliedShare < -0.15 || impliedShare > 0.15);
-  const impliedCaveat = impliedSuspicious
-    ? `<br><strong>The implied leg is ${Math.round(impliedShare * 100)}% of total consumption</strong>,
-       which is larger than US net imports can be in any month — most of the annual range is storage.
-       Read the complement instead: if EIA's Table 1 counts storage as one net line, this series draws net
-       <em>withdrawal</em> in every injection season, so the storage legs here may carry a disposition sign
-       that the panel has not yet verified against the published table. Treat the signed imbalance as
-       unreliable until that is checked; the magnitudes are unaffected.`
-    : '';
-
-  const badge = `<span class="panel-subchart__badge--bearish">Imbalance ${signedBcfd(residualPerDay, 1)} Bcf/d</span>`;
+  const badge = `<span class="panel-subchart__badge--bullish">Implied net exports ${signedBcfd(residualPerDay, 1)} Bcf/d</span>`;
 
   // Sum of the printed rows must be the printed imbalance: the bridge is
   // checked against its own arithmetic by the test suite.
   const legSumBcf = KNOWN_LEGS.reduce((sum, { key, sign }) => sum + sign * (latest[key] ?? 0), 0);
-
-  const naiveNote = latest.naiveFlowBcf != null && latest.storageChangeBcf != null    ? `<br>EIA's balancing item is a reconciliation line, not demand and not an import term. The
-       panel's former "production − consumption" figure reads ${signedBcfd(latest.naiveFlowBcf, 0)} Bcf
-       for this month, ${signedBcfd(latest.naiveFlowBcf - latest.storageChangeBcf, 0)} Bcf away from the
-       ${signedBcfd(latest.storageChangeBcf, 0)} Bcf net storage change and
-       ${signedBcfd(latest.vg4, 0)} Bcf away from EIA's balancing item.`
-    : '';
-
-  const lngNote = lngBcf == null
-    ? ''
-    : `<br>LNG exports alone were ${formatNumber(lngBcf, 1)} Bcf that month
-       (${formatNumber(lngBcf / latest.days, 1)} Bcf/d) — one component of net imports, and most of why
-       the imbalance is positive.`;
 
   // Feedgas is the newest data the bundle holds that touches this identity, so
   // it is shown beside the monthly legs even though it cannot close them.
@@ -447,16 +430,16 @@ function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
   const feedgasNote = !feedgas
     ? ''
     : `<br>The terminal meters are the most recent view: ${formatNumber(feedgas.bcf, 0)} Bcf of feedgas
-       across ${feedgas.terminals} terminals in ${monthLabel(parsePeriod(feedgasKey))}
-       (${formatNumber(feedgas.bcf / latest.days, 1)} Bcf/d monthly equivalent). That is a floor on US net
-       imports — pipeline trade with Canada and Mexico is not in it — and it is ${lngBcf == null ? 'not'
-       : `roughly ${formatNumber(feedgas.bcf / lngBcf, 2)}×`} the EIA LNG export total for the same month.`;
+       across ${feedgas.terminals} measured terminals in ${monthLabel(parsePeriod(feedgasKey))}
+       (${formatNumber(feedgas.bcf / latest.days, 1)} Bcf/d monthly equivalent). It runs ahead of EIA's
+       monthly series and is a floor on LNG exports, not on net trade: pipeline trade with Canada and
+       Mexico is not in it.`;
 
   wrap.innerHTML = `
     ${head(
       `${signedBcfd(residualPerDay)} Bcf/d`,
       '',
-      `${latest.days}-day month · imbalance on the four legs this route carries`,
+      `${latest.days}-day month · Table 1 legs; net trade solved from the rest`,
     )}
     <div class="panel-subchart__body panel-subchart__body--auto">
       <table class="bridge-table">
@@ -465,27 +448,22 @@ function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
           ${legRows}
           ${missingRows}
           <tr class="bridge-table__residual">
-            <td class="lbl">Imbalance = known supply − known disposition</td>
+            <td class="lbl">Implied net exports = supply legs − consumption</td>
             <td class="num ${signClass(residualPerDay)}">${signedBcfd(residualPerDay, 2)}</td>
             <td class="num muted">${signedBcfd(residualD, 1)}</td>
           </tr>
         </tbody>
       </table>
       <span class="panel-table__note">
-        Identity: dry production + supplemental fuels + net imports − net storage withdrawals =
-        consumption + balancing item. This route supplies the first two, the storage change and the
-        two right-hand terms; <strong>net imports is not scraped</strong>, so the four available legs
-        do not close and the imbalance above is what is left after the two missing rows
-        (${signedBcfd(legSumBcf, 1)} Bcf of legs, printed as
-        ${signedBcfd(residualD, 1)} Bcf).
-        Across ${model.closingMonths} months with a published balancing item the imbalance is
-        ${formatNumber(model.medianAbsResidualBcf, 0)} Bcf/month at the median and
-        ${formatNumber(model.maxAbsResidualBcf, 0)} Bcf at its largest.
+        Identity (EIA Natural Gas Monthly, Table 1): consumption = dry production + supplemental fuels
+        + net imports + net storage withdrawals + balancing item. This route carries every leg except
+        <strong>net imports</strong>; the rows above sum to ${signedBcfd(legSumBcf, 1)} Bcf, which is
+        net imports with the opposite sign.
+        Across ${model.closingMonths} months the implied net exports run
+        ${formatNumber(model.minImpliedBcfd, 1)} to ${formatNumber(model.maxImpliedBcfd, 1)} Bcf/d.
         ${impliedNote}
         ${impliedCaveat}
-        ${lngNote}
         ${feedgasNote}
-        ${naiveNote}
         See <code>tests/balance_identity.test.mjs</code>.
       </span>
     </div>`;
@@ -557,15 +535,15 @@ function drawBalanceChart(container, model) {
     .attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
     .attr('stroke', 'var(--chart-grid)');
 
-  // The band between the two sides of the identity is the imbalance, not a
-  // storage flow: the legs it omits (net imports) fall between the two lines.
-  // Labelling it as storage flow was the panel's original error.
+  // The band between the two sides of the identity is the implied net export:
+  // supply available to the domestic market minus what it consumed.
   const area = d3.area()
     .x((m) => x(m.period))
     .y0((m) => y(m.drainedBcf))
     .y1((m) => y(m.suppliedBcf))
     .curve(d3.curveMonotoneX);
-  g.append('path').datum(rows).attr('d', area).attr('fill', 'var(--chart-band)');
+  // `--chart-band` is not a defined token, so this fill used to render black.
+  g.append('path').datum(rows).attr('d', area).attr('fill', 'var(--color-accent-bg)');
 
   const line = (key, color) => g.append('path')
     .datum(rows)
@@ -614,9 +592,9 @@ function drawBalanceChart(container, model) {
   const legend = svg.append('g').attr('transform', `translate(${margin.left}, 10)`);
   let xOff = 0;
   for (const item of [
-    { label: 'Known supply', color: 'var(--blue-flame)' },
-    { label: 'Known disposition', color: 'var(--color-warning)' },
-    { label: 'Band = imbalance', color: 'var(--blue-flame-deep)' },
+    { label: 'Supply incl. net storage withdrawals', color: 'var(--blue-flame)' },
+    { label: 'Consumption', color: 'var(--color-warning)' },
+    { label: 'Gap = implied net exports', color: 'var(--color-accent-border)' },
   ]) {
     const grp = legend.append('g').attr('transform', `translate(${xOff}, 0)`);
     grp.append('line')
@@ -671,13 +649,12 @@ function setupBalanceHover(svg, g, x, y, width, height, rows, margin) {
         .style('top', '36px')
         .html(`
           <div class="tt-date">${monthLabel(m.period)} · ${m.days} days</div>
-          ${row('Known supply', m.suppliedBcf / m.days)}
-          ${row('Known disposition', m.drainedBcf / m.days)}
+          ${row('Supply incl. storage', m.suppliedBcf / m.days)}
+          ${row('Consumption', m.drainedBcf / m.days)}
           ${row('Dry production', m.fpdBcfd)}
-          ${row('Consumption', m.vc0Bcfd)}
           ${row('Net storage withdrawals', m.swdBcfd)}
           <div class="tt-row tt-row--accent">
-            <span class="tt-label">Imbalance (net imports missing)</span>
+            <span class="tt-label">Implied net exports</span>
             <span class="num">${signedBcfd(m.imbalanceBcfd)} Bcf/d</span>
           </div>
           <div class="tt-row">
@@ -716,13 +693,13 @@ function renderBalanceKpis(sidebarEl, model, lngByMonth) {
       label: 'Supply',
       value: `${formatNumber(latest.fpdBcfd)} Bcf/d`,
       delta: yoyLabel(yoyPct('fpdBcfd')),
-      helpText: `Dry production · ${formatNumber(latest.fpdBcf, 0)} Bcf in ${monthLabel(latest.period)}`,
+      helpText: `Dry production · ${formatNumber(latest.fpd, 0)} Bcf in ${monthLabel(latest.period)}`,
     }),
     kpiCardHtml({
       label: 'Demand',
       value: `${formatNumber(latest.vc0Bcfd)} Bcf/d`,
       delta: yoyLabel(yoyPct('vc0Bcfd')),
-      helpText: `Total consumption · ${formatNumber(latest.vc0Bcf, 0)} Bcf in ${monthLabel(latest.period)}`,
+      helpText: `Total consumption · ${formatNumber(latest.vc0, 0)} Bcf in ${monthLabel(latest.period)}`,
     }),
     kpiCardHtml({
       label: 'Net to storage',
@@ -733,12 +710,13 @@ function renderBalanceKpis(sidebarEl, model, lngByMonth) {
          (${latest.storageChangeBcf >= 0 ? 'net withdrawal' : 'net injection'}) in ${monthLabel(latest.period)}`,
     }),
     kpiCardHtml({
-      label: 'Imbalance',
+      label: 'Implied net exports',
       value: latest.imbalanceBcfd == null ? '—' : `${signedBcfd(latest.imbalanceBcfd)} Bcf/d`,
       helpText: latest.imbalanceBcfd == null
-        ? 'A leg is missing for this month, so the imbalance is not measurable'
-        : `Supply − disposition on the four legs in this route. Net imports is not scraped
-           and is the missing term${lngByMonth?.has(monthKeyOf(latest.period)) ? ' (LNG exports alone are in the LNG panel)' : ''}.`,
+        ? 'A leg is missing for this month, so net trade cannot be solved'
+        : `Table 1 solved for net trade${lngByMonth?.has(monthKeyOf(latest.period))
+          ? ` · LNG exports ${formatNumber(lngByMonth.get(monthKeyOf(latest.period)) / latest.days, 1)} Bcf/d`
+          : ''} · inferred, not measured`,
     }),
   ].join('');
 }
