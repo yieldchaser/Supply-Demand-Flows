@@ -1,0 +1,32 @@
+name: Branch probe - EIA facets (temporary)
+
+# Temporary, branch-only: lists EIA v2 facet codes with the repo's EIA_API_KEY.
+# Writes and commits nothing. Delete before merge.
+
+on:
+  push:
+    branches:
+      - claude/supply-demand-flows-audit-fwh61b
+    paths:
+      - '.github/workflows/branch-eia-probe.yml'
+      - 'scripts/_branch_eia_probe.py'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: pip install httpx==0.27.2
+      - name: List EIA facets
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: python scripts/_branch_eia_probe.py
