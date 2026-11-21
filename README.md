@@ -54,7 +54,7 @@ All 8 operational U.S. LNG export terminals are live, coverage-guarded, and trac
 
 | Terminal | Pipeline / Platform | Feeds & Signal Type | Nameplate | Coverage & Baseline | History Depth | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Freeport LNG** | Gulf South (BWP) + TETCO (Enbridge) | Multi-feed SQ (2 feeds) | 2,100 MMcf/d | 52.9% median (KMTP intrastate feed missing) | 101 gas days | ✅ Live |
+| **Freeport LNG** | Gulf South (BWP) + TETCO (Enbridge) | Multi-feed SQ (2 feeds) | 2,100 MMcf/d | 76.1% median (KMTP intrastate feed missing) | 101 gas days | ✅ Live |
 | **Cove Point LNG** | BHE Cove Point Pipeline | Plant intake delivery SQ (loc 10001) | 750 MMcf/d | 97.1% median (full plant gate meter) | 612 gas days | ✅ Live |
 | **Sabine Pass LNG** | Cheniere Creole Trail (CTPL) | Inferred delivery (OAC proxy) + NGPL context | 4,500 MMcf/d | 30.3% measured (non-CTPL feeds invisible) | 101 gas days | ✅ Live |
 | **Plaquemines LNG** | Quorum Gator Express | Delivery SQ at VGPQD (loc vgpqd) | 3,400 MMcf/d | 112.4% median (Phase 1 & 2 commissioning) | 1,996 gas days | ✅ Live |

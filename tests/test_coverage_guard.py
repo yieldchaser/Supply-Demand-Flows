@@ -189,18 +189,22 @@ def test_coverage_guard_still_catches_structural_loss() -> None:
 
 
 def test_coverage_guard_rejects_perturbed_flattering_claim() -> None:
-    """Proof of guard: rejects a deliberately falsified coverage claim (e.g. Freeport at 80%)."""
-    # Recompute Freeport from curated
-    res = compute_terminal_coverage_from_curated("freeport", window_days=100, nameplate=2100.0)
-    measured_pct = res["coverage_pct"]  # ~52.9%
+    """Proof of guard: rejects a deliberately falsified coverage claim.
 
-    # Simulate the flattering falsehood that Prompt L and M caught
-    flattering_claim = 80.0
+    The falsehood is "the visible meters see the whole plant" (~100% of
+    nameplate): the KMTP intrastate lateral (~400–450 MMcf/d) is unposted, so
+    visible coverage cannot exceed ~80%. A fixed 80% probe stopped being a
+    falsehood once Freeport's measured coverage was re-baselined to ~76%.
+    """
+    res = compute_terminal_coverage_from_curated("freeport", window_days=100, nameplate=2100.0)
+    measured_pct = res["coverage_pct"]
+
+    flattering_claim = 100.0
     tolerance = 10.0  # Freeport's verified tolerance
     drift = abs(measured_pct - flattering_claim)
 
     assert drift > tolerance, (
-        f"Guard must fail when 80.0% is claimed for Freeport "
+        f"Guard must fail when 100% is claimed for Freeport "
         f"(drift {drift:.1f}% must exceed tolerance {tolerance:.1f}%)"
     )
 

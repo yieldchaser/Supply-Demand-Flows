@@ -348,7 +348,7 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     : '';
   const latestPeriodText = source && source.latest_period ? source.latest_period : latestData.dateStr;
   const kmtpLine = isMultiFeed
-    ? '<p>Gulf South + TETCO interconnects, 52.9% median of the 2,100 MMcf/d nameplate. The KMTP intrastate lateral (~400–450 MMcf/d) sits outside these meters.</p>'
+    ? '<p>Gulf South + TETCO interconnects, 76.1% median of the 2,100 MMcf/d nameplate over the last 100 operating days. The KMTP intrastate lateral (~400–450 MMcf/d) sits outside these meters.</p>'
     : '';
   const covNoteLine = t.coverageNote ? `<p>${t.coverageNote}</p>` : '';
   footerContainer.innerHTML = `

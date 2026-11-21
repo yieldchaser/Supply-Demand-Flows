@@ -67,7 +67,7 @@ export const DOWNTIME_CONF = {
     ],
     zeroDaysThreshold: 2,
     cargoZero: false,
-    honesty: 'KMTP intrastate feed (~400–450 MMcf/d) is invisible. Combined total covers 52.9% median of 2,100 MMcf/d nameplate (1,111.5 MMcf/d median over 100-day overlap; peak 30d 1,538 MMcf/d = 73.2%).',
+    honesty: 'KMTP intrastate feed (~400–450 MMcf/d) is invisible. Combined total covers 76.1% median of 2,100 MMcf/d nameplate (1,597 MMcf/d median over the last 100 operating days to 2026-11-20; 52.9% over the degraded Jun–Aug 2026 run).',
   },
   cove_point: {
     label: 'Cove Point',

@@ -50,7 +50,7 @@ const TERMINALS = [
       { src: 'gulf_south', stem: 'gulf_south_sq_24329_d', label: 'Gulf South 24329', color: 'rgba(56,189,248,0.85)' },
       { src: 'enbridge',    stem: 'tetco_sq_79999_d',       label: 'TETCO 79999',     color: 'rgba(34,211,164,0.80)' },
     ],
-    honesty: 'Share = Gulf South + TETCO only (52.9% median coverage of 2,100 MMcf/d nameplate over 100-day overlap). The unposted KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates and other unmeasured feeds account for the remaining ~988 MMcf/d, so an interstate share shift may reflect shifts to/from unmeasured supplies rather than pure pipeline routing.',
+    honesty: 'Share = Gulf South + TETCO only (76.1% median coverage of 2,100 MMcf/d nameplate over the last 100 operating days). The unposted KMTP intrastate lateral (~400–450 MMcf/d capacity) plus terminal derates account for the remaining ~500 MMcf/d, so an interstate share shift may reflect shifts to/from unmeasured supplies rather than pure pipeline routing.',
   },
   {
     id: 'cove_point',
