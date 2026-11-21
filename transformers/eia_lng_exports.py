@@ -59,6 +59,15 @@ REGIONS: dict[str, list[str]] = {
     "LatAm": [
         "BRA", "CHL", "ARG", "COL", "DOM", "MEX", "JAM", "PAN", "TTO",
         "CRI", "GTM", "HND", "SLV", "ECU", "PER", "VEN", "BOL",
+        # Caribbean islands (small-scale and ISO-container cargoes)
+        "BHS", "BRB", "HTI", "ATG", "CUW", "ABW", "LCA", "GRD", "KNA", "VCT", "PRI",
+    ],
+    # Middle East & Africa: Egypt alone took ~10% of US LNG in the year to
+    # Aug 2026, which an unlabelled "Other" bucket hid.
+    "MEA": [
+        "EGY", "JOR", "ISR", "ARE", "KWT", "BHR", "QAT", "OMN", "SAU", "LBN",
+        "SEN", "MRT", "MAR", "TUN", "DZA", "LBY", "NGA", "GHA", "CIV", "ZAF",
+        "MOZ", "AGO", "CMR", "GNQ", "BEN", "TGO", "KEN", "TZA", "SDN",
     ],
 }
 
@@ -198,13 +207,10 @@ def transform(
         )
 
     # ── Emit regional aggregate series ────────────────────────────────────────
-    for region in ("Europe", "Asia", "LatAm", "Other"):
-        if region == "Other":
-            region_df = base_df[~base_df["destination_code"].isin(
-                [c for codes in REGIONS.values() for c in codes]
-            )].copy()
-        else:
-            region_df = base_df[base_df["region"] == region].copy()
+    # Every region, Other included, is selected on the remapped region column,
+    # so a destination EIA sends under an alias (UK -> GBR) is counted once.
+    for region in ("Europe", "Asia", "LatAm", "MEA", "Other"):
+        region_df = base_df[base_df["region"] == region].copy()
 
         if region_df.empty:
             log.info("No rows for region %s — skipping regional series.", region)

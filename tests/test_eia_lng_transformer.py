@@ -253,3 +253,24 @@ def test_total_uses_eia_national_aggregate_when_present(tmp_path: Path) -> None:
     df = _pd.read_parquet(out)
     total = df[df.series_id == "lng_export_total"]["value"].iloc[0]
     assert abs(total - 514.6) < 1e-6
+
+
+def test_regions_partition_the_total_and_aliases_count_once(tmp_path: Path) -> None:
+    """Egypt is Middle East & Africa, the Bahamas LatAm; 'UK' is Europe only."""
+    raw = tmp_path / "raw.json"
+    raw.write_text(json.dumps({"data": [
+        {"period": "2026-08", "destination_code": "EGY", "destination_name": "EGY", "value_mmcf": 50000},
+        {"period": "2026-08", "destination_code": "BHS", "destination_name": "BHS", "value_mmcf": 1000},
+        {"period": "2026-08", "destination_code": "UK", "destination_name": "UK", "value_mmcf": 5000},
+        {"period": "2026-08", "destination_code": "CAN", "destination_name": "CAN", "value_mmcf": 300},
+    ]}))
+    out = tmp_path / "out.parquet"
+    transform(raw, out)
+    df = pd.read_parquet(out)
+    reg = df[df.series_id.str.startswith("lng_export_region_")].set_index("series_id")["value"]
+    assert reg["lng_export_region_mea"] == pytest.approx(50.0)
+    assert reg["lng_export_region_latam"] == pytest.approx(1.0)
+    assert reg["lng_export_region_europe"] == pytest.approx(5.0)
+    assert reg["lng_export_region_other"] == pytest.approx(0.3)
+    total = df[df.series_id == "lng_export_total"]["value"].iloc[0]
+    assert reg.sum() == pytest.approx(total)
