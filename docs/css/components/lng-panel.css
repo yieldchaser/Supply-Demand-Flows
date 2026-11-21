@@ -365,9 +365,25 @@
 }
 
 .fleet-sparkline {
-  width: 80px;
-  height: 24px;
-  align-self: flex-start;
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+  align-self: stretch;
+}
+
+.fleet-partial-badge {
+  cursor: help;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-warning);
+  border: 1px solid currentColor;
+  opacity: 0.85;
+  vertical-align: 1px;
 }
 
 .fleet-sparkline__path {

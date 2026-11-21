@@ -47,17 +47,22 @@ export {
  * @returns {string} SVG markup
  */
 export function sparklineSvg(values, colorClass) {
-  const W = 80;
-  const H = 24;
+  // Drawn at the card's aspect so it spans the card without being stretched
+  // (a stretched viewBox would turn the end dot into an ellipse).
+  const W = 240;
+  const H = 28;
   const PAD = 2;
   if (!values || values.length < 2) {
     return `<svg class="fleet-sparkline" viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg>`;
   }
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const span = max - min;
-  const yOf = (v) =>
-    span === 0 ? H / 2 : H - PAD - ((v - min) / span) * (H - PAD * 2);
+  // Vertical span at least 15% of the mean level, centred on the data, so a
+  // 1 MMcf/d wobble on an 837 MMcf/d terminal does not draw as a cliff.
+  const meanAbs = Math.abs(values.reduce((t, v) => t + v, 0) / values.length);
+  const span = Math.max(max - min, meanAbs * 0.15, 1);
+  const lo = (min + max) / 2 - span / 2;
+  const yOf = (v) => H - PAD - ((v - lo) / span) * (H - PAD * 2);
   const xOf = (i) => PAD + (i / (values.length - 1)) * (W - PAD * 2);
   const pts = values.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
   const lx = xOf(values.length - 1);
@@ -163,7 +168,7 @@ export function renderLngFleetOverview(
     if (s.wow) {
       const dir = s.wow.delta > 0 ? 'up' : s.wow.delta < 0 ? 'down' : 'flat';
       const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '▬';
-      wowHtml = `<span class="fleet-wow fleet-wow--${dir}">${arrow} ${
+      wowHtml = `<span class="fleet-wow fleet-wow--${dir}" title="Change in MMcf/d vs the gas day seven days earlier">${arrow} ${
         s.wow.delta >= 0 ? '+' : ''
       }${s.wow.delta.toFixed(0)}</span>`;
     }

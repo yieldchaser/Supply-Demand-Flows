@@ -395,6 +395,20 @@ function getGasYearInfo(date) {
  * current latest value deviates strongly from the trailing 90-day median
  * (guards against implying an outlier day is normal).
  */
+/**
+ * Rows from the first sustained flow on: the first day of three consecutive
+ * days at or above 2% of nameplate. Earlier rows are pre-service.
+ */
+export function trimPreService(rows, nameplate) {
+  const floor = (nameplate || 0) * 0.02;
+  for (let i = 0; i + 2 < rows.length; i++) {
+    if (rows[i].value >= floor && rows[i + 1].value >= floor && rows[i + 2].value >= floor && rows[i].value > 0) {
+      return i === 0 ? rows : rows.slice(i);
+    }
+  }
+  return rows;
+}
+
 function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDays, multi = null, events = []) {
   container.innerHTML = '';
 
@@ -414,6 +428,11 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
 
   // X scale: Gas Year Day Index (Feb 1st to Jan 31st: 0 to 365)
   const x = d3.scaleLinear().domain([0, 365]).range([0, width]);
+
+  // Drop the run before the terminal's first sustained flow: a meter posting
+  // zero for a plant not yet built is "no plant", not "zero feedgas", and
+  // those zeros became the floor of the prior-years range.
+  dailySeries = trimPreService(dailySeries, nameplate);
 
   // Assign gas year / day indices FIRST, then group by them.
   dailySeries.forEach((d) => {
@@ -796,7 +815,8 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
         const v2 = byDay2.get(i);
         if (v1 !== undefined) valid.push(v1);
         if (v2 !== undefined) valid.push(v2);
-        if (valid.length > 0) {
+        // A range needs both years on the day; one year alone is not a range.
+        if (valid.length === 2) {
           envelopeData.push({
             dayIndex: i,
             min: d3.min(valid),
@@ -863,16 +883,32 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
         .style('filter', 'drop-shadow(0 0 6px rgba(125, 211, 252, 0.4))');
     }
 
-    // Add info note to chart subtitle space — kept from the thin-data state
-    // because the 2-year envelope only becomes available once two prior gas
-    // years of history have accumulated.
-    svg.append('text')
-      .attr('x', margin.left)
-      .attr('y', 12)
-      .attr('font-size', '10px')
-      .style('fill', 'rgba(255,255,255,0.4)')
-      .style('font-style', 'italic')
-      .text('Historical envelope builds as data accumulates.');
+    // Legend: which line is which gas year. Without it the prior-year line and
+    // the two dashed range lines were unlabelled colours.
+    const drewRange = g.selectAll('path[stroke-dasharray="4,2"]').size() > 0;
+    const items = [
+      { label: `${currentGasYear} gas year`, color: 'var(--blue-flame)', w: 2.5 },
+      ...(priorYearRows.length ? [{ label: `${priorGasYear}`, color: '#6b7280', w: 1.5 }] : []),
+      ...(drewRange ? [
+        { label: `${prior2GasYear}–${priorGasYear} high`, color: '#ef4444', dash: '4,2', w: 1 },
+        { label: `${prior2GasYear}–${priorGasYear} low`, color: '#22d3ee', dash: '4,2', w: 1 },
+      ] : []),
+    ];
+    const lg = svg.append('g').attr('transform', `translate(${margin.left}, 8)`);
+    let lx = 0;
+    for (const it of items) {
+      const gi = lg.append('g').attr('transform', `translate(${lx},0)`);
+      gi.append('line').attr('x1', 0).attr('x2', 14).attr('y1', 4).attr('y2', 4)
+        .style('stroke', it.color).attr('stroke-width', it.w).attr('stroke-dasharray', it.dash ?? null);
+      const t = gi.append('text').attr('x', 18).attr('y', 8).attr('font-size', '10px')
+        .style('fill', 'rgba(255,255,255,0.6)').text(it.label);
+      lx += t.node().getComputedTextLength() + 34;
+    }
+    if (!drewRange) {
+      lg.append('text').attr('x', lx).attr('y', 8).attr('font-size', '10px')
+        .style('fill', 'rgba(255,255,255,0.4)').style('font-style', 'italic')
+        .text('Prior-years range appears once two earlier gas years overlap.');
+    }
   }
 
   // Dotted Latest-Cycle Line (if we have dotted rows)
@@ -987,7 +1023,7 @@ function renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestDat
           <div class="utilization-bar-fill ${utilLevel.colorClass}" style="width: ${Math.min(utilPct, 100)}%"></div>
         </div>
         <div class="utilization-context">
-          ${utilPct < 40 ? 'Low utilization in shoulder season may indicate train maintenance.' : `Stated nameplate capacity: ${nameplate.toLocaleString()} MMcf/d.`}
+          ${utilPct < 40 ? 'Low utilization in shoulder season may indicate train maintenance.' : `FERC nameplate: ${nameplate.toLocaleString()} MMcf/d.`}
         </div>
       </div>
     </div>
