@@ -55,6 +55,16 @@ sources:
     mode: accumulation        # rows only ever grow; enables flat-run divergence arm
     gap_rule: calendar_daily  # daily at dataset level (country publication offsets evaluated at source level)
 
+  entsog:
+    parquet: data/curated/entsog.parquet
+    health_file: data/health/entsog.json
+    staleness:
+      warn_days: 4            # operators publish D+1; the newest days stay blank until all have
+      fail_days: 8
+    unit_expected: GWh/d      # route totals, converted from ENTSOG kWh/d
+    mode: accumulation        # rows only ever grow; enables flat-run divergence arm
+    gap_rule: calendar_daily
+
   baker_hughes:
     parquet: data/curated/baker_hughes_weekly.parquet
     health_file: data/health/baker_hughes_rigs.json

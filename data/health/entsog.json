@@ -1,0 +1,12 @@
+{
+  "source": "entsog",
+  "status": "ok",
+  "timestamp_utc": "2026-11-21T01:41:29Z",
+  "error": null,
+  "metadata": {
+    "latest_gas_day": "2022-12-31",
+    "row_count": 19572,
+    "points": 75,
+    "batches_failed": []
+  }
+}

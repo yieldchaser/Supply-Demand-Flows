@@ -328,6 +328,7 @@ BUNDLE_ROW_BASELINES: dict[str, int] = {
     "eia_storage": 3608,
     "eia_supply": 468,
     "enbridge": 59516,
+    "entsog": 45630,
     "gasnom": 5038,
     "gie_agsi": 82720,
     "gulf_south": 57226,

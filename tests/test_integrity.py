@@ -672,6 +672,8 @@ class TestShippedRules:
             "enbridge",
             # Kinder Morgan pipeline2 OpAvail (Sabine/Corpus measured feeds)
             "kinder_morgan",
+            # ENTSOG Transparency: EU imports by supply route
+            "entsog",
             # SHELVED 2026-08-25: transco removed — legacy 1Line JSP endpoints
             # are gone (portal-app migration); stanza commented out in
             # config/integrity_rules.yaml to stop permanent WARN noise.

@@ -32,8 +32,13 @@ describe('EU panel model and export', { skip: !haveBundle && 'bundle not built' 
   });
 
   it('builds the 10-country total first, then the ten member states', () => {
-    assert.equal(model.entities.length, 11);
+    // 10-country total, GIE's EU-wide row when the bundle carries it, ten countries.
+    assert.equal(model.entities.length, 11 + (model.euWide ? 1 : 0));
     assert.equal(model.entities[0].cc, 'eu10');
+    if (model.euWide) {
+      assert.equal(model.entities[1].cc, 'eu');
+      assert.ok(model.coverage > 0.8 && model.coverage < 1, `10-country share of EU capacity ${model.coverage}`);
+    }
     assert.ok(model.entities[0].isAggregate);
     assert.ok(model.latestDate instanceof Date);
   });
@@ -41,7 +46,7 @@ describe('EU panel model and export', { skip: !haveBundle && 'bundle not built' 
   it('exports one row per entity with the figures the table prints', () => {
     for (const key of Object.keys(mod.EU_BASELINES)) {
       const out = mod.euStorageExport(model, key);
-      assert.equal(out.entities.length, 11);
+      assert.equal(out.entities.length, model.entities.length);
       assert.match(out.basis, /same calendar day/);
       for (const e of out.entities) {
         assert.ok(Number.isFinite(e.fill_pct), `${e.cc} fill`);

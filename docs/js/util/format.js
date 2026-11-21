@@ -116,6 +116,13 @@ export function classifyVintage(sourceKey, latestPeriod) {
       graceDays: 1,
       criticalAfterOverdueDays: 3,
     },
+    entsog: {
+      kind: 'daily',
+      publishLag: 2,           // the newest gas day completes once every operator has published
+      cadenceDays: 1,
+      graceDays: 2,
+      criticalAfterOverdueDays: 5,
+    },
     eia_lng_exports: {
       kind: 'monthly_eia_ngm',
       // EIA LNG export data publishes ~3-5 days into the following month.
