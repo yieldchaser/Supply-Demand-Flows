@@ -24,10 +24,12 @@
 
 import * as d3 from 'd3';
 import { seasonalEnvelope, envelopeLookup, dayOnly } from '../util/season.js';
-import { seasonWeekOf } from '../util/storage-analysis.js';
+import { seasonWeekOf, priorSameWeekValues } from '../util/storage-analysis.js';
+import { matchYearAgo } from '../util/season.js';
+import { frame, yGrid, tooltip, hitArea, legend, fx, sx, tone } from '../util/eu-chart-kit.js';
 import { parsePeriod, formatPeriodKey } from '../util/period.js';
 import { getSeries } from '../util/series.js';
-import { EU_COUNTRIES, buildCountryViews, buildAggregateView, positionalNormal } from '../util/eu-storage-analysis.js';
+import { EU_COUNTRIES, buildCountryViews, buildAggregateView, positionalNormal, analogProjection } from '../util/eu-storage-analysis.js';
 
 /* ─────────────────────────────────────────────── */
 /*  Constants                                      */
@@ -100,6 +102,8 @@ export function buildDivergenceModel(bundle) {
 
   return {
     usLatest, us_signal, euLatest, eu_signal, eu_fill_pp, spread, needlePct, regime,
+    usSeries,
+    euTotal: eu,
     usNormal: usNormal ? { weekOfSeason: usWk, n: usNormal.count, mean: usNormal.mean } : null,
     euNormal: euStockNormal?.n ? { n: euStockNormal.n, years: euStockNormal.years, meanTwh: euStockNormal.mean, meanFillPct: euFillNormal?.mean ?? null } : null,
   };
@@ -118,6 +122,76 @@ function buildEuTotal(rows) {
   if (!views.length) return null;
   const total = buildAggregateView(views);
   return total.rows.length ? total : null;
+}
+
+/**
+ * Weekly history of both deviations on the same scale (% of the prior-year
+ * average stock at the same point of the year), on US report weeks. Each side
+ * needs at least three prior years; with AGSI history from 2021 that starts
+ * the EU side in 2024.
+ *
+ * @returns {Array<{period: Date, us: number, eu: number|null, spread: number|null, usN: number, euN: number}>}
+ */
+export function buildDivergenceHistory(model, { from = new Date(2024, 0, 1), minN = 3 } = {}) {
+  if (!model?.usSeries) return [];
+  const out = [];
+  for (const r of model.usSeries) {
+    if (r.period < from) continue;
+    const prior = priorSameWeekValues(model.usSeries, r.period);
+    if (prior.length < minN) continue;
+    const usMean = prior.reduce((a, b) => a + b.value, 0) / prior.length;
+    const us = ((r.value - usMean) / usMean) * 100;
+    let eu = null;
+    let euN = 0;
+    if (model.euTotal) {
+      // Same Friday on the EU side (or the nearest earlier day within 3 days).
+      let row = null;
+      for (let k = 0; k <= 3 && !row; k++) {
+        row = model.euTotal.index.get(new Date(r.period.getFullYear(), r.period.getMonth(), r.period.getDate() - k).getTime());
+      }
+      if (row) {
+        const n = positionalNormal(model.euTotal.index, row.period, { pick: (x) => x.twh });
+        if (n.n >= minN && n.mean > 0) {
+          eu = ((row.twh - n.mean) / n.mean) * 100;
+          euN = n.n;
+        }
+      }
+    }
+    out.push({ period: r.period, us, eu, spread: eu == null ? null : us - eu, usN: prior.length, euN });
+  }
+  return out;
+}
+
+/**
+ * End-of-winter analogs on both sides of the Atlantic: the latest stock plus
+ * each prior year's change from the same week to 31 March. Only in the
+ * withdrawal season (October to March), when 31 March is the season's end.
+ */
+export function endOfWinterAnalogs(model) {
+  const us = model?.usLatest;
+  if (!us) return null;
+  const m = us.period.getMonth();
+  if (m > 2 && m < 9) return null;
+  const endYear = m >= 9 ? us.period.getFullYear() + 1 : us.period.getFullYear();
+  const end = new Date(endYear, 2, 31);
+  const usVals = [];
+  const usEnds = [];
+  for (let k = 1; k <= 5; k++) {
+    const a = matchYearAgo(model.usSeries, us.period, k, 6);
+    const b = matchYearAgo(model.usSeries, end, k, 6);
+    if (!a || !b) continue;
+    usVals.push(us.value + (b.value - a.value));
+    usEnds.push(b.value);
+  }
+  const euProj = model.euTotal && model.euLatest ? analogProjection(model.euTotal, model.euLatest.period) : null;
+  if (!usVals.length && !euProj?.summary) return null;
+  const sorted = [...usVals].sort((a, b) => a - b);
+  const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  return {
+    end,
+    us: usVals.length ? { min: sorted[0], max: sorted[sorted.length - 1], median: sorted[Math.floor((sorted.length - 1) / 2)], n: usVals.length, normal: mean(usEnds) } : null,
+    eu: euProj?.summary ? { min: euProj.summary.minPct, max: euProj.summary.maxPct, median: euProj.summary.medianPct, n: euProj.analogs.length, normal: euProj.endNormal.mean } : null,
+  };
 }
 
 /**
@@ -224,8 +298,58 @@ export function renderDivergencePanel(panelEl, bundle) {
         <span class="divergence-card__regime">${regime.label}</span>
         <span class="divergence-card__detail">— ${regime.detail}</span>
       </div>
+      ${analogLine(endOfWinterAnalogs(model))}
+      <div class="divergence-history eu-panel" data-role="div-history"></div>
     </div>
   `;
+  drawHistory(panelEl.querySelector('[data-role="div-history"]'), buildDivergenceHistory(model));
+}
+
+function analogLine(a) {
+  if (!a) return '';
+  const end = a.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const usTxt = a.us
+    ? `US ${Math.round(a.us.min).toLocaleString('en-US')}–${Math.round(a.us.max).toLocaleString('en-US')} Bcf (5-yr avg ${Math.round(a.us.normal).toLocaleString('en-US')})`
+    : 'US n/a';
+  const euTxt = a.eu ? `EU ${fx(a.eu.min, 0)}–${fx(a.eu.max, 0)}% full (5-yr avg ${fx(a.eu.normal, 0)}%)` : 'EU n/a';
+  return `<p class="divergence-card__analogs"><b>End of winter (${end}), if the rest of the season repeats each of the last ${Math.max(a.us?.n ?? 0, a.eu?.n ?? 0)} winters:</b> ${usTxt} · ${euTxt}. Analogs, not forecasts.</p>`;
+}
+
+function drawHistory(host, rows) {
+  if (!host || rows.length < 4) return;
+  host.innerHTML = `<div class="divergence-history__head"><span class="divergence-card__title">Stock vs 5-year average, weekly</span>
+    <span class="divergence-history__note">same % scale on both sides · from the first week with ≥3 prior years</span></div>`;
+  host.insertAdjacentHTML('beforeend', legend([
+    { kind: 'line', color: '#7dd3fc', label: 'US (EIA Lower 48)' },
+    { kind: 'line', color: '#fbbf24', label: 'EU (10-country total)' },
+  ]));
+  const chartHost = document.createElement('div');
+  chartHost.className = 'eu-chart';
+  host.appendChild(chartHost);
+  const { g, w, h } = frame(chartHost, { height: 200, margin: { top: 8, right: 16, bottom: 24, left: 44 } });
+  const x = d3.scaleTime().domain(d3.extent(rows, (r) => r.period)).range([0, w]);
+  const vals = rows.flatMap((r) => [r.us, r.eu]).filter(Number.isFinite);
+  const lim = Math.max(10, ...vals.map(Math.abs)) * 1.08;
+  const y = d3.scaleLinear().domain([-lim, lim]).nice().range([h, 0]);
+  yGrid(g, y, w, (t) => `${t}%`, 4, true);
+  for (const t of x.ticks(5)) g.append('text').attr('x', x(t)).attr('y', h + 16).attr('text-anchor', 'middle').attr('class', 'eu-axis').text(d3.timeFormat('%b %y')(t));
+  const line = (key) => d3.line().defined((r) => Number.isFinite(r[key])).x((r) => x(r.period)).y((r) => y(r[key]));
+  g.append('path').datum(rows).attr('d', line('us')).attr('fill', 'none').attr('stroke', '#7dd3fc').attr('stroke-width', 1.8);
+  g.append('path').datum(rows).attr('d', line('eu')).attr('fill', 'none').attr('stroke', '#fbbf24').attr('stroke-width', 1.8);
+  const tt = tooltip(chartHost);
+  const cross = g.append('line').attr('class', 'eu-cross').attr('y1', 0).attr('y2', h).style('opacity', 0);
+  const bis = d3.bisector((r) => r.period).center;
+  hitArea(g, w, h, ([mx]) => {
+    const r = rows[bis(rows, x.invert(mx))];
+    if (!r) return;
+    cross.attr('x1', x(r.period)).attr('x2', x(r.period)).style('opacity', 1);
+    tt.show(`
+      <div class="eu-tt__title">Week ending ${r.period.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+      <div class="eu-tt__row"><span>US vs avg (n=${r.usN})</span><span class="num ${tone(r.us)}">${sx(r.us)}%</span></div>
+      <div class="eu-tt__row"><span>EU vs avg${r.euN ? ` (n=${r.euN})` : ''}</span><span class="num ${tone(r.eu)}">${r.eu == null ? '—' : `${sx(r.eu)}%`}</span></div>
+      <div class="eu-tt__row eu-tt__row--accent"><span>Spread (US − EU)</span><span class="num">${r.spread == null ? '—' : `${sx(r.spread)} pts`}</span></div>
+    `, x(r.period) + 44, 8);
+  }, () => { tt.hide(); cross.style('opacity', 0); });
 }
 
 

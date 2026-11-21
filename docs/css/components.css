@@ -1201,6 +1201,16 @@
 .divergence-card__regime { font-weight: 600; color: var(--text-primary); }
 .divergence-card__detail { color: var(--text-secondary); }
 
+.divergence-card__analogs {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.divergence-card__analogs b { color: var(--text-primary); font-weight: 500; }
+.divergence-history { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--rule); }
+.divergence-history__head { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: baseline; margin-bottom: var(--space-2); }
+.divergence-history__note { font-size: var(--fs-xs); color: var(--text-tertiary); }
 .divergence-card__interpretation--bullish .divergence-card__regime { color: var(--color-bullish-supply); }
 .divergence-card__interpretation--warning .divergence-card__regime { color: var(--color-warning); }
 .divergence-card__interpretation--neutral .divergence-card__regime { color: var(--text-secondary); }
