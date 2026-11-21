@@ -132,6 +132,19 @@ sources:
     mode: accumulation        # rows only ever grow; enables flat-run divergence arm
     gap_rule: monthly         # monthly cadence (consecutive YYYY-MM periods)
 
+  eia_flows:
+    parquet: data/curated/eia_flows.parquet
+    health_file: data/health/eia_flows.json
+    health_recency_days: 45   # workflow runs on the 2nd and 16th; 45d allows one missed run plus slack
+    staleness:
+      warn_days: 105          # trade (move/impc, expc) lags ~3 months, like LNG exports by destination
+      fail_days: 135
+    month_end_normalize: true
+    period_format: "%Y-%m"
+    mode: accumulation
+    gap_rule: monthly
+    unit_expected: MMcf
+
   # ---- EBB daily sources (scrapers landed 2026-08-23 integration) --------
 
   gasnom:

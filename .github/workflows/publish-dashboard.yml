@@ -16,6 +16,7 @@ on:
     workflows:
       - "EIA Storage (weekly)"
       - "EIA Supply (monthly)"
+      - "EIA Trade & Consumption (monthly)"
       - "Baker Hughes Rig Count (weekly)"
       - "GIE AGSI+ Storage (daily)"
       - "ENTSOG EU Imports (daily)"

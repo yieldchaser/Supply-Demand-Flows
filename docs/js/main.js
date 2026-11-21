@@ -153,7 +153,7 @@ async function lazySection(bundle, sourceKeys, sectionName, renderFn) {
 /** Sources needed by each dashboard section (bundle.sources keys). */
 const SECTIONS = {
   storage: ['eia_storage', 'eia_supply'],
-  balance: ['eia_supply'],
+  balance: ['eia_supply', 'eia_flows'],
   rigs: ['baker_hughes_weekly'],
   basins: ['baker_hughes_weekly'],
   'basin-table': ['baker_hughes_weekly'],

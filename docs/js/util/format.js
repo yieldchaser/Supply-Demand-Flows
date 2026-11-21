@@ -102,6 +102,11 @@ export function classifyVintage(sourceKey, latestPeriod) {
       graceDays: 14,
       criticalAfterOverdueDays: 30,
     },
+    eia_flows: {
+      kind: 'monthly_eia_ngm',  // trade + sector consumption, same Natural Gas Monthly release
+      graceDays: 14,
+      criticalAfterOverdueDays: 30,
+    },
     baker_hughes_weekly: {
       kind: 'weekly',
       publishLag: 0,           // period date IS Friday publish day

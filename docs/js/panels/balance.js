@@ -21,8 +21,11 @@
  * taken out of storage is delivered this month, gas injected is not consumed.
  * The balancing item is EIA's reconciliation line, also on the supply side.
  *
- * This API route carries every leg except net imports (`natural-gas/move/expc`
- * · `impc`). Solving the identity for it gives
+ * The supply route carries every leg except net imports, which `eia_flows`
+ * measures (`natural-gas/move/expc` · `impc`). The bridge prints the measured
+ * leg and the identity's statistical difference; it also keeps the solved
+ * figure as a cross-check, and falls back to it for a month with no trade row.
+ * Solving the identity for net trade gives
  *
  *   implied net exports = production + supplemental + net withdrawals
  *                         + balancing item − consumption
@@ -42,6 +45,8 @@ import { kpiCardHtml } from '../components/kpi-card.js';
 import { getSeries, referenceDate } from '../util/series.js';
 import { formatPeriodKey, parsePeriod } from '../util/period.js';
 import { LNG_TERMINALS } from '../util/lng-terminals.js';
+import { redrawOnResize } from '../util/responsive-chart.js';
+import { registerChartSnapshot } from '../util/chart-snapshot.js';
 
 /** `YYYY-MM` key of a period, or null when it cannot be read. */
 function monthKey(period) {
@@ -70,20 +75,158 @@ const KNOWN_LEGS = [
 ];
 
 /**
- * The one Table 1 leg this bundle does not carry: net imports.
- *
- * Net storage withdrawals is scraped (`supply_saw` − `supply_sai`) and is in
- * the identity above; listing it here as missing described the target state,
- * not this panel.
+ * The one Table 1 leg the supply route does not carry: net imports. It is
+ * measured by `eia_flows` (EIA `move/impc` · `move/expc`); when a month has no
+ * trade row the bridge prints the leg as missing and solves for it instead.
  */
 const MISSING_LEGS = [
   {
     key: 'netImports',
     label: 'Net imports',
     route: 'natural-gas/move/expc · move/impc',
-    shownBy: 'the LNG panel carries the export leg only, not pipeline trade',
+    shownBy: 'EIA trade not yet published for this month',
   },
 ];
+
+/**
+ * `eia_flows` series → field, all MMcf per month in the source and Bcf here.
+ *
+ * Partner series (`_canada`, `_mexico`) are EIA's partner totals, which carry
+ * the small trucked LNG/CNG volumes too; they are within 0.3 Bcf of the
+ * pipeline figures in every month since 2019 and are labelled as pipeline
+ * trade because that is what they are to within rounding.
+ */
+const FLOW_FIELDS = {
+  trade_import_total: 'imp',
+  trade_import_pipeline: 'impPipe',
+  trade_import_lng: 'impLng',
+  trade_import_canada: 'impCan',
+  trade_import_mexico: 'impMex',
+  trade_export_total: 'exp',
+  trade_export_pipeline: 'expPipe',
+  trade_export_lng: 'expLng',
+  trade_export_canada: 'expCan',
+  trade_export_mexico: 'expMex',
+  cons_residential: 'res',
+  cons_commercial: 'com',
+  cons_industrial: 'ind',
+  cons_electric_power: 'pwr',
+  cons_lease_plant: 'lease',
+  cons_pipeline: 'pipe',
+  cons_vehicle: 'veh',
+  cons_total: 'cons',
+};
+
+/**
+ * EIA measured trade and sector consumption by `YYYY-MM`, in Bcf.
+ *
+ * `netImports` is imports − exports and is set only when both totals exist,
+ * so a half-published month never reads as a swing in trade.
+ *
+ * @param {Array<{series_id:string, period:string, value:number}>} rows  `eia_flows` rows
+ * @returns {Map<string, object>}
+ */
+export function buildFlowsByMonth(rows) {
+  const out = new Map();
+  for (const r of rows || []) {
+    const field = FLOW_FIELDS[r.series_id];
+    const key = field ? monthKey(r.period) : null;
+    const v = Number(r.value);
+    if (!key || !Number.isFinite(v)) continue;
+    if (!out.has(key)) out.set(key, {});
+    out.get(key)[field] = v / 1000;
+  }
+  for (const m of out.values()) {
+    m.netImports = m.imp != null && m.exp != null ? m.imp - m.exp : null;
+  }
+  return out;
+}
+
+/**
+ * The identity closed with measured trade, for one balance month.
+ *
+ * `statDiffBcf` = supply legs + measured net imports − consumption. EIA's
+ * balancing item is defined to absorb that difference, so it should be near
+ * zero; a large value means a leg here is defined differently from Table 1.
+ *
+ * @returns {{netImportsBcf:number, netExportsBcf:number, statDiffBcf:number}|null}
+ */
+export function measuredClosure(month, flows) {
+  if (!month || month.imbalanceBcf == null || flows?.netImports == null) return null;
+  return {
+    netImportsBcf: flows.netImports,
+    netExportsBcf: -flows.netImports,
+    statDiffBcf: month.imbalanceBcf + flows.netImports,
+  };
+}
+
+/**
+ * Where the month's gas went, in Bcf/d: consumption by sector plus exports by
+ * route, which together are total disposition. Imports from Canada and
+ * production are carried alongside for the tooltip, not stacked.
+ *
+ * `other` groups lease & plant fuel, pipeline & distribution use and vehicle
+ * fuel — gas the system consumes to run itself.
+ *
+ * @param {Map<string, object>} flowsByMonth  from buildFlowsByMonth
+ * @param {Array<object>} balanceSeries       buildBalanceModel(...).series
+ */
+export function buildDisposition(flowsByMonth, balanceSeries = []) {
+  const prodByKey = new Map(balanceSeries.map((m) => [monthKeyOf(m.period), m]));
+  const out = [];
+  for (const [key, f] of [...flowsByMonth.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const need = ['res', 'com', 'ind', 'pwr', 'lease', 'pipe', 'veh', 'expLng', 'expMex', 'expCan'];
+    if (need.some((k) => f[k] == null)) continue;
+    const period = parsePeriod(key);
+    if (!period) continue;
+    const days = daysInMonth(period);
+    const d = (v) => (v == null ? null : v / days);
+    const parts = {
+      resCom: d(f.res + f.com),
+      ind: d(f.ind),
+      pwr: d(f.pwr),
+      other: d(f.lease + f.pipe + f.veh),
+      lng: d(f.expLng),
+      mex: d(f.expMex),
+      can: d(f.expCan),
+    };
+    const bal = prodByKey.get(key);
+    out.push({
+      key,
+      period,
+      days,
+      parts,
+      res: d(f.res),
+      com: d(f.com),
+      consumption: d(f.res + f.com + f.ind + f.pwr + f.lease + f.pipe + f.veh),
+      exports: d(f.expLng + f.expMex + f.expCan),
+      total: Object.values(parts).reduce((s, v) => s + v, 0),
+      impCan: d(f.impCan),
+      impLng: d(f.impLng),
+      netExports: f.netImports == null ? null : d(-f.netImports),
+      production: bal ? bal.fpdBcfd : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Same calendar month in earlier years: median, min and max of a value, and
+ * how many years that rests on. The comparison a seasonal series needs —
+ * January electric-power burn against other Januaries, not against July.
+ */
+export function sameMonthStats(rows, latest, accessor) {
+  const prior = rows
+    .filter((r) => r.period.getMonth() === latest.period.getMonth()
+      && r.period.getFullYear() < latest.period.getFullYear())
+    .map(accessor)
+    .filter((v) => v != null && Number.isFinite(v))
+    .sort((a, b) => a - b);
+  if (!prior.length) return null;
+  const mid = prior.length >> 1;
+  const median = prior.length % 2 ? prior[mid] : (prior[mid - 1] + prior[mid]) / 2;
+  return { median, min: prior[0], max: prior[prior.length - 1], n: prior.length };
+}
 
 /**
  * One month's balance in Bcf (monthly totals) and Bcf/d (per-day rates).
@@ -286,17 +429,20 @@ export function buildFeedgasByMonth(sources) {
       for (const [day, mmcfd] of perDay) {
         if (!(mmcfd > 0)) continue;
         const key = day.slice(0, 7);
-        const acc = byMonth.get(key) ?? { bcf: 0, days: 0, terminals: new Set() };
+        const acc = byMonth.get(key) ?? { bcf: 0, days: 0, terminals: new Set(), dates: new Set() };
         acc.bcf += mmcfd / 1000; // MMcf/d × one day = MMcf → Bcf
         acc.days += 1;
         acc.terminals.add(t.id);
+        acc.dates.add(day);
         byMonth.set(key, acc);
       }
     }
   }
   const out = new Map();
   for (const [key, acc] of byMonth) {
-    out.set(key, { bcf: acc.bcf, days: acc.days, terminals: acc.terminals.size });
+    // `days` is terminal-days; `calendarDays` the distinct dates with any meter,
+    // the divisor for a rate in a month still being reported.
+    out.set(key, { bcf: acc.bcf, days: acc.days, terminals: acc.terminals.size, calendarDays: acc.dates.size });
   }
   return out;
 }
@@ -315,19 +461,24 @@ export function renderBalancePanel(panelEl, bundle) {
   const model = buildBalanceModel(source.data);
   const lngByMonth = buildLngByMonth(bundle.sources.eia_lng_exports?.data);
   const feedgasByMonth = buildFeedgasByMonth(bundle.sources);
+  const flowsByMonth = buildFlowsByMonth(bundle.sources.eia_flows?.data);
+  const measured = flowsByMonth.size > 0;
   const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'Supply & Demand Balance',
-    subtitle: 'EIA · monthly US48 Table 1 identity · net trade solved from the other five legs',
+    subtitle: measured
+      ? 'EIA · monthly US Table 1 identity · net trade measured (EIA imports & exports)'
+      : 'EIA · monthly US Table 1 identity · net trade solved from the other five legs',
     sourceKey: 'eia_supply',
     latestPeriod: source.latest_period,
     draw: () => drawRef.current?.(),
   });
 
-  drawRef.current = () => drawBalanceChart(chartEl, model);
+  drawRef.current = () => drawBalanceChart(chartEl, model, flowsByMonth);
   drawRef.current();
-  renderBalanceKpis(sidebarEl, model, lngByMonth);
-  appendBridge(panelEl, model, lngByMonth, feedgasByMonth);
+  renderBalanceKpis(sidebarEl, model, lngByMonth, flowsByMonth);
+  appendBridge(panelEl, model, lngByMonth, feedgasByMonth, flowsByMonth);
+  if (measured) appendDisposition(panelEl, model, flowsByMonth, bundle.sources.eia_flows);
 }
 
 /* ─────────────────────────────────────────────── */
@@ -341,7 +492,7 @@ export function renderBalancePanel(panelEl, bundle) {
  * different lengths comparable; the Bcf total sits next to it so the arithmetic
  * can be checked without a mental conversion.
  */
-function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
+function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map(), flowsByMonth = new Map()) {
   const panelBody = panelEl.querySelector('.panel-body');
   const latest = model.latest;
   if (!panelBody || !latest) return;
@@ -377,15 +528,21 @@ function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
   // Via monthKeyOf, not a local padStart key: buildLngByMonth reduces to the
   // same calendar month, and the two must not drift apart.
   const monthKeyStr = monthKeyOf(latest.period);
-  const lngBcf = lngByMonth?.get(monthKeyStr) ?? null;
+  const flows = flowsByMonth.get(monthKeyStr) ?? null;
+  const closure = measuredClosure(latest, flows);
+  // EIA's LNG export total from the trade route first: it is the same series
+  // the identity uses. The per-destination file is the fallback.
+  const lngBcf = flows?.expLng ?? lngByMonth?.get(monthKeyStr) ?? null;
+  const perDay = (v) => (v == null ? null : v / latest.days);
 
   const legRows = KNOWN_LEGS.map(({ key, sign }) => {
     const v = latest[key];
     const signed = v == null ? null : sign * v;
     const signedD = signed == null ? null : signed / latest.days;
     const label = key === 'swd'
-      ? `${LEG_LABELS.swd}<span class="bridge-table__hint">withdrawals − injections · ${formatNumber(latest.saw, 0)} − ${formatNumber(latest.sai, 0)}</span>`
-      : LEG_LABELS[key];
+      ? `${LEG_LABELS.swd}<span class="bridge-table__hint">withdrawals − injections · ${formatNumber(latest.saw, 0)} − ${formatNumber(latest.sai, 0)} Bcf</span>`
+      : key === 'vc0' ? `${LEG_LABELS.vc0}<span class="bridge-table__hint">disposition · enters with a minus sign</span>`
+        : LEG_LABELS[key];
     return `
       <tr>
         <td class="lbl">${label}</td>
@@ -394,33 +551,100 @@ function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
       </tr>`;
   }).join('');
 
-  const missingRows = MISSING_LEGS.map((leg) => `
+  const tradeRows = closure
+    ? `
+      <tr>
+        <td class="lbl">Net imports (measured)<span class="bridge-table__hint">imports ${formatNumber(flows.imp, 0)} − exports ${formatNumber(flows.exp, 0)} Bcf · EIA move/impc · expc</span></td>
+        <td class="num ${signClass(closure.netImportsBcf)}">${signedBcfd(perDay(closure.netImportsBcf))}</td>
+        <td class="num muted">${signedBcfd(closure.netImportsBcf, 0)}</td>
+      </tr>`
+    : MISSING_LEGS.map((leg) => `
       <tr class="bridge-table__missing">
-        <td class="lbl">${leg.label}<span class="bridge-table__hint">not in this route · ${leg.shownBy}</span></td>
-        <td class="num muted" colspan="2">not scraped</td>
+        <td class="lbl">${leg.label}<span class="bridge-table__hint">${leg.shownBy}</span></td>
+        <td class="num muted" colspan="2">not published</td>
       </tr>`).join('');
 
   const residualD = latest.imbalanceBcf;
   const residualPerDay = residualD / latest.days;
-  const lngPerDay = lngBcf == null ? null : lngBcf / latest.days;
-  const pipelinePerDay = lngPerDay == null ? null : residualPerDay - lngPerDay;
+  const lngPerDay = perDay(lngBcf);
   const plausible = residualPerDay > 0 && residualPerDay < (latest.vc0Bcfd ?? Infinity) * 0.5;
 
-  const impliedNote = `<br>Solving the identity for the missing leg gives <strong>${signedBcfd(residualPerDay, 1)} Bcf/d of
+  // Sum of the printed rows must be the printed result: the bridge is checked
+  // against its own arithmetic by the test suite.
+  const legSumBcf = KNOWN_LEGS.reduce((sum, { key, sign }) => sum + sign * (latest[key] ?? 0), 0);
+
+  // How well the identity closes with measured trade, across every month that
+  // has it — the evidence for (or against) reading the legs at face value.
+  const closures = model.series
+    .map((m) => ({ m, c: measuredClosure(m, flowsByMonth.get(monthKeyOf(m.period))) }))
+    .filter(({ c }) => c != null);
+  const recent = closures.slice(-12);
+  const maxRecentDiff = recent.length ? Math.max(...recent.map(({ m, c }) => Math.abs(c.statDiffBcf / m.days))) : null;
+  const maxAllDiff = closures.length ? Math.max(...closures.map(({ m, c }) => Math.abs(c.statDiffBcf / m.days))) : null;
+  // Seasonal shape of the earlier residual: winter vs summer mean, and the
+  // average annual sum over complete calendar years.
+  const seasonal = (() => {
+    const old = closures.filter(({ m, c }) => Math.abs(c.statDiffBcf / m.days) > 0.1);
+    if (maxAllDiff == null || maxAllDiff <= 0.1 || old.length < 12) return null;
+    const mean = (xs) => xs.reduce((t, v) => t + v, 0) / xs.length;
+    const isWinter = (m) => [10, 11, 0, 1, 2].includes(m.period.getMonth());
+    const w = old.filter(({ m }) => isWinter(m)).map(({ m, c }) => c.statDiffBcf / m.days);
+    const su = old.filter(({ m }) => !isWinter(m)).map(({ m, c }) => c.statDiffBcf / m.days);
+    const oldYears = new Set(old.map(({ m }) => m.period.getFullYear()));
+    const byYear = d3.rollup(closures.filter(({ m }) => oldYears.has(m.period.getFullYear())), (v) => (v.length === 12 ? v.reduce((t, { c }) => t + c.statDiffBcf, 0) : null),
+      ({ m }) => m.period.getFullYear());
+    const years = [...byYear.values()].filter((v) => v != null);
+    if (!w.length || !su.length || !years.length) return null;
+    return { winter: mean(w), summer: mean(su), annual: mean(years) };
+  })();
+
+  const netExportsD = closure ? perDay(closure.netExportsBcf) : residualPerDay;
+  const pipeNetD = closure && flows.expMex != null && flows.expCan != null && flows.impCan != null
+    ? perDay(flows.expMex + flows.expCan - flows.impCan - (flows.impMex ?? 0)) : null;
+
+  const resultRows = closure
+    ? `
+      <tr class="bridge-table__residual">
+        <td class="lbl">Statistical difference = all rows above</td>
+        <td class="num ${signClass(perDay(closure.statDiffBcf))}">${signedBcfd(perDay(closure.statDiffBcf), 2)}</td>
+        <td class="num muted">${signedBcfd(closure.statDiffBcf, 1)}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Cross-check: net exports solved from the five legs<span class="bridge-table__hint">supply legs − consumption · what the panel showed before trade was measured</span></td>
+        <td class="num muted">${signedBcfd(residualPerDay, 2)}</td>
+        <td class="num muted">${signedBcfd(residualD, 1)}</td>
+      </tr>`
+    : `
+      <tr class="bridge-table__residual">
+        <td class="lbl">Implied net exports = supply legs − consumption</td>
+        <td class="num ${signClass(residualPerDay)}">${signedBcfd(residualPerDay, 2)}</td>
+        <td class="num muted">${signedBcfd(residualD, 1)}</td>
+      </tr>`;
+
+  const tradeNote = closure
+    ? `<br>Measured net exports were <strong>${signedBcfd(netExportsD, 1)} Bcf/d</strong>:
+       LNG ${formatNumber(lngPerDay, 1)} Bcf/d${pipeNetD == null ? '' : ` and net pipeline trade
+       ${signedBcfd(pipeNetD, 1)} Bcf/d (exports to Mexico ${formatNumber(perDay(flows.expMex), 1)} and Canada
+       ${formatNumber(perDay(flows.expCan), 1)}, less imports from Canada ${formatNumber(perDay(flows.impCan), 1)})`}.
+       With them the identity closes to ${signedBcfd(perDay(closure.statDiffBcf), 2)} Bcf/d this month and to
+       ${maxRecentDiff < 0.005 ? 'within rounding (under 0.01 Bcf/d)' : `within ${formatNumber(maxRecentDiff, 2)} Bcf/d`} in each of the last ${recent.length} months with trade data.
+       ${seasonal ? `Earlier months leave up to ${formatNumber(maxAllDiff, 2)} Bcf/d, averaging
+       ${signedBcfd(seasonal.winter, 2)} Bcf/d in Nov–Mar and ${signedBcfd(seasonal.summer, 2)} in Apr–Oct but netting to
+       ${signedBcfd(seasonal.annual, 1)} Bcf a year on average. A difference that reverses with the heating season and nets out
+       over the year is the shape of a storage cycle: EIA's storage route here carries underground storage only, so
+       the likely missing piece is LNG peak-shaving storage, which drains in winter and refills in summer. That is an
+       inference from the pattern; this bundle does not measure it.` : ''}`
+    : `<br>Solving the identity for the missing leg gives <strong>${signedBcfd(residualPerDay, 1)} Bcf/d of
        net exports</strong> (${signedBcfd(residualD, 0)} Bcf). That is an inference from the published legs, not a
-       measurement: EIA's own trade series is not in this bundle.${lngPerDay == null ? '' : ` LNG exports were
-       ${formatNumber(lngPerDay, 1)} Bcf/d that month, which leaves ${signedBcfd(pipelinePerDay, 1)} Bcf/d for net
-       pipeline trade (exports to Mexico less imports from Canada) plus the measurement noise of five legs.`}`;
-  const impliedCaveat = plausible
+       measurement: EIA's trade series has not reached this month yet.${lngPerDay == null ? '' : ` LNG exports were
+       ${formatNumber(lngPerDay, 1)} Bcf/d that month, which leaves ${signedBcfd(residualPerDay - lngPerDay, 1)} Bcf/d for net
+       pipeline trade plus the measurement noise of five legs.`}`;
+  const impliedCaveat = closure || plausible
     ? ''
     : `<br><strong>Check:</strong> the implied figure is outside the range US net trade can take
        (positive and well under half of consumption); one of the published legs may be provisional.`;
 
-  const badge = `<span class="panel-subchart__badge--bullish">Implied net exports ${signedBcfd(residualPerDay, 1)} Bcf/d</span>`;
-
-  // Sum of the printed rows must be the printed imbalance: the bridge is
-  // checked against its own arithmetic by the test suite.
-  const legSumBcf = KNOWN_LEGS.reduce((sum, { key, sign }) => sum + sign * (latest[key] ?? 0), 0);
+  const badge = `<span class="panel-subchart__badge--bullish">${closure ? 'Net exports' : 'Implied net exports'} ${signedBcfd(netExportsD, 1)} Bcf/d</span>`;
 
   // Feedgas is the newest data the bundle holds that touches this identity, so
   // it is shown beside the monthly legs even though it cannot close them.
@@ -431,37 +655,35 @@ function appendBridge(panelEl, model, lngByMonth, feedgasByMonth = new Map()) {
     ? ''
     : `<br>The terminal meters are the most recent view: ${formatNumber(feedgas.bcf, 0)} Bcf of feedgas
        across ${feedgas.terminals} measured terminals in ${monthLabel(parsePeriod(feedgasKey))}
-       (${formatNumber(feedgas.bcf / latest.days, 1)} Bcf/d monthly equivalent). It runs ahead of EIA's
-       monthly series and is a floor on LNG exports, not on net trade: pipeline trade with Canada and
-       Mexico is not in it.`;
+       (${formatNumber(feedgas.bcf / feedgas.calendarDays, 1)} Bcf/d over the ${feedgas.calendarDays}
+       ${feedgas.calendarDays === daysInMonth(parsePeriod(feedgasKey)) ? 'days of the month' : `of ${daysInMonth(parsePeriod(feedgasKey))} days reported so far`}).
+       It runs ahead of EIA's monthly series and is a floor on LNG exports, not on net trade: pipeline
+       trade with Canada and Mexico is not in it.`;
 
   wrap.innerHTML = `
     ${head(
-      `${signedBcfd(residualPerDay)} Bcf/d`,
+      `${signedBcfd(netExportsD)} Bcf/d`,
       '',
-      `${latest.days}-day month · Table 1 legs; net trade solved from the rest`,
+      closure
+        ? `${latest.days}-day month · Table 1 legs with measured trade`
+        : `${latest.days}-day month · Table 1 legs; net trade solved from the rest`,
     )}
     <div class="panel-subchart__body panel-subchart__body--auto">
       <table class="bridge-table">
         <thead><tr><th>Leg (Table 1 order)</th><th>Bcf/d</th><th>Bcf</th></tr></thead>
         <tbody>
           ${legRows}
-          ${missingRows}
-          <tr class="bridge-table__residual">
-            <td class="lbl">Implied net exports = supply legs − consumption</td>
-            <td class="num ${signClass(residualPerDay)}">${signedBcfd(residualPerDay, 2)}</td>
-            <td class="num muted">${signedBcfd(residualD, 1)}</td>
-          </tr>
+          ${tradeRows}
+          ${resultRows}
         </tbody>
       </table>
       <span class="panel-table__note">
         Identity (EIA Natural Gas Monthly, Table 1): consumption = dry production + supplemental fuels
-        + net imports + net storage withdrawals + balancing item. This route carries every leg except
-        <strong>net imports</strong>; the rows above sum to ${signedBcfd(legSumBcf, 1)} Bcf, which is
-        net imports with the opposite sign.
-        Across ${model.closingMonths} months the implied net exports run
+        + net imports + net storage withdrawals + balancing item. The five supply-route legs sum to
+        ${signedBcfd(legSumBcf, 1)} Bcf, which is net imports with the opposite sign.
+        Across ${model.closingMonths} months the solved net exports run
         ${formatNumber(model.minImpliedBcfd, 1)} to ${formatNumber(model.maxImpliedBcfd, 1)} Bcf/d.
-        ${impliedNote}
+        ${tradeNote}
         ${impliedCaveat}
         ${feedgasNote}
         See <code>tests/balance_identity.test.mjs</code>.
@@ -491,21 +713,38 @@ const LEG_LABELS = {
 
 const CHART_HEIGHT = 360;
 
-function drawBalanceChart(container, model) {
+function drawBalanceChart(container, model, flowsByMonth = new Map()) {
   container.innerHTML = '';
-  const width = Math.max(container.getBoundingClientRect().width, 300) - 56 - 16;
-  const height = CHART_HEIGHT - 28 - 36;
+  const margin = { top: 28, right: 16, bottom: 36, left: 56 };
+  const width = Math.max(container.getBoundingClientRect().width, 300) - margin.left - margin.right;
+  const height = CHART_HEIGHT - margin.top - margin.bottom;
 
   // Three years back from the newest observation, not from the wall clock, so
   // a bundle that runs a week stale keeps its history instead of sliding empty.
   const anchor = referenceDate(model.series.map((m) => ({ period: m.period })));
-  let rows = model.series;
+  let src = model.series;
   if (anchor) {
     const cutoff = new Date(anchor);
     cutoff.setFullYear(cutoff.getFullYear() - 3);
-    rows = rows.filter((m) => m.period >= cutoff);
+    src = src.filter((m) => m.period >= cutoff);
   }
-  rows = rows.filter((m) => m.suppliedBcf != null && m.drainedBcf != null);
+  // Per-day rates, not monthly totals: a February total is ~10% below a
+  // January one from the calendar alone, which read as a demand drop.
+  const rows = src
+    .filter((m) => m.suppliedBcf != null && m.drainedBcf != null)
+    .map((m) => {
+      const c = measuredClosure(m, flowsByMonth.get(monthKeyOf(m.period)));
+      const f = flowsByMonth.get(monthKeyOf(m.period));
+      return {
+        ...m,
+        supplied: m.suppliedBcf / m.days,
+        drained: m.drainedBcf / m.days,
+        withTrade: c ? (m.drainedBcf + c.netExportsBcf) / m.days : null,
+        netExportsD: c ? c.netExportsBcf / m.days : null,
+        statDiffD: c ? c.statDiffBcf / m.days : null,
+        lngD: f?.expLng != null ? f.expLng / m.days : null,
+      };
+    });
 
   if (rows.length === 0) {
     container.innerHTML =
@@ -513,7 +752,6 @@ function drawBalanceChart(container, model) {
     return;
   }
 
-  const margin = { top: 28, right: 16, bottom: 36, left: 56 };
   const svg = d3.select(container)
     .append('svg')
     .attr('viewBox', `0 0 ${width + margin.left + margin.right} ${CHART_HEIGHT}`)
@@ -523,8 +761,12 @@ function drawBalanceChart(container, model) {
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
   const x = d3.scaleTime().domain(d3.extent(rows, (m) => m.period)).range([0, width]);
-  const yMax = d3.max(rows, (m) => Math.max(m.suppliedBcf, m.drainedBcf)) * 1.06;
-  const y = d3.scaleLinear().domain([0, yMax]).range([height, 0]);
+  // Not anchored at zero: the reading is the gap between two lines near
+  // 80–140 Bcf/d, which a zero baseline would squeeze into a sliver.
+  const lo = d3.min(rows, (m) => Math.min(m.supplied, m.drained, m.withTrade ?? Infinity));
+  const hi = d3.max(rows, (m) => Math.max(m.supplied, m.drained, m.withTrade ?? -Infinity));
+  const pad = (hi - lo) * 0.06;
+  const y = d3.scaleLinear().domain([lo - pad, hi + pad]).nice().range([height, 0]);
   const yTicks = y.ticks(6);
 
   g.append('g')
@@ -535,26 +777,29 @@ function drawBalanceChart(container, model) {
     .attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
     .attr('stroke', 'var(--chart-grid)');
 
-  // The band between the two sides of the identity is the implied net export:
-  // supply available to the domestic market minus what it consumed.
+  // The band between the two sides of the identity is net exports: supply
+  // available to the domestic market minus what it consumed.
   const area = d3.area()
     .x((m) => x(m.period))
-    .y0((m) => y(m.drainedBcf))
-    .y1((m) => y(m.suppliedBcf))
+    .y0((m) => y(m.drained))
+    .y1((m) => y(m.supplied))
     .curve(d3.curveMonotoneX);
   // `--chart-band` is not a defined token, so this fill used to render black.
   g.append('path').datum(rows).attr('d', area).attr('fill', 'var(--color-accent-bg)');
 
-  const line = (key, color) => g.append('path')
-    .datum(rows)
+  const line = (key, color, dash = null) => g.append('path')
+    .datum(rows.filter((m) => m[key] != null))
     .attr('d', d3.line().x((m) => x(m.period)).y((m) => y(m[key])).curve(d3.curveMonotoneX))
     .attr('fill', 'none')
     .attr('stroke', color)
     .attr('stroke-width', 2)
+    .attr('stroke-dasharray', dash)
     .attr('stroke-linejoin', 'round');
 
-  line('suppliedBcf', 'var(--blue-flame)');
-  line('drainedBcf', 'var(--color-warning)');
+  line('supplied', 'var(--blue-flame)');
+  line('drained', 'var(--color-warning)');
+  const hasTrade = rows.some((m) => m.withTrade != null);
+  if (hasTrade) line('withTrade', 'var(--text-secondary)', '4 3');
 
   g.append('g')
     .selectAll('text')
@@ -566,14 +811,13 @@ function drawBalanceChart(container, model) {
     .attr('fill', 'var(--chart-label)')
     .attr('font-size', 10)
     .attr('font-family', 'var(--font-mono)')
-    .text((d) => {
-      if (d === 0) return '0';
-      if (d >= 1000) {
-        const k = d / 1000;
-        return Number.isInteger(k) ? `${k}k` : `${k.toFixed(1)}k`;
-      }
-      return `${Math.round(d)}`;
-    });
+    .text((d) => d3.format(',')(d));
+  g.append('text')
+    .attr('transform', `translate(${-44},${height / 2}) rotate(-90)`)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'var(--chart-label)')
+    .attr('font-size', 10)
+    .text('Bcf/d');
 
   g.append('g')
     .attr('transform', `translate(0,${height})`)
@@ -587,20 +831,23 @@ function drawBalanceChart(container, model) {
     });
 
   // Legend: the two lines are the two sides of the identity, and the fill
-  // between them is the imbalance — labelled here because an unlabelled band
-  // reads as decoration.
+  // between them is net exports — labelled because an unlabelled band reads
+  // as decoration. The dashed line is the measured check on that band.
   const legend = svg.append('g').attr('transform', `translate(${margin.left}, 10)`);
   let xOff = 0;
-  for (const item of [
+  const items = [
     { label: 'Supply incl. net storage withdrawals', color: 'var(--blue-flame)' },
     { label: 'Consumption', color: 'var(--color-warning)' },
-    { label: 'Gap = implied net exports', color: 'var(--color-accent-border)' },
-  ]) {
+    { label: hasTrade ? 'Gap = net exports' : 'Gap = implied net exports', color: 'var(--color-accent-border)' },
+  ];
+  if (hasTrade) items.push({ label: 'Consumption + measured net exports', color: 'var(--text-secondary)', dash: '4 3' });
+  for (const item of items) {
     const grp = legend.append('g').attr('transform', `translate(${xOff}, 0)`);
     grp.append('line')
       .attr('class', 'chart-legend-swatch')
       .attr('x1', 0).attr('x2', 14).attr('y1', 5).attr('y2', 5)
       .attr('stroke', item.color)
+      .attr('stroke-dasharray', item.dash ?? null)
       .attr('stroke-width', 2);
     const text = grp.append('text')
       .attr('class', 'chart-legend-text')
@@ -609,10 +856,10 @@ function drawBalanceChart(container, model) {
     xOff += text.node().getComputedTextLength() + 46;
   }
 
-  setupBalanceHover(svg, g, x, y, width, height, rows, margin);
+  setupBalanceHover(svg, g, x, width, height, rows, margin);
 }
 
-function setupBalanceHover(svg, g, x, y, width, height, rows, margin) {
+function setupBalanceHover(svg, g, x, width, height, rows, margin) {
   const host = d3.select(svg.node().parentNode);
   const tooltip = host.append('div').attr('class', 'chart-tooltip').style('opacity', 0);
   const crosshair = g.append('line')
@@ -637,30 +884,32 @@ function setupBalanceHover(svg, g, x, y, width, height, rows, margin) {
       const scale = svgRect.width / (width + margin.left + margin.right);
       const left = Math.min(
         margin.left * scale + xPos * scale + 16,
-        host.node().getBoundingClientRect().width - 220,
+        host.node().getBoundingClientRect().width - 240,
       );
 
-      const row = (label, v) => (v == null ? ''
-        : `<div class="tt-row"><span class="tt-label">${label}</span><span class="num">${signedBcfd(v)} Bcf/d</span></div>`);
+      const row = (label, v, cls = '') => (v == null ? ''
+        : `<div class="tt-row ${cls}"><span class="tt-label">${label}</span><span class="num">${signedBcfd(v)} Bcf/d</span></div>`);
+      // Levels print unsigned; a "+" belongs to flows and changes.
+      const lvl = (label, v) => (v == null ? ''
+        : `<div class="tt-row"><span class="tt-label">${label}</span><span class="num">${formatNumber(v)} Bcf/d</span></div>`);
 
       tooltip
         .style('opacity', 1)
-        .style('left', `${left}px`)
+        .style('left', `${Math.max(0, left)}px`)
         .style('top', '36px')
         .html(`
           <div class="tt-date">${monthLabel(m.period)} · ${m.days} days</div>
-          ${row('Supply incl. storage', m.suppliedBcf / m.days)}
-          ${row('Consumption', m.drainedBcf / m.days)}
-          ${row('Dry production', m.fpdBcfd)}
+          ${lvl('Supply incl. storage', m.supplied)}
+          ${lvl('Consumption', m.drained)}
+          ${lvl('Dry production', m.fpdBcfd)}
           ${row('Net storage withdrawals', m.swdBcfd)}
-          <div class="tt-row tt-row--accent">
-            <span class="tt-label">Implied net exports</span>
-            <span class="num">${signedBcfd(m.imbalanceBcfd)} Bcf/d</span>
-          </div>
-          <div class="tt-row">
-            <span class="tt-label">Balancing item</span>
-            <span class="num">${m.vg4Bcfd == null ? 'not published' : `${signedBcfd(m.vg4Bcfd)} Bcf/d`}</span>
-          </div>`);
+          ${row('Balancing item', m.vg4Bcfd)}
+          ${m.netExportsD == null
+            ? row('Implied net exports', m.imbalanceBcfd, 'tt-row--accent')
+            : `${row('Net exports (measured)', m.netExportsD, 'tt-row--accent')}
+               ${row('of which LNG', m.lngD)}
+               ${row('Implied from the five legs', m.imbalanceBcfd)}
+               ${row('Statistical difference', m.statDiffD)}`}`);
     })
     .on('mouseleave', () => {
       crosshair.style('opacity', 0);
@@ -669,10 +918,208 @@ function setupBalanceHover(svg, g, x, y, width, height, rows, margin) {
 }
 
 /* ─────────────────────────────────────────────── */
+/*  Disposition: sector demand and measured trade  */
+/* ─────────────────────────────────────────────── */
+
+/** Stack order, bottom → top: domestic use (warm), then exports (cool). */
+const DISPOSITION_PARTS = [
+  { key: 'resCom', label: 'Residential & commercial', color: '#fbbf24' },
+  { key: 'ind', label: 'Industrial', color: '#f97316' },
+  { key: 'pwr', label: 'Electric power', color: '#e879f9' },
+  { key: 'other', label: 'Lease, plant, pipeline & vehicle fuel', color: '#9ca3af' },
+  { key: 'lng', label: 'LNG exports', color: '#38bdf8' },
+  { key: 'mex', label: 'Pipeline exports to Mexico', color: '#22d3a4' },
+  { key: 'can', label: 'Pipeline exports to Canada', color: '#818cf8' },
+];
+
+const DISPOSITION_MONTHS = 48;
+
+function appendDisposition(panelEl, model, flowsByMonth, source) {
+  const panelBody = panelEl.querySelector('.panel-body');
+  const rows = buildDisposition(flowsByMonth, model.series);
+  if (!panelBody || rows.length === 0) return;
+  const latest = rows[rows.length - 1];
+  const prev = rows.find((r) => r.period.getFullYear() === latest.period.getFullYear() - 1
+    && r.period.getMonth() === latest.period.getMonth());
+
+  const wrap = document.createElement('div');
+  wrap.className = 'panel-subchart';
+  const tableRows = [
+    { label: 'Residential', get: (r) => r.res },
+    { label: 'Commercial', get: (r) => r.com },
+    { label: 'Industrial', get: (r) => r.parts.ind },
+    { label: 'Electric power', get: (r) => r.parts.pwr },
+    { label: 'Lease, plant, pipeline & vehicle fuel', get: (r) => r.parts.other },
+    { label: 'Consumption', get: (r) => r.consumption, strong: true },
+    { label: 'LNG exports', get: (r) => r.parts.lng },
+    { label: 'Pipeline exports to Mexico', get: (r) => r.parts.mex },
+    { label: 'Pipeline exports to Canada', get: (r) => r.parts.can },
+    { label: 'Imports from Canada', get: (r) => r.impCan, hint: 'supply side · not in the stack' },
+    { label: 'Net exports', get: (r) => r.netExports, strong: true, hint: 'all exports − all imports' },
+  ];
+  const body = tableRows.map(({ label, get, strong, hint }) => {
+    const v = get(latest);
+    const p = prev ? get(prev) : null;
+    const st = sameMonthStats(rows, latest, get);
+    const vsMed = st && v != null ? v - st.median : null;
+    return `
+      <tr${strong ? ' class="bridge-table__residual"' : ''}>
+        <td class="lbl">${label}${hint ? `<span class="bridge-table__hint">${hint}</span>` : ''}</td>
+        <td class="num">${formatNumber(v, 1)}</td>
+        <td class="num ${signClass(p == null || v == null ? null : v - p)}">${p == null || v == null ? '—' : signedBcfd(v - p, 1)}</td>
+        <td class="num ${signClass(vsMed)}">${vsMed == null ? '—' : signedBcfd(vsMed, 1)}</td>
+        <td class="num muted">${st ? `${formatNumber(st.min, 1)}–${formatNumber(st.max, 1)}` : '—'}</td>
+      </tr>`;
+  }).join('');
+  const st0 = sameMonthStats(rows, latest, (r) => r.consumption);
+  const firstYear = rows[0].period.getFullYear();
+  const share = (k) => (latest.parts[k] / latest.total) * 100;
+
+  wrap.innerHTML = `
+    <div class="panel-subchart__header">
+      <div class="panel-subchart__title-group">
+        <span class="panel-subchart__title">Where the gas goes · ${monthLabel(latest.period)}</span>
+        <span class="panel-subchart__hero num">${formatNumber(latest.total, 1)} Bcf/d</span>
+      </div>
+      <span class="panel-subchart__subtitle">Consumption by sector + exports by route · EIA monthly, measured · Bcf/d</span>
+    </div>
+    <div class="panel-subchart__body panel-subchart__body--auto">
+      <div class="balance-disposition__chart"></div>
+      <table class="bridge-table">
+        <thead><tr>
+          <th>${monthLabel(latest.period)}</th><th>Bcf/d</th><th>vs ${prev ? prev.period.getFullYear() : 'yr ago'}</th>
+          <th>vs median${st0 ? ` (${st0.n} yr)` : ''}</th><th>Range</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+      <span class="panel-table__note">
+        Total disposition is consumption plus exports, ${formatNumber(latest.total, 1)} Bcf/d in
+        ${monthLabel(latest.period)}: electric power ${formatNumber(share('pwr'), 0)}%, LNG exports
+        ${formatNumber(share('lng'), 0)}%, industrial ${formatNumber(share('ind'), 0)}%. "vs median" and "Range"
+        compare with the same calendar month in each earlier year since ${firstYear}, because every
+        component here is seasonal and a month is only comparable with the same month. The sectors sum
+        to EIA's total consumption, the same leg the balance above uses. Dry production is the dashed line; the gap between it and the
+        top of the stack is what imports (${formatNumber(latest.impCan, 1)} Bcf/d from Canada this month),
+        net storage withdrawals, supplemental fuels and the balancing item supplied.
+      </span>
+    </div>`;
+  appendSection(panelBody, 'overview-disposition', wrap, panelBody.querySelector('.panel-sidebar') || null);
+
+  const chartEl = wrap.querySelector('.balance-disposition__chart');
+  const recent = rows.slice(-DISPOSITION_MONTHS);
+  const draw = () => drawDisposition(chartEl, recent);
+  const w = draw();
+  redrawOnResize(chartEl, draw, { width: w });
+  registerChartSnapshot('balance-disposition', 'us-gas-disposition', recent.map((r) => ({
+    month: r.key,
+    ...Object.fromEntries(DISPOSITION_PARTS.map((p) => [p.label, Number(r.parts[p.key].toFixed(3))])),
+    'Dry production': r.production == null ? null : Number(r.production.toFixed(3)),
+  })), { unit: 'Bcf/d', source: 'EIA natural-gas/cons/sum, move/expc', latest: source?.latest_period ?? null });
+}
+
+function drawDisposition(container, rows) {
+  container.innerHTML = '';
+  const H = 300;
+  const margin = { top: 34, right: 12, bottom: 28, left: 44 };
+  const outerW = Math.max(container.getBoundingClientRect().width, 320);
+  const width = outerW - margin.left - margin.right;
+  const height = H - margin.top - margin.bottom;
+  const svg = d3.select(container).append('svg')
+    .attr('viewBox', `0 0 ${outerW} ${H}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet')
+    .style('display', 'block').style('width', '100%');
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const x = d3.scaleBand().domain(rows.map((r) => r.key)).range([0, width]).padding(0.18);
+  const yMax = d3.max(rows, (r) => Math.max(r.total, r.production ?? 0));
+  const y = d3.scaleLinear().domain([0, yMax * 1.04]).nice().range([height, 0]);
+
+  g.append('g').selectAll('line').data(y.ticks(5)).join('line')
+    .attr('x1', 0).attr('x2', width).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+    .attr('stroke', 'var(--chart-grid)');
+  g.append('g').selectAll('text').data(y.ticks(5)).join('text')
+    .attr('x', -6).attr('y', (d) => y(d) + 4).attr('text-anchor', 'end')
+    .attr('fill', 'var(--chart-label)').attr('font-size', 10).attr('font-family', 'var(--font-mono)')
+    .text((d) => d);
+  g.append('text').attr('x', -6).attr('y', -10).attr('text-anchor', 'end')
+    .attr('fill', 'var(--chart-label)').attr('font-size', 10).text('Bcf/d');
+
+  for (const r of rows) {
+    let acc = 0;
+    for (const p of DISPOSITION_PARTS) {
+      const v = r.parts[p.key];
+      g.append('rect')
+        .attr('x', x(r.key)).attr('width', x.bandwidth())
+        .attr('y', y(acc + v)).attr('height', Math.max(0, y(acc) - y(acc + v)))
+        .attr('fill', p.color).attr('opacity', 0.85);
+      acc += v;
+    }
+  }
+  const prodRows = rows.filter((r) => r.production != null);
+  g.append('path').datum(prodRows)
+    .attr('d', d3.line().x((r) => x(r.key) + x.bandwidth() / 2).y((r) => y(r.production)))
+    .attr('fill', 'none').attr('stroke', 'var(--text-bright)').attr('stroke-width', 1.5)
+    .attr('stroke-dasharray', '4 3');
+
+  // January ticks only, so labels never collide at phone width.
+  const ticks = rows.filter((r) => r.period.getMonth() === 0);
+  g.append('g').selectAll('text').data(ticks).join('text')
+    .attr('x', (r) => x(r.key) + x.bandwidth() / 2).attr('y', height + 16).attr('text-anchor', 'middle')
+    .attr('fill', 'var(--chart-label)').attr('font-size', 10).attr('font-family', 'var(--font-mono)')
+    .text((r) => r.period.getFullYear());
+
+  // Legend wraps onto a second row when the column is narrow.
+  const legend = svg.append('g').attr('transform', `translate(${margin.left}, 8)`);
+  let lx = 0;
+  let ly = 0;
+  for (const p of [...DISPOSITION_PARTS, { label: 'Dry production', line: true }]) {
+    const grp = legend.append('g');
+    if (p.line) {
+      grp.append('line').attr('x1', 0).attr('x2', 12).attr('y1', 5).attr('y2', 5)
+        .attr('stroke', 'var(--text-bright)').attr('stroke-dasharray', '4 3').attr('stroke-width', 1.5);
+    } else {
+      grp.append('rect').attr('width', 10).attr('height', 10).attr('fill', p.color);
+    }
+    const t = grp.append('text').attr('class', 'chart-legend-text').attr('x', 15).attr('y', 9).text(p.label);
+    const w = t.node().getComputedTextLength() + 30;
+    if (lx > 0 && lx + w > width) { lx = 0; ly += 13; }
+    grp.attr('transform', `translate(${lx},${ly})`);
+    lx += w;
+  }
+  if (ly > 0) {
+    // Make room for the wrapped legend without squeezing the plot.
+    svg.attr('viewBox', `0 ${-ly} ${outerW} ${H + ly}`);
+  }
+
+  const host = d3.select(container).style('position', 'relative');
+  const tooltip = host.append('div').attr('class', 'chart-tooltip').style('opacity', 0);
+  g.append('rect').attr('width', width).attr('height', height).attr('fill', 'transparent')
+    .on('mousemove', (event) => {
+      const [mx] = d3.pointer(event);
+      const i = Math.max(0, Math.min(rows.length - 1, Math.floor(mx / x.step())));
+      const r = rows[i];
+      const line = (label, v, color) => `<div class="tt-row"><span class="tt-label">${color
+        ? `<span style="display:inline-block;width:8px;height:8px;background:${color};margin-right:6px"></span>` : ''}${label}</span><span class="num">${formatNumber(v, 1)}</span></div>`;
+      const box = container.getBoundingClientRect();
+      const px = ((margin.left + x(r.key)) / outerW) * box.width;
+      tooltip.style('opacity', 1)
+        .style('left', `${Math.max(0, Math.min(px + 14, box.width - 250))}px`).style('top', '30px')
+        .html(`<div class="tt-date">${monthLabel(r.period)} · Bcf/d</div>
+          ${[...DISPOSITION_PARTS].reverse().map((p) => line(p.label, r.parts[p.key], p.color)).join('')}
+          <div class="tt-row tt-row--accent"><span class="tt-label">Total disposition</span><span class="num">${formatNumber(r.total, 1)}</span></div>
+          ${r.production == null ? '' : line('Dry production', r.production)}
+          ${r.impCan == null ? '' : line('Imports from Canada', r.impCan)}
+          ${r.netExports == null ? '' : line('Net exports', r.netExports)}`);
+    })
+    .on('mouseleave', () => tooltip.style('opacity', 0));
+  return outerW;
+}
+
+/* ─────────────────────────────────────────────── */
 /*  KPIs                                           */
 /* ─────────────────────────────────────────────── */
 
-function renderBalanceKpis(sidebarEl, model, lngByMonth) {
+function renderBalanceKpis(sidebarEl, model, lngByMonth, flowsByMonth = new Map()) {
   const latest = model.latest;
   if (!latest) return;
   const prevYear = model.series.find(
@@ -709,15 +1156,31 @@ function renderBalanceKpis(sidebarEl, model, lngByMonth) {
         : `Withdrawals − injections · ${signedBcfd(latest.storageChangeBcf, 0)} Bcf
          (${latest.storageChangeBcf >= 0 ? 'net withdrawal' : 'net injection'}) in ${monthLabel(latest.period)}`,
     }),
-    kpiCardHtml({
-      label: 'Implied net exports',
-      value: latest.imbalanceBcfd == null ? '—' : `${signedBcfd(latest.imbalanceBcfd)} Bcf/d`,
-      helpText: latest.imbalanceBcfd == null
-        ? 'A leg is missing for this month, so net trade cannot be solved'
-        : `Table 1 solved for net trade${lngByMonth?.has(monthKeyOf(latest.period))
-          ? ` · LNG exports ${formatNumber(lngByMonth.get(monthKeyOf(latest.period)) / latest.days, 1)} Bcf/d`
-          : ''} · inferred, not measured`,
-    }),
+    (() => {
+      const f = flowsByMonth.get(monthKeyOf(latest.period));
+      const c = measuredClosure(latest, f);
+      if (c) {
+        const prevF = prevYear ? flowsByMonth.get(monthKeyOf(prevYear.period)) : null;
+        const prevNet = prevF?.netImports == null ? null : -prevF.netImports / prevYear.days;
+        const net = c.netExportsBcf / latest.days;
+        return kpiCardHtml({
+          label: 'Net exports',
+          value: `${signedBcfd(net)} Bcf/d`,
+          delta: prevNet == null ? null : { value: `${signedBcfd(net - prevNet)} Bcf/d YoY`, kind: 'neutral' },
+          helpText: `Measured (EIA imports − exports) · LNG ${formatNumber(f.expLng / latest.days, 1)} Bcf/d ·
+            identity closes to ${signedBcfd(c.statDiffBcf / latest.days, 2)} Bcf/d`,
+        });
+      }
+      return kpiCardHtml({
+        label: 'Implied net exports',
+        value: latest.imbalanceBcfd == null ? '—' : `${signedBcfd(latest.imbalanceBcfd)} Bcf/d`,
+        helpText: latest.imbalanceBcfd == null
+          ? 'A leg is missing for this month, so net trade cannot be solved'
+          : `Table 1 solved for net trade${lngByMonth?.has(monthKeyOf(latest.period))
+            ? ` · LNG exports ${formatNumber(lngByMonth.get(monthKeyOf(latest.period)) / latest.days, 1)} Bcf/d`
+            : ''} · inferred, not measured`,
+      });
+    })(),
   ].join('');
 }
 
@@ -745,6 +1208,8 @@ function formatNumber(v, digits = 1) {
 
 function signedBcfd(v, digits = 1) {
   if (v == null || !Number.isFinite(v)) return '—';
+  // A value that rounds to zero prints unsigned: "−0.00" reads as a deficit.
+  if (Number(Math.abs(v).toFixed(digits)) === 0) return (0).toFixed(digits);
   const mag = Math.abs(v).toLocaleString('en-US', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,

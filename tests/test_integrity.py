@@ -664,6 +664,8 @@ class TestShippedRules:
             "eia_storage",
             "eia_lng_exports",
             "eia_supply",
+            # EIA trade by partner/mode and consumption by sector (balance panel)
+            "eia_flows",
             "gasnom",
             "quorum",
             "bhe",
@@ -692,7 +694,7 @@ class TestShippedRules:
         assert band["min"] == 0.0 and band["max"] == 2860000.0
 
     def test_monthly_sources_use_publication_lag_thresholds(self, rules: dict[str, Any]) -> None:
-        for key in ("eia_lng_exports", "eia_supply"):
+        for key in ("eia_lng_exports", "eia_supply", "eia_flows"):
             source = rules["sources"][key]
             assert source["month_end_normalize"] is True
             assert source["staleness"]["fail_days"] == 135

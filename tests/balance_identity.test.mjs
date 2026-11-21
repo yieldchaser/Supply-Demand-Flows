@@ -68,8 +68,10 @@ registerHooks({
   },
 });
 
-const { buildBalanceModel, buildFeedgasByMonth, buildLngByMonth, monthBalance, monthKeyOf, daysInMonth } =
-  await import('../docs/js/panels/balance.js');
+const {
+  buildBalanceModel, buildFeedgasByMonth, buildLngByMonth, monthBalance, monthKeyOf, daysInMonth,
+  buildFlowsByMonth, measuredClosure, buildDisposition, sameMonthStats,
+} = await import('../docs/js/panels/balance.js');
 const { LNG_TERMINALS } = await import('../docs/js/util/lng-terminals.js');
 const { parsePeriod } = await import('../docs/js/util/period.js');
 
@@ -427,5 +429,83 @@ describe('balance model reporting', () => {
     assert.ok(Number.isFinite(latest.fpd));
     assert.ok(Number.isFinite(latest.vc0));
     assert.ok(latest.period >= model.series[model.series.length - 2].period);
+  });
+});
+
+
+describe('measured trade (eia_flows)', () => {
+  const flows = buildFlowsByMonth(bundle.sources.eia_flows?.data ?? []);
+
+  it('is in the bundle and is a boot (core) source', () => {
+    assert.ok(flows.size >= 60, `only ${flows.size} months of EIA trade`);
+    // The balance panel renders at first paint from core sources only; a
+    // lazily loaded trade shard would never reach it. Read from the exporter,
+    // not a built index, so the check does not depend on a local build.
+    const exporter = readFileSync(new URL('../publishers/export_dashboard_json.py', import.meta.url), 'utf8');
+    const core = exporter.match(/core_sources = \[([^\]]*)\]/);
+    assert.ok(core && core[1].includes('"eia_flows"'), 'eia_flows must be a core source');
+  });
+
+  it('consumption by sector sums to the supply route\'s consumption leg', () => {
+    let checked = 0;
+    for (const m of model.series) {
+      const f = flows.get(monthKeyOf(m.period));
+      if (!f || f.cons == null) continue;
+      const sectors = f.res + f.com + f.ind + f.pwr + f.lease + f.pipe + f.veh;
+      assert.ok(Math.abs(sectors - m.vc0) < 0.01, `${monthKeyOf(m.period)}: sectors ${sectors} vs vc0 ${m.vc0}`);
+      checked += 1;
+    }
+    assert.ok(checked >= 60);
+  });
+
+  it('closes the Table 1 identity in recent months', () => {
+    // EIA's balancing item absorbs the statistical difference, so with
+    // measured trade the identity closes; 0.05 Bcf/d is rounding headroom.
+    const closed = model.series
+      .map((m) => ({ m, c: measuredClosure(m, flows.get(monthKeyOf(m.period))) }))
+      .filter(({ c }) => c);
+    assert.ok(closed.length >= 60);
+    for (const { m, c } of closed.slice(-12)) {
+      assert.ok(Math.abs(c.statDiffBcf / m.days) < 0.05,
+        `${monthKeyOf(m.period)} statistical difference ${(c.statDiffBcf / m.days).toFixed(3)} Bcf/d`);
+      // Measured and solved net exports are then the same number.
+      assert.ok(Math.abs(c.netExportsBcf - m.imbalanceBcf) < 0.05 * m.days);
+    }
+  });
+
+  it('returns null rather than guessing when trade is unpublished', () => {
+    assert.equal(measuredClosure(model.latest, undefined), null);
+    assert.equal(measuredClosure(model.latest, { imp: 100 }), null);
+  });
+
+  it('LNG exports agree between the trade route and the destination file', () => {
+    const lngDest = buildLngByMonth(bundle.sources.eia_lng_exports?.data ?? []);
+    let n = 0;
+    for (const [key, f] of flows) {
+      if (!lngDest.has(key) || f.expLng == null) continue;
+      // The destination scraper once fetched a single 5,000-row page and
+      // dropped ~30% of volume; the two EIA series must now agree.
+      assert.ok(Math.abs(lngDest.get(key) - f.expLng) < 1.0, `${key}: ${lngDest.get(key)} vs ${f.expLng}`);
+      n += 1;
+    }
+    assert.ok(n >= 24, `only ${n} overlapping LNG months`);
+  });
+
+  it('disposition stack = consumption + exports, in Bcf/d', () => {
+    const disp = buildDisposition(flows, model.series);
+    assert.ok(disp.length >= 60);
+    for (const r of disp) {
+      assert.ok(Math.abs(r.total - (r.consumption + r.exports)) < 1e-9);
+      assert.ok(r.total > 60 && r.total < 200, `${r.key} total ${r.total} Bcf/d`);
+      assert.equal(r.days, daysInMonth(r.period));
+    }
+  });
+
+  it('same-month statistics compare a month only with the same month', () => {
+    const rowsX = [2020, 2021, 2022, 2023].flatMap((yr) => [0, 6].map((mo) => ({
+      period: new Date(yr, mo, 1), v: mo === 0 ? 100 + yr - 2020 : 10,
+    })));
+    const st = sameMonthStats(rowsX, rowsX.find((r) => r.period.getFullYear() === 2023 && r.period.getMonth() === 0), (r) => r.v);
+    assert.deepEqual(st, { median: 101, min: 100, max: 102, n: 3 });
   });
 });
