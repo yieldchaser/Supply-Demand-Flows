@@ -1,0 +1,15 @@
+{
+  "source": "eia_flows",
+  "status": "ok",
+  "timestamp_utc": "2026-11-21T02:14:51Z",
+  "error": null,
+  "metadata": {
+    "latest_period": "2026-08",
+    "rows": 1748,
+    "by_request": {
+      "import": 552,
+      "export": 460,
+      "cons": 736
+    }
+  }
+}
