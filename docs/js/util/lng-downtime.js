@@ -296,6 +296,11 @@ export function buildDailyTotal(bundle, conf) {
       posted: v.posted,
       postedZero: v.postedZero,
       feedsPosted: v.feedsPosted,
+      // How many measured feeds existed on this date. When a feed's history
+      // starts later than the others (Freeport: Gulf South from 2026-05-25,
+      // TETCO from 2023), the total changes definition on that day; the
+      // detector must not compare totals across that boundary.
+      feedsExpected: expectedFeeds,
       feedValues: v.feedValues,
     });
   });
@@ -370,8 +375,14 @@ export function detectDowntime(daily, conf) {
   // the relative floor it reveals, so the quoted baseline is the operating level
   // rather than a blend of operating and pinned days.
   const absoluteCut = trailingMedian(values.filter((v) => v > 0)) * FLOOR_PCT;
+  // Same feed composition only (see buildDailyTotal.feedsExpected): a baseline
+  // spanning the day a second feed's history begins mixes two definitions of
+  // "total" and reads the new feed as a ramp.
+  const comp = (d) => d.feedsExpected ?? 0;
   for (let i = 0; i < daily.length; i++) {
-    const raw = values.slice(Math.max(0, i - BASELINE_WINDOW), i);
+    const lo = Math.max(0, i - BASELINE_WINDOW);
+    const raw = [];
+    for (let j = lo; j < i; j++) if (comp(daily[j]) === comp(daily[i])) raw.push(values[j]);
     const pass1 = raw.filter((v) => v > 0 && v > absoluteCut);
     const cut = Math.max(absoluteCut, (trailingMedian(pass1) || 0) * FLOOR_PCT);
     medians[i] = trailingMedian(raw.filter((v) => v > 0 && v > cut), BASELINE_WINDOW);
@@ -495,7 +506,9 @@ export function detectDowntime(daily, conf) {
 
     // RAMPING (baseline rising)
     const rw = 7;
-    if (i >= rw * 2) {
+    const sameComposition = i >= rw * 2
+      && daily.slice(i - 2 * rw, i + 1).every((d) => comp(d) === comp(cur));
+    if (i >= rw * 2 && sameComposition) {
       const recent = values.slice(i - rw, i + 1).filter((val) => val > 0);
       const older = values.slice(i - 2 * rw, i - rw).filter((val) => val > 0);
       // Filtering out zeros would turn a recovery from an outage into a
