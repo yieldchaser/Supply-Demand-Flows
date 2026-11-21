@@ -159,7 +159,7 @@ function renderTerminal(chartEl, sidebarEl, footEl, bundle, key) {
   }
 
   sidebarEl.innerHTML = model.kpis.join('');
-  drawTimeline(chartEl, model.daily, model.conf, model.events);
+  drawTimeline(chartEl, model.daily, model.conf, model.events, model.partialEra);
   footEl.innerHTML = renderEventListHtml(model.events, model.conf);
   attachEventInteractions(chartEl, footEl);
 }
@@ -172,7 +172,7 @@ function renderTerminal(chartEl, sidebarEl, footEl, bundle, key) {
  * @param {Object} conf
  * @param {Array<Object>} events
  */
-function drawTimeline(container, daily, conf, events) {
+function drawTimeline(container, daily, conf, events, partialEra = null) {
   container.innerHTML = '';
 
   const chartWrap = document.createElement('div');
@@ -234,6 +234,18 @@ function drawTimeline(container, daily, conf, events) {
   const yFlow = d3.scaleLinear().domain([0, maxVal * 1.15]).range([height, 52]);
 
   const dayPx = Math.max(width / Math.max(daily.length, 1), 2);
+
+  // Shade the era before the full feed set exists: the line there is some of
+  // the terminal's meters, not its intake.
+  if (partialEra) {
+    const x0 = x(parse(partialEra.from));
+    const x1 = x(parse(partialEra.until));
+    g.append('rect').attr('x', x0).attr('y', 52).attr('width', Math.max(0, x1 - x0)).attr('height', height - 52)
+      .attr('fill', 'rgba(255,255,255,0.035)');
+    g.append('text').attr('x', (x0 + x1) / 2).attr('y', 66).attr('text-anchor', 'middle')
+      .attr('font-size', 10).style('fill', 'rgba(255,255,255,0.5)')
+      .text(`${partialEra.feeds} of ${partialEra.of} feeds measured until ${partialEra.until} · not total intake`);
+  }
 
   /* ------------------------------------------------------------------------- */
   /*  Zone 1: Outage & Reliability Gantt Track (y: 0 to 38px)                  */

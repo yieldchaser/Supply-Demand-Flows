@@ -1048,3 +1048,10 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+.downtime-card__partial,
+.downtime-table__partial {
+  color: var(--color-warning);
+  font-size: 11px;
+}
+.downtime-card__partial { margin-top: 6px; }

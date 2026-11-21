@@ -314,3 +314,16 @@ test('a feed whose history starts later is not read as a commercial ramp', () =>
   const events = detectDowntime(daily, conf);
   assert.ok(!events.some((e) => e.type === 'RAMPING'), JSON.stringify(events.map((e) => `${e.type}:${e.startDate}`)));
 });
+
+test('partialFeedEra marks the days before a terminal\'s full feed set exists', async () => {
+  const { partialFeedEra } = await import('../docs/js/util/lng-downtime.js');
+  const daily = [
+    { dateStr: '2024-01-01', feedsExpected: 1 },
+    { dateStr: '2025-01-01', feedsExpected: 1 },
+    { dateStr: '2026-05-25', feedsExpected: 2 },
+    { dateStr: '2026-06-01', feedsExpected: 2 },
+  ];
+  assert.deepEqual(partialFeedEra(daily), { from: '2024-01-01', until: '2026-05-25', feeds: 1, of: 2 });
+  assert.equal(partialFeedEra(daily.slice(2)), null, 'all days complete');
+  assert.equal(partialFeedEra([{ dateStr: '2024-01-01', feedsExpected: 1 }]), null, 'single-feed terminal');
+});

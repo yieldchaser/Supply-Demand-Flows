@@ -605,11 +605,27 @@ export function buildDowntimeViewModel(bundle, key) {
   }
   const events = detectDowntime(daily, conf);
   const status = currentStatus(events, daily[daily.length - 1].dateStr);
+  const partialEra = partialFeedEra(daily);
+  if (partialEra) {
+    // An event in the era when only some of the terminal's meters exist is an
+    // event on those meters: it cannot say the whole terminal went down, and
+    // its volume impact is a share of the terminal's.
+    for (const e of events) {
+      const start = e.startDate || e.date;
+      if (start < partialEra.until) {
+        const d = daily.find((x) => x.dateStr === start);
+        e.partialFeeds = { have: d?.feedsExpected ?? partialEra.feeds, of: partialEra.of };
+      }
+    }
+  }
   const kpis = [
     kpiCardHtml({
       label: 'Current status',
       value: status.type,
-      delta: { value: status.duration + 'd', kind: status.kind === 'OFFLINE' ? 'bearish' : 'neutral' },
+      delta: {
+        value: status.duration ? `${status.duration}d in this state` : `as of ${daily[daily.length - 1].dateStr}`,
+        kind: status.kind === 'OFFLINE' ? 'bearish' : 'neutral',
+      },
       helpText: 'Latest classified state',
     }),
     kpiCardHtml({
@@ -625,7 +641,21 @@ export function buildDowntimeViewModel(bundle, key) {
       helpText: 'Posted gas days with at least one feed filing',
     }),
   ];
-  return { conf, daily, events, status, kpis };
+  return { conf, daily, events, status, kpis, partialEra };
+}
+
+/**
+ * The stretch, if any, before the terminal's full measured feed set exists
+ * (Freeport: TETCO from 2023, Gulf South only from 2026-05-25).
+ *
+ * @returns {{from: string, until: string, feeds: number, of: number}|null}
+ */
+export function partialFeedEra(daily) {
+  const of = (daily || []).reduce((m, d) => Math.max(m, d.feedsExpected ?? 0), 0);
+  if (of < 2) return null;
+  const first = daily.find((d) => (d.feedsExpected ?? of) === of);
+  if (!first || first.dateStr <= daily[0].dateStr) return null;
+  return { from: daily[0].dateStr, until: first.dateStr, feeds: daily[0].feedsExpected ?? 1, of };
 }
 
 /**
@@ -713,6 +743,7 @@ export function renderEventListHtml(events, conf) {
         </div>
         <div class="downtime-card__cause">${escapeHtml(causeStr)}</div>
         <div class="downtime-card__detail">${escapeHtml(e.detail)}</div>
+        ${e.partialFeeds ? `<div class="downtime-card__partial">Measured on ${e.partialFeeds.have} of ${e.partialFeeds.of} feeds: a stop on those meters, impact is their share only</div>` : ''}
       </div>
     `;
   }).join('');
@@ -740,6 +771,7 @@ export function renderEventListHtml(events, conf) {
         <td>
           <span class="downtime-table__cause">${escapeHtml(causeStr)}</span>
           <span class="downtime-table__detail"> · ${escapeHtml(e.detail)}</span>
+          ${e.partialFeeds ? `<span class="downtime-table__partial"> · ${e.partialFeeds.have} of ${e.partialFeeds.of} feeds measured</span>` : ''}
         </td>
       </tr>
     `;
