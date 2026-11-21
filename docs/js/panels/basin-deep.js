@@ -76,6 +76,7 @@ function computeBasinMetrics(bundle) {
     };
 
     let extreme = null;
+    let priorRange = null;
     // Only flag as extreme if the latest reading is strictly outside the 52w range
     // (the 52w window itself includes the latest point, so we compare to all prior
     //  points, not the window that includes the latest)
@@ -83,6 +84,7 @@ function computeBasinMetrics(bundle) {
     if (priorWindow.length >= 4) {
       const priorMin = Math.min(...priorWindow.map((r) => r.value));
       const priorMax = Math.max(...priorWindow.map((r) => r.value));
+      priorRange = { min: priorMin, max: priorMax };
       if (latest.value > priorMax) extreme = 'high';
       else if (latest.value < priorMin) extreme = 'low';
     }
@@ -113,6 +115,7 @@ function computeBasinMetrics(bundle) {
       avg12m,
       range12m,
       extreme,
+      priorRange,
       _total: total,
       _gas:   gas,
       _oil:   oil,
@@ -560,8 +563,10 @@ export function renderBasinExtremes(panelEl, bundle) {
 
   const cards = extremes.map((m) => {
     const dirLabel = m.extreme === 'high'
-      ? `↑ above 52w max (${m.range12m.max})`
-      : `↓ below 52w min (${m.range12m.min})`;
+      // The prior 52 weeks, not the window that includes this week: printing
+      // the latter read "275 above 52w max (275)".
+      ? `↑ above prior 52w max (${m.priorRange?.max ?? m.range12m.max})`
+      : `↓ below prior 52w min (${m.priorRange?.min ?? m.range12m.min})`;
     return `
       <span class="extreme-card extreme-card--${m.extreme}">
         <strong>${m.label}</strong>
