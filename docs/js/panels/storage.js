@@ -40,6 +40,7 @@ import {
   priorSameWeekValues,
 } from '../util/storage-analysis.js';
 import { matchYearAgo } from '../util/season.js';
+import { formatPeriodKey } from '../util/period.js';
 
 const STORAGE_CHART_ID = 'storage-envelope';
 
@@ -169,7 +170,7 @@ export function renderStoragePanel(panelEl, bundle) {
       const wk = weekKey(r);
       const env = envelope5Y.get(wk);
       return {
-        date: r.period.toISOString().slice(0, 10),
+        date: formatPeriodKey(r.period),
         week_of_season: wk,
         bcf: r.value,
         normal_n: env ? env.count : 0,

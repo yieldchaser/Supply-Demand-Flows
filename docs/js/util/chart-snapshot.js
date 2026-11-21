@@ -69,7 +69,10 @@ export function toCsv(rows) {
   });
   const cell = (v) => {
     if (v == null) return '';
-    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    if (v instanceof Date) {
+      // Local calendar day: plotted periods are local midnight (util/period.js).
+      return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+    }
     const s = String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };

@@ -4,6 +4,7 @@
  */
 
 import { cyclePriority } from './lng-downtime.js';
+import { formatPeriodKey } from './period.js';
 
 export const N_SHARE_PTS = 10;   // a feed's share moved >= 10 points
 export const M_TOTAL_PCT = 8;    // total changed within +/- 8%
@@ -23,7 +24,7 @@ export function dailyFromFeed(rows, stem) {
     if (!sid.includes('_d_')) continue;
     const cyc = sid.slice(stem.toLowerCase().length + 1);
     const cycTok = cyc.split('_')[0];
-    const date = r.period instanceof Date ? r.period.toISOString().slice(0, 10) : String(r.period).slice(0, 10);
+    const date = r.period instanceof Date ? formatPeriodKey(r.period) : String(r.period).slice(0, 10);
     const val = Number(r.value);
     const pri = cyclePriority(cycTok);
     if (pri <= 0) continue;

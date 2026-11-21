@@ -59,7 +59,13 @@ export function formatRelativeTime(date) {
  * @returns {string} e.g. "2026-04-17"
  */
 export function formatIsoDate(date) {
-  return date.toISOString().slice(0, 10);
+  // Local calendar fields, not the UTC instant: periods are parsed to local
+  // midnight (util/period.js), so `toISOString()` printed the previous day for
+  // every reader east of Greenwich — i.e. every European reader of the GIE data.
+  const d = date instanceof Date ? date : new Date(date);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 /**
