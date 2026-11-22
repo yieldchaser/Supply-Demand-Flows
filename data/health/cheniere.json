@@ -1,7 +1,7 @@
 {
   "source": "cheniere",
   "status": "ok",
-  "timestamp_utc": "2026-11-21T12:59:17Z",
+  "timestamp_utc": "2026-11-22T00:08:16Z",
   "error": null,
   "metadata": {
     "processed_count": 2,
@@ -10,6 +10,6 @@
       "200": 11,
       "400": 10
     },
-    "gas_day": "2026-11-21"
+    "gas_day": "2026-11-22"
   }
 }
