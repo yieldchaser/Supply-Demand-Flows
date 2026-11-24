@@ -1,11 +1,11 @@
 {
   "source": "eurostat_gas",
   "status": "ok",
-  "timestamp_utc": "2026-11-21T01:50:36Z",
+  "timestamp_utc": "2026-11-24T23:06:50Z",
   "error": null,
   "metadata": {
     "latest_month": "2026-10",
-    "row_count": 1028,
-    "dataset_updated": "2026-11-20T11:00:00+0100"
+    "row_count": 1031,
+    "dataset_updated": "2026-11-24T23:00:00+0100"
   }
 }
