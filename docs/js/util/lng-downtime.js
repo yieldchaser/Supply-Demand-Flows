@@ -118,7 +118,7 @@ export const DOWNTIME_CONF = {
     ],
     zeroDaysThreshold: 3, // inherited default, unvalidated
     cargoZero: false, // inherited default, unvalidated
-    honesty: 'TSQ at VGCPD (delivery into Calcasieu Pass LNG) via Quorum TransCameron OpAvail (TspNo=10). Claimed 123.5% median coverage reflects baseload operation above design.',
+    honesty: 'TSQ at VGCPD (delivery into Calcasieu Pass LNG) via Quorum TransCameron OpAvail (TspNo=10). Claimed 129.9% median coverage reflects baseload operation above design.',
   },
   golden_pass: {
     label: 'Golden Pass',
@@ -128,7 +128,7 @@ export const DOWNTIME_CONF = {
     ],
     zeroDaysThreshold: 3, // inherited default, unvalidated
     cargoZero: false, // inherited default, unvalidated
-    honesty: 'Full-terminal consolidated delivery meter (loc 1097217) via GasNom. Current flow (~12.7% of nameplate) represents Train 1 commissioning ramp.',
+    honesty: 'Full-terminal consolidated delivery meter (loc 1097217) via GasNom. Current flow (~26% of nameplate, 60-day median) represents the commissioning ramp.',
   },
   corpus_christi: {
     label: 'Corpus Christi',

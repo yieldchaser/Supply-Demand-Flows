@@ -61,13 +61,13 @@ test('Anti-rot coverage guard: verified 60-day empirical table consistency', () 
   // Ground-truth 60-day median measurements from Brief L, re-measured 2026-10-28
   // over the live curated window (cove_point/corpus_christi had outrun theirs).
   const measurements = {
-    plaquemines: { median: 3820.9, pct: 112.4 },
-    calcasieu:   { median: 1605.8, pct: 123.5 },
+    plaquemines: { median: 4186.1, pct: 123.1 },
+    calcasieu:   { median: 1688.1, pct: 129.9 },
     corpus_christi: { median: 2561.0, pct: 106.7 },
     sabine_pass: { median: 1365.2, pct: 30.3 },
     cameron:     { median: 1458.6, pct: 72.9 },
-    golden_pass: { median: 330.4,  pct: 12.7 },
-    cove_point:  { median: 784.2,  pct: 104.6 },
+    golden_pass: { median: 686.0,  pct: 26.4 },
+    cove_point:  { median: 837.7,  pct: 111.7 }, // re-measured 2026-11-24 (100 operating days)
     freeport:    { median: 1597.3, pct: 76.1 }, // 100 operating days to 2026-11-20 (tests/test_coverage_guard.py re-measures)
   };
 

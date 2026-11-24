@@ -128,11 +128,11 @@ test('§01 coverage anti-rot: all 9 terminals carry honest partial-ness and deri
     freeport: true,        // 52.9%
     sabine_pass: true,     // 30.3%
     cameron: true,         // 72.9%
-    golden_pass: false,    // 12.7% (100% plant gate intake, Train 1 commissioning ramp)
+    golden_pass: false,    // 26.4% (100% plant gate intake, commissioning ramp)
     cove_point: false,     // 97.1%
     corpus_christi: false, // 99.4%
-    plaquemines: false,    // 112.4% (running above nameplate)
-    calcasieu: false,      // 123.5% (running above nameplate)
+    plaquemines: false,    // 123.1% (running above nameplate)
+    calcasieu: false,      // 129.9% (running above nameplate)
     port_arthur: false,    // non-operational
   };
 

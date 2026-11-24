@@ -12,8 +12,8 @@
     "id": "plaquemines",
     "display": "Plaquemines",
     "nameplate": 3400.0,
-    "expectedCoveragePct": 112.4,
-    "expectedMedianMmcf": 3820.9,
+    "expectedCoveragePct": 123.1,
+    "expectedMedianMmcf": 4186.1,
     "coverageTolerancePct": 12.0,
     "operational": true
   },
@@ -21,8 +21,8 @@
     "id": "calcasieu",
     "display": "Calcasieu Pass",
     "nameplate": 1300.0,
-    "expectedCoveragePct": 123.5,
-    "expectedMedianMmcf": 1605.8,
+    "expectedCoveragePct": 129.9,
+    "expectedMedianMmcf": 1688.1,
     "coverageTolerancePct": 8.0,
     "operational": true
   },
@@ -30,8 +30,8 @@
     "id": "golden_pass",
     "display": "Golden Pass",
     "nameplate": 2600.0,
-    "expectedCoveragePct": 12.7,
-    "expectedMedianMmcf": 330.4,
+    "expectedCoveragePct": 26.4,
+    "expectedMedianMmcf": 686.0,
     "coverageTolerancePct": 15.0,
     "operational": true
   },
@@ -48,8 +48,8 @@
     "id": "cove_point",
     "display": "Cove Point",
     "nameplate": 750.0,
-    "expectedCoveragePct": 104.6,
-    "expectedMedianMmcf": 784.2,
+    "expectedCoveragePct": 111.7,
+    "expectedMedianMmcf": 837.7,
     "coverageTolerancePct": 7.0,
     "operational": true
   },

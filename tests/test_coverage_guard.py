@@ -155,7 +155,7 @@ def test_coverage_guard_still_catches_structural_loss() -> None:
 
     Terminals that are actually measured by their visible meters (>= 30% of
     nameplate) must fail when a visible meter is lost. Golden Pass is excluded:
-    at 12.7% of coverage it cannot clear its own 15% band in either direction,
+    at ~26% of coverage (2026-11) it cannot clear its own 15% band in either direction,
     so doubling its nameplate still lands inside tolerance. That is a property
     of the claim's width, not something the floor exclusion can change.
     """
