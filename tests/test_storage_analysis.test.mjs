@@ -232,6 +232,36 @@ describe('golden figures (bundle 2026-09-11)', () => {
   });
 });
 
+describe('analog projection (any bundle vintage)', () => {
+  it('is the latest print plus prior years\u2019 realised change over the same weeks', () => {
+    const p = analysis.projection;
+    if (!p || p.analogBcf == null) return;
+    assert.ok(Math.abs(p.analogBcf - (analysis.latest.value + p.residualQ50)) < 1e-9);
+    assert.ok(p.analogLowBcf <= p.analogBcf && p.analogBcf <= p.analogHighBcf);
+    assert.equal(p.empiricalDeltas.length, p.empiricalN);
+  });
+});
+
+describe('endOfSeasonAnalog', () => {
+  it('applies each prior year\u2019s change to the season end and reports the normal end level', async () => {
+    const { endOfSeasonAnalog } = await import('../docs/js/util/storage-analysis.js');
+    // Weekly Fridays; every winter draws exactly 1,500 Bcf from mid-Nov to end-Mar.
+    const rows = [];
+    for (let t = new Date(2020, 0, 3); t <= new Date(2026, 10, 13); t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 7)) {
+      const m = t.getMonth();
+      const inWinter = m >= 10 || m <= 2;
+      rows.push({ period: t, value: inWinter ? 3500 - 1500 * ((m >= 10 ? m - 10 : m + 2) / 5) : 2500 });
+    }
+    rows[rows.length - 1] = { ...rows[rows.length - 1], value: 3000 };
+    const a = endOfSeasonAnalog(rows);
+    assert.equal(a.season, 'withdrawal');
+    assert.equal(a.endDate.getTime(), new Date(2027, 2, 31).getTime());
+    assert.equal(a.n, 5);
+    assert.ok(a.minBcf <= a.medianBcf && a.medianBcf <= a.maxBcf);
+    assert.ok(Math.abs(a.medianBcf - (3000 - (3500 - a.normalEndBcf))) < 400);
+  });
+});
+
 describe('assertStorageInvariants on synthetic breakage', () => {
   it('catches a salt/non-salt split that does not close', () => {
     const bad = buildStorageSeries([

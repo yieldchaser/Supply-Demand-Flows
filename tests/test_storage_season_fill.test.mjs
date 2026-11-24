@@ -48,6 +48,8 @@ const {
   seasonToDateDelta,
   seasonNormal,
   computeRegionSeasonFill,
+  regionChangeSum,
+  L48_SERIES_ID,
 } = await import('../docs/js/util/storage-analysis.js');
 const { matchYearAgo } = await import('../docs/js/util/season.js');
 const { getSeries, groupBySeriesId } = await import('../docs/js/util/series.js');
@@ -94,6 +96,21 @@ describe('regional fill share', () => {
     const regions = regionTable(analysis.periods);
     const fullest = regions.reduce((a, b) => (b.fillPctOfObservedMax > a.fillPctOfObservedMax ? b : a));
     assert.ok(fullest.fillPctOfObservedMax > 50);
+  });
+});
+
+describe('regional change sum', () => {
+  it('sums the five EIA regions, not South Central\'s salt / non-salt split again', () => {
+    const regions = regionTable(analysis.periods);
+    assert.ok(regions.some((r) => r.subOf === 'south_central'), 'salt / non-salt rows are present');
+    const periods = analysis.periods;
+    const l48 = periods[periods.length - 1].values[L48_SERIES_ID] - periods[periods.length - 2].values[L48_SERIES_ID];
+    const sum = regionChangeSum(regions, l48);
+    assert.equal(sum.n, 5);
+    // EIA rounds each region independently; a few Bcf is the most that can
+    // explain a miss. Counting the sub-rows again overshot by ~South Central.
+    assert.ok(Math.abs(sum.residualVsL48Bcf) <= 3, `residual ${sum.residualVsL48Bcf} Bcf`);
+    assert.equal(sum.nBuild + sum.nDraw <= 5, true);
   });
 });
 
@@ -230,11 +247,13 @@ describe('seasonToDateStanding', () => {
     );
   });
 
-  it('is mid-range when a prior year moved the other way, not smallest', () => {
-    assert.equal(
-      seasonToDateStanding(std(-40, [{ netChangeBcf: 30 }, { netChangeBcf: 10 }])),
-      'mid-range',
-    );
+  it('compares signed values: a draw below every prior injection is the smallest', () => {
+    // The badge reads 'ABOVE ALL' / 'BELOW ALL' as signed comparisons. The old
+    // rule compared magnitudes within one direction only, so a +20 Bcf net
+    // injection against five years of net draws printed "MIDDLE OF 5 YEARS".
+    assert.equal(seasonToDateStanding(std(-40, [{ netChangeBcf: 30 }, { netChangeBcf: 10 }])), 'smallest');
+    assert.equal(seasonToDateStanding(std(20, [{ netChangeBcf: -14 }, { netChangeBcf: -80 }, { netChangeBcf: -3 }])), 'largest');
+    assert.equal(seasonToDateStanding(std(-10, [{ netChangeBcf: -14 }, { netChangeBcf: -3 }])), 'mid-range');
   });
 });
 

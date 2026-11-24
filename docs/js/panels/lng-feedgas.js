@@ -348,7 +348,7 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     : '';
   const latestPeriodText = source && source.latest_period ? source.latest_period : latestData.dateStr;
   const kmtpLine = isMultiFeed
-    ? '<p>Gulf South + TETCO interconnects, 52.9% median of the 2,100 MMcf/d nameplate. The KMTP intrastate lateral (~400–450 MMcf/d) sits outside these meters.</p>'
+    ? '<p>Gulf South + TETCO interconnects, 76.1% median of the 2,100 MMcf/d nameplate over the last 100 operating days. The KMTP intrastate lateral (~400–450 MMcf/d) sits outside these meters.</p>'
     : '';
   const covNoteLine = t.coverageNote ? `<p>${t.coverageNote}</p>` : '';
   footerContainer.innerHTML = `
@@ -359,97 +359,6 @@ export function renderLngFeedgasPanel(panelEl, bundle, terminalId = DEFAULT_TERM
     <p><strong>Last updated</strong> ${latestPeriodText} · ${totalDays.toLocaleString()} gas days of history</p>
   `;
 
-  // 9. Official EIA Weekly Supplement Vessel Outflow Component
-  renderLngVesselOutflow(bodyEl, effectiveId);
-}
-
-const EIA_SUPPLEMENT_TERMINALS = [
-  { id: 'sabine_pass', name: 'Sabine Pass', state: 'LA', vessels: 9, capacityBcf: 35.1, sharePct: 24.7 },
-  { id: 'plaquemines', name: 'Plaquemines', state: 'LA', vessels: 8, capacityBcf: 30.7, sharePct: 21.6 },
-  { id: 'corpus_christi', name: 'Corpus Christi', state: 'TX', vessels: 7, capacityBcf: 26.9, sharePct: 18.9 },
-  { id: 'cameron', name: 'Cameron', state: 'LA', vessels: 4, capacityBcf: 15.4, sharePct: 10.8 },
-  { id: 'freeport', name: 'Freeport', state: 'TX', vessels: 4, capacityBcf: 15.3, sharePct: 10.8 },
-  { id: 'calcasieu_pass', name: 'Calcasieu Pass', state: 'LA', vessels: 3, capacityBcf: 11.5, sharePct: 8.1 },
-  { id: 'cove_point', name: 'Cove Point', state: 'MD', vessels: 2, capacityBcf: 7.1, sharePct: 5.0 },
-  { id: 'elba_island', name: 'Elba Island', state: 'GA', vessels: 0, capacityBcf: 0.0, sharePct: 0.0 },
-  { id: 'golden_pass', name: 'Golden Pass', state: 'TX', vessels: 0, capacityBcf: 0.0, sharePct: 0.0, note: 'Commissioning' },
-];
-
-export function renderLngVesselOutflow(container, activeTerminalId = 'freeport') {
-  const totalBcf = 142.0;
-  const wowDeltaBcf = 7.0;
-  const totalVessels = 37;
-  const wowVessels = 2;
-  const everettBcf = 3.0;
-
-  const card = document.createElement('div');
-  card.className = 'lng-vessel-outflow-card';
-  card.setAttribute('data-chapter-section', 'lng-vessel-outflow');
-
-  card.innerHTML = `
-    <div class="lng-vessel-outflow-header">
-      <div>
-        <div class="lng-vessel-outflow-title">Official EIA Weekly Supplement · LNG Tanker Vessel Outflow</div>
-        <div class="lng-vessel-outflow-sub">Weekly departing vessel capacity and departed tanker counts by export terminal</div>
-      </div>
-      <div class="badge badge--normal" style="font-family:var(--font-mono);font-size:11px;">
-        142 Bcf / 37 Tankers Departing
-      </div>
-    </div>
-
-    <div class="lng-vessel-kpis">
-      <div class="lng-vessel-kpi-box">
-        <div class="lng-vessel-kpi-label">Departing LNG Capacity</div>
-        <div class="lng-vessel-kpi-val">${totalBcf.toFixed(1)} <span style="font-size:13px;color:var(--text-muted);">Bcf</span></div>
-        <div class="lng-vessel-kpi-sub" style="color:#34d399;">+${wowDeltaBcf.toFixed(1)} Bcf vs prior week</div>
-      </div>
-      <div class="lng-vessel-kpi-box">
-        <div class="lng-vessel-kpi-label">Departed LNG Tankers</div>
-        <div class="lng-vessel-kpi-val">${totalVessels} <span style="font-size:13px;color:var(--text-muted);">vessels</span></div>
-        <div class="lng-vessel-kpi-sub" style="color:#34d399;">+${wowVessels} vessels vs prior week</div>
-      </div>
-      <div class="lng-vessel-kpi-box">
-        <div class="lng-vessel-kpi-label">Everett Boston Import Arrival</div>
-        <div class="lng-vessel-kpi-val">${everettBcf.toFixed(1)} <span style="font-size:13px;color:var(--text-muted);">Bcf</span></div>
-        <div class="lng-vessel-kpi-sub">1 tanker arrived at Everett LNG (Boston)</div>
-      </div>
-    </div>
-
-    <table class="lng-vessel-table">
-      <thead>
-        <tr>
-          <th scope="col">Terminal</th>
-          <th scope="col">State</th>
-          <th scope="col" style="text-align:right;">Departed Tankers</th>
-          <th scope="col" style="text-align:right;">Departed Capacity</th>
-          <th scope="col" style="text-align:right;">Share of U.S. Outflow</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${EIA_SUPPLEMENT_TERMINALS.map((t) => {
-          const isSelected = activeTerminalId && t.id.toLowerCase().includes(activeTerminalId.toLowerCase());
-          return `
-            <tr style="${isSelected ? 'background: rgba(14, 165, 233, 0.08); font-weight: 600;' : ''}">
-              <td>${t.name}${t.note ? ` <span style="font-size:10px;color:var(--text-muted);">(${t.note})</span>` : ''}</td>
-              <td><span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">${t.state}</span></td>
-              <td class="num" style="text-align:right;">${t.vessels}</td>
-              <td class="num" style="text-align:right;color:${t.capacityBcf > 0 ? 'var(--blue-flame)' : 'var(--text-muted)'};">${t.capacityBcf.toFixed(1)} Bcf</td>
-              <td class="num" style="text-align:right;">${t.sharePct.toFixed(1)}%</td>
-            </tr>
-          `;
-        }).join('')}
-      </tbody>
-    </table>
-
-    <div class="lng-vessel-crosslink">
-      Data source: <strong>Vortexa Analytics tanker tracker</strong> (published officially in the EIA Weekly Natural Gas Storage Supplement under Form EIA-912).
-      <br>
-      For vessel-level IMO telemetry, live draught displacement, maritime AIS tracking, and ballast vs. laden voyages, navigate to the federated sibling repository:
-      <strong style="color:var(--text-main);">Shipping</strong> (<code>C:\\Users\\Dell\\Github\\Shipping</code>).
-    </div>
-  `;
-
-  container.appendChild(card);
 }
 
 /**
@@ -470,7 +379,10 @@ function getGasYearInfo(date) {
     gasYear = y - 1;
     start = new Date(y - 1, 1, 1);
   }
-  const dayIndex = Math.floor((date.getTime() - start.getTime()) / 86400000);
+  // Round, not floor: dates are local midnight, and across a daylight-saving
+  // change a day is 23 or 25 hours, which floor turned into two days sharing
+  // one index (a kink in every line after the clock change).
+  const dayIndex = Math.round((date.getTime() - start.getTime()) / 86400000);
   return { gasYear, dayIndex };
 }
 
@@ -483,6 +395,20 @@ function getGasYearInfo(date) {
  * current latest value deviates strongly from the trailing 90-day median
  * (guards against implying an outlier day is normal).
  */
+/**
+ * Rows from the first sustained flow on: the first day of three consecutive
+ * days at or above 2% of nameplate. Earlier rows are pre-service.
+ */
+export function trimPreService(rows, nameplate) {
+  const floor = (nameplate || 0) * 0.02;
+  for (let i = 0; i + 2 < rows.length; i++) {
+    if (rows[i].value >= floor && rows[i + 1].value >= floor && rows[i + 2].value >= floor && rows[i].value > 0) {
+      return i === 0 ? rows : rows.slice(i);
+    }
+  }
+  return rows;
+}
+
 function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDays, multi = null, events = []) {
   container.innerHTML = '';
 
@@ -502,6 +428,11 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
 
   // X scale: Gas Year Day Index (Feb 1st to Jan 31st: 0 to 365)
   const x = d3.scaleLinear().domain([0, 365]).range([0, width]);
+
+  // Drop the run before the terminal's first sustained flow: a meter posting
+  // zero for a plant not yet built is "no plant", not "zero feedgas", and
+  // those zeros became the floor of the prior-years range.
+  dailySeries = trimPreService(dailySeries, nameplate);
 
   // Assign gas year / day indices FIRST, then group by them.
   dailySeries.forEach((d) => {
@@ -589,7 +520,7 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .style('font-feature-settings', '"tnum"')
     .style('letter-spacing', '0.02em')
     .style('fill', 'rgba(255,255,255,0.45)')
-    .text(`Nameplate ${nameplate.toLocaleString()} MMcf/d`);
+    .text(`FERC nameplate ${nameplate.toLocaleString()} MMcf/d`);
 
   // Median reference marker — only when today deviates >25% from the
   // trailing-90-day median, so an unusual day is never read as normal.
@@ -884,7 +815,8 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
         const v2 = byDay2.get(i);
         if (v1 !== undefined) valid.push(v1);
         if (v2 !== undefined) valid.push(v2);
-        if (valid.length > 0) {
+        // A range needs both years on the day; one year alone is not a range.
+        if (valid.length === 2) {
           envelopeData.push({
             dayIndex: i,
             min: d3.min(valid),
@@ -951,16 +883,32 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
         .style('filter', 'drop-shadow(0 0 6px rgba(125, 211, 252, 0.4))');
     }
 
-    // Add info note to chart subtitle space — kept from the thin-data state
-    // because the 2-year envelope only becomes available once two prior gas
-    // years of history have accumulated.
-    svg.append('text')
-      .attr('x', margin.left)
-      .attr('y', 12)
-      .attr('font-size', '10px')
-      .style('fill', 'rgba(255,255,255,0.4)')
-      .style('font-style', 'italic')
-      .text('Historical envelope builds as data accumulates.');
+    // Legend: which line is which gas year. Without it the prior-year line and
+    // the two dashed range lines were unlabelled colours.
+    const drewRange = g.selectAll('path[stroke-dasharray="4,2"]').size() > 0;
+    const items = [
+      { label: `${currentGasYear} gas year`, color: 'var(--blue-flame)', w: 2.5 },
+      ...(priorYearRows.length ? [{ label: `${priorGasYear}`, color: '#6b7280', w: 1.5 }] : []),
+      ...(drewRange ? [
+        { label: `${prior2GasYear}–${priorGasYear} high`, color: '#ef4444', dash: '4,2', w: 1 },
+        { label: `${prior2GasYear}–${priorGasYear} low`, color: '#22d3ee', dash: '4,2', w: 1 },
+      ] : []),
+    ];
+    const lg = svg.append('g').attr('transform', `translate(${margin.left}, 8)`);
+    let lx = 0;
+    for (const it of items) {
+      const gi = lg.append('g').attr('transform', `translate(${lx},0)`);
+      gi.append('line').attr('x1', 0).attr('x2', 14).attr('y1', 4).attr('y2', 4)
+        .style('stroke', it.color).attr('stroke-width', it.w).attr('stroke-dasharray', it.dash ?? null);
+      const t = gi.append('text').attr('x', 18).attr('y', 8).attr('font-size', '10px')
+        .style('fill', 'rgba(255,255,255,0.6)').text(it.label);
+      lx += t.node().getComputedTextLength() + 34;
+    }
+    if (!drewRange) {
+      lg.append('text').attr('x', lx).attr('y', 8).attr('font-size', '10px')
+        .style('fill', 'rgba(255,255,255,0.4)').style('font-style', 'italic')
+        .text('Prior-years range appears once two earlier gas years overlap.');
+    }
   }
 
   // Dotted Latest-Cycle Line (if we have dotted rows)
@@ -1008,6 +956,32 @@ function drawHeroChart(container, dailySeries, dottedSeries, nameplate, totalDay
     .style('letter-spacing', 'normal')
     .style('fill', 'var(--chart-label)')
     .text((d) => `${d}`);
+
+  // Hover: every gas year's value on the same day, current year first, with
+  // utilisation of nameplate.
+  const tip = d3.select(container).append('div').attr('class', 'chart-tooltip').style('opacity', 0);
+  container.style.position = container.style.position || 'relative';
+  const guide = g.append('line').attr('y1', 0).attr('y2', height).attr('stroke', 'rgba(255,255,255,0.3)').attr('stroke-dasharray', '2 2').style('opacity', 0);
+  const byYearIdx = new Map([...seriesByGasYear].map(([yr, rows]) => [yr, new Map(rows.map((r) => [r.dayIndex, r]))]));
+  const years = [...byYearIdx.keys()].sort((a, b) => b - a);
+  g.append('rect').attr('width', width).attr('height', height).attr('fill', 'transparent')
+    .on('mousemove', (ev) => {
+      const [mx] = d3.pointer(ev);
+      const idx = Math.max(0, Math.min(365, Math.round(x.invert(mx))));
+      const rowsAt = years.map((yr) => ({ yr, r: byYearIdx.get(yr).get(idx) })).filter((o) => o.r);
+      if (!rowsAt.length) { tip.style('opacity', 0); guide.style('opacity', 0); return; }
+      guide.attr('x1', x(idx)).attr('x2', x(idx)).style('opacity', 1);
+      const day = new Date(currentGasYear, 1, 1 + idx);
+      const k = svg.node().getBoundingClientRect().width / (width + margin.left + margin.right);
+      tip.style('opacity', 1)
+        .style('left', `${Math.min((margin.left + x(idx)) * k + 14, container.clientWidth - 230)}px`)
+        .style('top', '20px')
+        .html(`<div class="tt-date">${day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · by gas year (Feb–Jan)</div>
+          ${rowsAt.map(({ yr, r }) => `<div class="tt-row${yr === currentGasYear ? ' tt-row--accent' : ''}"><span class="tt-label">${yr}${yr === currentGasYear ? ' (current)' : ''}</span><span class="num">${Math.round(r.value).toLocaleString()} MMcf/d${nameplate ? ` · ${Math.round((r.value / nameplate) * 100)}%` : ''}</span></div>`).join('')}
+          ${nameplate ? `<div class="tt-row"><span class="tt-label">FERC-authorized nameplate</span><span class="num">${Math.round(nameplate).toLocaleString()} MMcf/d</span></div>` : ''}
+          ${nameplate && rowsAt.some(({ r }) => r.value > nameplate) ? '<div class="tt-row"><span class="tt-label" style="white-space:normal">Above 100%: measured flow exceeds the certificated rate — the meter reading, not a data error</span></div>' : ''}`);
+    })
+    .on('mouseleave', () => { tip.style('opacity', 0); guide.style('opacity', 0); });
 }
 
 /**
@@ -1049,7 +1023,7 @@ function renderKpiStrip(sidebarEl, dailySeries, rowsByDate, nameplate, latestDat
           <div class="utilization-bar-fill ${utilLevel.colorClass}" style="width: ${Math.min(utilPct, 100)}%"></div>
         </div>
         <div class="utilization-context">
-          ${utilPct < 40 ? 'Low utilization in shoulder season may indicate train maintenance.' : `Stated nameplate capacity: ${nameplate.toLocaleString()} MMcf/d.`}
+          ${utilPct < 40 ? 'Low utilization in shoulder season may indicate train maintenance.' : `FERC nameplate: ${nameplate.toLocaleString()} MMcf/d.`}
         </div>
       </div>
     </div>

@@ -77,8 +77,11 @@ export function renderLngComparisonPanel(panelEl, bundle) {
   // Mode Toggle
   const modeGroup = document.createElement('div');
   modeGroup.className = 'comp-mode-group';
+  modeGroup.style.display = 'flex';
+  modeGroup.style.alignItems = 'center';
+  modeGroup.style.gap = '6px';
   modeGroup.innerHTML = `
-    <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-right: 6px;">Axis Metric:</label>
+    <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-right: 6px;">Axis metric:</label>
     <button class="chip ${mode === 'mmcf' ? 'chip--active' : ''}" data-mode="mmcf">Absolute Flow (MMcf/d)</button>
     <button class="chip ${mode === 'pct' ? 'chip--active' : ''}" data-mode="pct">% of Nameplate</button>
   `;
@@ -97,6 +100,12 @@ export function renderLngComparisonPanel(panelEl, bundle) {
   termGroup.style.display = 'flex';
   termGroup.style.flexWrap = 'wrap';
   termGroup.style.gap = '6px';
+  termGroup.style.alignItems = 'center';
+  // Own row, after the metric toggle and export: the chips used to wrap in
+  // between the two metric buttons.
+  termGroup.style.flexBasis = '100%';
+  termGroup.style.order = '3';
+  termGroup.innerHTML = '<label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-right: 6px;">Terminals:</label>';
 
   LNG_FLEET_ORDER.forEach((id) => {
     const term = LNG_TERMINALS[id];
@@ -228,12 +237,14 @@ function drawComparisonChart(container, comp, mode) {
   });
   if (mode === 'pct') maxY = Math.max(maxY, 100);
 
-  const y = d3.scaleLinear().domain([0, maxY * 1.1]).range([height, 0]);
+  // Round ticks (0, 500, 1,000 …), not fractions of the maximum (429, 857 …).
+  const y = d3.scaleLinear().domain([0, maxY * 1.1]).nice().range([height, 0]);
+  const yTicks = y.ticks(5);
 
   // Gridlines
-  [0.25, 0.5, 0.75, 1].forEach((frac) => {
+  yTicks.forEach((t) => {
     g.append('line').attr('x1', 0).attr('x2', width)
-      .attr('y1', y(maxY * frac)).attr('y2', y(maxY * frac))
+      .attr('y1', y(t)).attr('y2', y(t))
       .attr('stroke', 'rgba(255,255,255,0.05)');
   });
 
@@ -274,21 +285,49 @@ function drawComparisonChart(container, comp, mode) {
   });
 
   // Y axis labels
-  [0, 0.25, 0.5, 0.75, 1].forEach((frac) => {
-    g.append('text').attr('x', -8).attr('y', y(maxY * frac) + 4).attr('text-anchor', 'end')
+  yTicks.forEach((t) => {
+    g.append('text').attr('x', -8).attr('y', y(t) + 4).attr('text-anchor', 'end')
       .attr('font-size', 10).attr('font-family', 'var(--font-mono)')
       .style('fill', 'var(--chart-label)')
-      .text(mode === 'pct' ? `${(maxY * frac).toFixed(0)}%` : (maxY * frac).toFixed(0));
+      .text(mode === 'pct' ? `${t}%` : d3.format(',')(t));
   });
 
-  // X axis labels
-  const step = Math.max(1, Math.floor(dates.length / 6));
-  for (let i = 0; i < dates.length; i += step) {
-    g.append('text').attr('x', x(dates[i])).attr('y', height + 20).attr('text-anchor', 'middle')
+  // X axis labels: month and year whenever the window spans more than a year
+  // (the previous 'Aug 24 … Mar 8' never said which year).
+  const span = dates[dates.length - 1] - dates[0];
+  const fmt = span > 300 * 86400000
+    ? (d) => d.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })
+    : (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  for (const t of x.ticks(width < 420 ? 4 : 7)) {
+    g.append('text').attr('x', x(t)).attr('y', height + 20).attr('text-anchor', 'middle')
       .attr('font-size', 10).attr('font-family', 'var(--font-sans)')
       .style('fill', 'var(--chart-label)')
-      .text(dates[i].toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }));
+      .text(fmt(t));
   }
+
+  // Hover: each selected terminal on the nearest day.
+  container.style.position = container.style.position || 'relative';
+  const tip = d3.select(container).append('div').attr('class', 'chart-tooltip').style('opacity', 0);
+  const guide = g.append('line').attr('y1', 0).attr('y2', height).attr('stroke', 'rgba(255,255,255,0.3)').attr('stroke-dasharray', '2 2').style('opacity', 0);
+  const bis = d3.bisector((d) => d).center;
+  g.append('rect').attr('width', width).attr('height', height).attr('fill', 'transparent')
+    .on('mousemove', (ev) => {
+      const [mx] = d3.pointer(ev);
+      const i = bis(dates, x.invert(mx));
+      const key = comp.dates[i];
+      guide.attr('x1', x(dates[i])).attr('x2', x(dates[i])).style('opacity', 1);
+      const k = svg.node().getBoundingClientRect().width / (width + margin.left + margin.right);
+      const rowsHtml = comp.terminals.map((t) => {
+        const pt = t.series[key];
+        const val = pt ? (mode === 'pct' ? `${pt.pctNameplate.toFixed(0)}% of nameplate` : `${Math.round(pt.mmcf).toLocaleString()} MMcf/d`) : 'no data';
+        return `<div class="tt-row"><span class="tt-label"><span style="display:inline-block;width:8px;height:2px;margin-right:6px;vertical-align:middle;background:${TERMINAL_COLORS[t.id] || '#38bdf8'}"></span>${t.label ?? t.id}${t.isPartial ? ' (partial)' : ''}</span><span class="num">${val}</span></div>`;
+      }).join('');
+      tip.style('opacity', 1)
+        .style('left', `${Math.min((margin.left + x(dates[i])) * k + 14, container.clientWidth - 240)}px`)
+        .style('top', '16px')
+        .html(`<div class="tt-date">${dates[i].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</div>${rowsHtml}`);
+    })
+    .on('mouseleave', () => { tip.style('opacity', 0); guide.style('opacity', 0); });
 }
 
 /**

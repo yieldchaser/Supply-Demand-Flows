@@ -39,19 +39,21 @@ test('Anti-rot coverage guard: all terminals carry structured coverage metadata'
   });
 });
 
-test('Anti-rot coverage guard: Freeport strictly guards against the 80% flattering falsehood', () => {
+test('Anti-rot coverage guard: Freeport rejects the "whole plant visible" falsehood', () => {
   const fp = LNG_TERMINALS.freeport;
-  // True empirical median over 100-day overlap is 52.9% (1,111.5 MMcf/d)
-  assert.strictEqual(fp.expectedCoveragePct, 52.9);
-  assert.strictEqual(fp.expectedMedianMmcf, 1111.5);
+  // Re-measured 2026-11-20 over the last 100 operating days: 76.1% (1,597.3
+  // MMcf/d). The earlier 52.9% was a degraded Jun–Aug 2026 run. The unposted
+  // KMTP lateral (~400–450 MMcf/d) caps visible coverage near 78–80%.
+  assert.strictEqual(fp.expectedCoveragePct, 76.1);
+  assert.strictEqual(fp.expectedMedianMmcf, 1597.3);
   assert.strictEqual(fp.nameplate, 2100);
 
-  // Demonstrate that the guard fails on a deliberately wrong claim (80%)
-  const simulatedWrongClaim = 80.0;
+  // A claim that the meters see the whole plant must fail the tolerance.
+  const simulatedWrongClaim = 100.0;
   const error = Math.abs(simulatedWrongClaim - fp.expectedCoveragePct);
   assert.ok(
     error > fp.coverageTolerancePct,
-    `Guard must reject 80% claim (error ${error.toFixed(1)}% exceeds tolerance ${fp.coverageTolerancePct}%)`
+    `Guard must reject a 100% claim (error ${error.toFixed(1)}% exceeds tolerance ${fp.coverageTolerancePct}%)`
   );
 });
 
@@ -59,14 +61,14 @@ test('Anti-rot coverage guard: verified 60-day empirical table consistency', () 
   // Ground-truth 60-day median measurements from Brief L, re-measured 2026-10-28
   // over the live curated window (cove_point/corpus_christi had outrun theirs).
   const measurements = {
-    plaquemines: { median: 3820.9, pct: 112.4 },
-    calcasieu:   { median: 1605.8, pct: 123.5 },
+    plaquemines: { median: 4186.1, pct: 123.1 },
+    calcasieu:   { median: 1688.1, pct: 129.9 },
     corpus_christi: { median: 2561.0, pct: 106.7 },
     sabine_pass: { median: 1365.2, pct: 30.3 },
     cameron:     { median: 1458.6, pct: 72.9 },
-    golden_pass: { median: 330.4,  pct: 12.7 },
-    cove_point:  { median: 784.2,  pct: 104.6 },
-    freeport:    { median: 1111.5, pct: 52.9 }, // 100-day dual-feed baseline
+    golden_pass: { median: 686.0,  pct: 26.4 },
+    cove_point:  { median: 837.7,  pct: 111.7 }, // re-measured 2026-11-24 (100 operating days)
+    freeport:    { median: 1597.3, pct: 76.1 }, // 100 operating days to 2026-11-20 (tests/test_coverage_guard.py re-measures)
   };
 
   Object.entries(measurements).forEach(([termId, m]) => {

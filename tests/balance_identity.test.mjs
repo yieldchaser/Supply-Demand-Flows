@@ -3,8 +3,14 @@
  *
  * EIA's Natural Gas Monthly Table 1 states
  *
- *   dry production + supplemental gaseous fuels + net imports
- *       − net storage withdrawals = consumption + balancing item
+ *   consumption = dry production + supplemental gaseous fuels + net imports
+ *                 + net storage withdrawals + balancing item
+ *
+ * Net storage withdrawals and the balancing item are supply legs. An earlier
+ * version of the panel (and of these tests) put both on the disposition side,
+ * which made the "imbalance" swing with the storage season and implied the US
+ * imported ~30 Bcf/d every summer; the plausibility tests at the end of the
+ * identity block exist so that cannot pass again.
  *
  * and defines the balancing item as "the difference between the sum of the
  * components of natural gas supply and the sum of the components of natural gas
@@ -62,8 +68,10 @@ registerHooks({
   },
 });
 
-const { buildBalanceModel, buildFeedgasByMonth, buildLngByMonth, monthBalance, monthKeyOf, daysInMonth } =
-  await import('../docs/js/panels/balance.js');
+const {
+  buildBalanceModel, buildFeedgasByMonth, buildLngByMonth, monthBalance, monthKeyOf, daysInMonth,
+  buildFlowsByMonth, measuredClosure, buildDisposition, sameMonthStats,
+} = await import('../docs/js/panels/balance.js');
 const { LNG_TERMINALS } = await import('../docs/js/util/lng-terminals.js');
 const { parsePeriod } = await import('../docs/js/util/period.js');
 
@@ -93,10 +101,10 @@ describe('Table 1 identity', () => {
       const key = monthKeyOf(m.period);
       const expected =
         (mmcfPerMonth(key, 'supply_fpd') +
-          mmcfPerMonth(key, 'supply_ovi') -
-          (mmcfPerMonth(key, 'supply_saw') - mmcfPerMonth(key, 'supply_sai')) -
-          mmcfPerMonth(key, 'supply_vc0') -
-          mmcfPerMonth(key, 'supply_vg4')) /
+          mmcfPerMonth(key, 'supply_ovi') +
+          (mmcfPerMonth(key, 'supply_saw') - mmcfPerMonth(key, 'supply_sai')) +
+          mmcfPerMonth(key, 'supply_vg4') -
+          mmcfPerMonth(key, 'supply_vc0')) /
         1000;
       assert.ok(
         Math.abs(m.imbalanceBcf - expected) < 1e-6,
@@ -130,19 +138,44 @@ describe('Table 1 identity', () => {
     assert.ok(vg4Median < median / 4, 'balancing item is the same order as the imbalance');
   });
 
-  it('carries the sign of omitted net imports, not of the balancing item', () => {
-    // EIA's net imports are positive (Canada in, Mexico + LNG out) in almost
-    // every month of this sample, so a correctly signed imbalance inherited
-    // from that leg is positive in almost every month too. A sign error on the
-    // storage term, or vg4 standing in for imports, both flip most of it.
+  it('implies net exports in every month, as the US has had since 2017', () => {
+    // The solved leg is net exports (US: LNG + Mexico out, Canada in). It must
+    // be positive and a modest share of consumption in every month; a storage
+    // sign error turns winter months negative and summer months huge.
     const raws = rawModel.series.filter((m) => m.imbalanceBcf != null);
-    const positive = raws.filter((m) => m.imbalanceBcf > 0).length;
-    assert.ok(
-      positive > raws.length * 0.7,
-      `only ${positive}/${raws.length} months are positive — the missing leg no longer behaves like net imports`,
-    );
-    const inBcf = model.series.filter((m) => m.imbalanceBcf != null);
-    assert.ok(inBcf.filter((m) => m.imbalanceBcf > 0).length / inBcf.length > 0.7);
+    for (const m of raws) {
+      assert.ok(m.imbalanceBcf > 0, `${monthKeyOf(m.period)}: implied net exports ${m.imbalanceBcfd} is not positive`);
+      assert.ok(m.imbalanceBcf < m.vc0 * 0.5, `${monthKeyOf(m.period)}: implied net exports implausibly large`);
+    }
+  });
+
+  it('does not move with the storage season', () => {
+    // Net trade is driven by export capacity, not by the weather. With the
+    // storage leg on the right side its month-to-month variance is a small
+    // fraction of the storage leg's own; with it on the wrong side it is ~2x.
+    const closing = model.series.filter((m) => m.imbalanceBcf != null);
+    const sd = (xs) => {
+      const mu = xs.reduce((a, b) => a + b, 0) / xs.length;
+      return Math.sqrt(xs.reduce((a, b) => a + (b - mu) ** 2, 0) / xs.length);
+    };
+    const sdImplied = sd(closing.map((m) => m.imbalanceBcfd));
+    const sdStorage = sd(closing.map((m) => m.swdBcfd));
+    assert.ok(sdImplied < sdStorage * 0.5, `implied sd ${sdImplied} vs storage sd ${sdStorage}`);
+  });
+
+  it('agrees with the LNG export total to within net pipeline trade', () => {
+    // Net exports = LNG + net pipeline trade (Mexico out minus Canada in),
+    // which has stayed within a few Bcf/d either side of zero.
+    let checked = 0;
+    for (const m of model.series) {
+      if (m.imbalanceBcf == null) continue;
+      const lngBcf = lng.get(monthKeyOf(m.period));
+      if (lngBcf == null) continue;
+      checked += 1;
+      const pipeline = m.imbalanceBcfd - lngBcf / m.days;
+      assert.ok(Math.abs(pipeline) < 10, `${monthKeyOf(m.period)}: implied pipeline net ${pipeline.toFixed(1)} Bcf/d`);
+    }
+    assert.ok(checked > 12, `only ${checked} months overlap with LNG exports`);
   });
 
   it('a month missing a leg is not reported as balanced', () => {
@@ -190,9 +223,10 @@ describe('Table 1 identity', () => {
   it('net storage withdrawals are the identity leg, not gross injections', () => {
     const m = monthBalance({ fpd: 3000, ovi: 0, saw: 400, sai: 100, vc0: 3200, vg4: 100 }, 30);
     assert.equal(m.swd, 300);
-    // 3000 + 0 − 300 − 3200 − 100 = −600 Bcf of imbalance, i.e. the omitted net
-    // imports; charging gross injections (100) instead would read −500.
-    assert.equal(m.imbalanceBcf, -600);
+    // 3000 + 0 + 300 + 100 − 3200 = +200 Bcf of implied net exports; charging
+    // gross withdrawals (400) instead would read +300.
+    assert.equal(m.imbalanceBcf, 200);
+    assert.equal(m.impliedNetImportsBcf, -200);
   });
 
   it('parses periods on the calendar month, so a month never splits in two', () => {
@@ -236,6 +270,18 @@ describe('LNG join', () => {
 });
 
 describe('feedgas cross-check', () => {
+  it('is in Bcf: fleet feedgas is a few to ~25 Bcf/d, not thousands', () => {
+    // EBB meters post Dth/d; treating them as MMcf/d inflated this 1,000x.
+    const fg = buildFeedgasByMonth(bundle.sources);
+    // Months with a fleet's worth of meters; 2021 history is one small meter.
+    const months = [...fg.values()].filter((m) => m.calendarDays >= 20 && m.terminals >= 3);
+    assert.ok(months.length > 0);
+    for (const m of months) {
+      const rate = m.bcf / m.calendarDays;
+      assert.ok(rate > 0.2 && rate < 30, `feedgas ${rate.toFixed(1)} Bcf/d is implausible`);
+    }
+  });
+
   const feedgas = buildFeedgasByMonth(bundle.sources);
   // `buildFeedgasByMonth` returns months, not per-feed day counts, so the
   // expected meter-days are recomputed here from the same registry rules.
@@ -268,7 +314,7 @@ describe('feedgas cross-check', () => {
       `month counted ${latest.terminals} terminals, ${posting.size} are posting`);
   });
 
-  it('is a floor on net imports — larger than LNG exports, far smaller than consumption', () => {
+  it('is a floor on LNG exports, far smaller than consumption', () => {
     // The feedgas month runs ahead of EIA's monthly supply series, so the ratio
     // is compared against *daily* rates over the same month rather than against
     // whatever month EIA happened to publish last: a partial month of feedgas
@@ -328,9 +374,9 @@ describe('balance model reporting', () => {
     const closing = model.series.filter((m) => m.impliedNetImportsBcf != null);
     assert.ok(closing.length > 12);
     for (const m of closing) {
-      // imbalance = netImports − vg4, so netImports = imbalance + vg4 on the
-      // signed legs, i.e. imbalance + (published vg4) = imbalance − (−vg4).
-      assert.ok(Math.abs(m.impliedNetImportsBcf - (m.imbalanceBcf - m.vg4)) < 1e-9);
+      // consumption = supply legs + net imports  ⇒  net imports = −imbalance.
+      assert.ok(Math.abs(m.impliedNetImportsBcf + m.imbalanceBcf) < 1e-9);
+      assert.ok(Math.abs(m.fpd + m.ovi + m.swd + m.vg4 + m.impliedNetImportsBcf - m.vc0) < 1e-6, 'identity closes');
     }
     // A month whose balancing item never published must not carry an implied
     // import figure — the subtraction would still return a number, but it would
@@ -346,13 +392,11 @@ describe('balance model reporting', () => {
     }
   });
 
-  it('the chart band is production + supplemental fuels vs consumption', () => {
-    // The band is drawn between suppliedBcf and drainedBcf; storage is a third
-    // supply leg and must not be folded into either side.
+  it('the chart band is supply incl. storage vs consumption, and its gap is net exports', () => {
     const m = monthBalance({ fpd: 3000, ovi: 5, saw: 400, sai: 100, vc0: 3200, vg4: 10 }, 30);
-    assert.equal(m.suppliedBcf, 3005);
+    assert.equal(m.suppliedBcf, 3000 + 5 + 300 + 10);
     assert.equal(m.drainedBcf, 3200);
-    assert.equal(m.imbalanceBcf, 3000 + 5 - 300 - 3200 - 10);
+    assert.equal(m.imbalanceBcf, m.suppliedBcf - m.drainedBcf);
   });
 
   it('a meter posting several cycles in one day is not multiplied by them', () => {
@@ -386,9 +430,9 @@ describe('balance model reporting', () => {
     const injection = monthBalance({ fpd: 3000, ovi: 0, saw: 100, sai: 400, vc0: 2700, vg4: 0 }, 30);
     assert.equal(withdrawal.swd, 300);
     assert.equal(injection.swd, -300);
-    // 300 Bcf more storage on the supply side in the withdrawal month lowers
-    // the imbalance by exactly that much relative to the injection month.
-    assert.equal(withdrawal.imbalanceBcf - injection.imbalanceBcf, -600);
+    // Withdrawing 300 instead of injecting 300 puts 600 Bcf more on the
+    // supply side, so 600 Bcf more is left over for export.
+    assert.equal(withdrawal.imbalanceBcf - injection.imbalanceBcf, 600);
   });
 
   it('latest month is the last one with both production and consumption', () => {
@@ -397,5 +441,83 @@ describe('balance model reporting', () => {
     assert.ok(Number.isFinite(latest.fpd));
     assert.ok(Number.isFinite(latest.vc0));
     assert.ok(latest.period >= model.series[model.series.length - 2].period);
+  });
+});
+
+
+describe('measured trade (eia_flows)', () => {
+  const flows = buildFlowsByMonth(bundle.sources.eia_flows?.data ?? []);
+
+  it('is in the bundle and is a boot (core) source', () => {
+    assert.ok(flows.size >= 60, `only ${flows.size} months of EIA trade`);
+    // The balance panel renders at first paint from core sources only; a
+    // lazily loaded trade shard would never reach it. Read from the exporter,
+    // not a built index, so the check does not depend on a local build.
+    const exporter = readFileSync(new URL('../publishers/export_dashboard_json.py', import.meta.url), 'utf8');
+    const core = exporter.match(/core_sources = \[([^\]]*)\]/);
+    assert.ok(core && core[1].includes('"eia_flows"'), 'eia_flows must be a core source');
+  });
+
+  it('consumption by sector sums to the supply route\'s consumption leg', () => {
+    let checked = 0;
+    for (const m of model.series) {
+      const f = flows.get(monthKeyOf(m.period));
+      if (!f || f.cons == null) continue;
+      const sectors = f.res + f.com + f.ind + f.pwr + f.lease + f.pipe + f.veh;
+      assert.ok(Math.abs(sectors - m.vc0) < 0.01, `${monthKeyOf(m.period)}: sectors ${sectors} vs vc0 ${m.vc0}`);
+      checked += 1;
+    }
+    assert.ok(checked >= 60);
+  });
+
+  it('closes the Table 1 identity in recent months', () => {
+    // EIA's balancing item absorbs the statistical difference, so with
+    // measured trade the identity closes; 0.05 Bcf/d is rounding headroom.
+    const closed = model.series
+      .map((m) => ({ m, c: measuredClosure(m, flows.get(monthKeyOf(m.period))) }))
+      .filter(({ c }) => c);
+    assert.ok(closed.length >= 60);
+    for (const { m, c } of closed.slice(-12)) {
+      assert.ok(Math.abs(c.statDiffBcf / m.days) < 0.05,
+        `${monthKeyOf(m.period)} statistical difference ${(c.statDiffBcf / m.days).toFixed(3)} Bcf/d`);
+      // Measured and solved net exports are then the same number.
+      assert.ok(Math.abs(c.netExportsBcf - m.imbalanceBcf) < 0.05 * m.days);
+    }
+  });
+
+  it('returns null rather than guessing when trade is unpublished', () => {
+    assert.equal(measuredClosure(model.latest, undefined), null);
+    assert.equal(measuredClosure(model.latest, { imp: 100 }), null);
+  });
+
+  it('LNG exports agree between the trade route and the destination file', () => {
+    const lngDest = buildLngByMonth(bundle.sources.eia_lng_exports?.data ?? []);
+    let n = 0;
+    for (const [key, f] of flows) {
+      if (!lngDest.has(key) || f.expLng == null) continue;
+      // The destination scraper once fetched a single 5,000-row page and
+      // dropped ~30% of volume; the two EIA series must now agree.
+      assert.ok(Math.abs(lngDest.get(key) - f.expLng) < 1.0, `${key}: ${lngDest.get(key)} vs ${f.expLng}`);
+      n += 1;
+    }
+    assert.ok(n >= 24, `only ${n} overlapping LNG months`);
+  });
+
+  it('disposition stack = consumption + exports, in Bcf/d', () => {
+    const disp = buildDisposition(flows, model.series);
+    assert.ok(disp.length >= 60);
+    for (const r of disp) {
+      assert.ok(Math.abs(r.total - (r.consumption + r.exports)) < 1e-9);
+      assert.ok(r.total > 60 && r.total < 200, `${r.key} total ${r.total} Bcf/d`);
+      assert.equal(r.days, daysInMonth(r.period));
+    }
+  });
+
+  it('same-month statistics compare a month only with the same month', () => {
+    const rowsX = [2020, 2021, 2022, 2023].flatMap((yr) => [0, 6].map((mo) => ({
+      period: new Date(yr, mo, 1), v: mo === 0 ? 100 + yr - 2020 : 10,
+    })));
+    const st = sameMonthStats(rowsX, rowsX.find((r) => r.period.getFullYear() === 2023 && r.period.getMonth() === 0), (r) => r.v);
+    assert.deepEqual(st, { median: 101, min: 100, max: 102, n: 3 });
   });
 });

@@ -7,13 +7,14 @@ Why:
     primary driver of transatlantic LNG flow economics.
 
 What:
-    Fetches 5 years of daily storage data for 11 countries (EU aggregate +
-    top-10 consumers: DE, FR, IT, NL, ES, AT, BE, CZ, HU, PL) and writes a
+    Fetches daily storage data since 2021 for the EU aggregate (``type=eu``)
+    and the top-10 consumers (DE, FR, IT, NL, ES, AT, BE, CZ, HU, PL) and writes a
     single flat JSON file to data/raw/gie_agsi/european_storage.json.
 
 Failure modes:
-    - Missing data for a date → data: [] (HTTP 200, not 404). Empty array is
-      not an error — some countries report sparsely on gas-day boundaries.
+    - Missing data for a date → data: [] (HTTP 200, not 404). A target whose
+      whole query is empty is recorded under ``countries_empty``, never
+      ``countries_ok``, so health cannot claim data that was not written.
     - Invalid country code → HTTP 400. We use ISO 3166-1 Alpha-2 so this
       shouldn't happen; logged at ERROR and the country is skipped.
     - Bad API key → HTTP 401. Propagated as RuntimeError, run() returns failed.
@@ -47,8 +48,26 @@ RAW_PATH = Path("data/raw/gie_agsi/european_storage.json")
 # storage envelope window.
 START_DATE = "2021-01-01"
 
-# Top-10 EU gas consumers + EU aggregate. ISO 3166-1 Alpha-2.
-COUNTRIES = ["EU", "DE", "FR", "IT", "NL", "ES", "AT", "BE", "CZ", "HU", "PL"]
+# Top-10 EU gas consumers. ISO 3166-1 Alpha-2.
+MEMBER_STATES = ["DE", "FR", "IT", "NL", "ES", "AT", "BE", "CZ", "HU", "PL"]
+
+# EU aggregate first, then the member states.
+COUNTRIES = ["EU", *MEMBER_STATES]
+
+
+def _query_for(target: str) -> dict[str, str]:
+    """AGSI query selecting one target.
+
+    Why:
+        The EU aggregate is not a country. ``country=EU`` answers HTTP 200 with
+        an empty ``data`` array, so for months the run recorded "EU" under
+        ``countries_ok`` while writing zero EU rows (row_count was exactly
+        10 countries x days). AGSI selects the EU-wide aggregate with
+        ``type=eu``; member states keep ``country=XX``.
+    """
+    if target == "EU":
+        return {"type": "eu"}
+    return {"country": target}
 
 # Maximum rows per API response page. AGSI caps at 300.
 PAGE_SIZE = 300
@@ -111,7 +130,7 @@ async def _fetch_country_pages(
 
     while True:
         params: dict[str, str] = {
-            "country": country,
+            **_query_for(country),
             "from": start,
             "to": end,
             "size": str(PAGE_SIZE),
@@ -199,6 +218,7 @@ async def run() -> dict[str, Any]:
 
     all_data: list[dict[str, Any]] = []
     countries_ok: list[str] = []
+    countries_empty: list[str] = []
     countries_failed: list[str] = []
 
     async with HttpClient(
@@ -229,8 +249,15 @@ async def run() -> dict[str, Any]:
                 countries_failed.append(country)
                 continue
 
-            normalised = [_normalise_row(r) for r in raw_rows]
+            # Tag rows with the target we asked for: aggregate rows do not
+            # carry a country code of their own.
+            normalised = [{**_normalise_row(r), "country_code": country} for r in raw_rows]
             all_data.extend(normalised)
+            if not normalised:
+                # HTTP 200 with no rows is not a success for that target.
+                log.warning("%s: query answered with no rows", country)
+                countries_empty.append(country)
+                continue
             countries_ok.append(country)
             latest_for_country = max(
                 (r["gas_day"] for r in normalised if r.get("gas_day")),
@@ -248,7 +275,7 @@ async def run() -> dict[str, Any]:
         log.error(err)
         health.record_failure(
             error=err,
-            metadata={"countries_failed": countries_failed},
+            metadata={"countries_failed": countries_failed, "countries_empty": countries_empty},
         )
         return {"status": "failed", "error": err}
 
@@ -293,6 +320,7 @@ async def run() -> dict[str, Any]:
             "latest_gas_day": latest_gas_day,
             "row_count": new_row_count,
             "countries_ok": countries_ok,
+            "countries_empty": countries_empty,
             "countries_failed": countries_failed,
         }
     )
@@ -302,6 +330,7 @@ async def run() -> dict[str, Any]:
         "latest_gas_day": latest_gas_day,
         "row_count": new_row_count,
         "countries_ok": countries_ok,
+        "countries_empty": countries_empty,
         "countries_failed": countries_failed,
     }
 

@@ -47,8 +47,10 @@ export const STORAGE_REGIONS = [
   { key: 'mountain', label: 'Mountain', seriesId: 'storage_mountain' },
   { key: 'pacific', label: 'Pacific', seriesId: 'storage_pacific' },
   { key: 'south_central', label: 'South Central', seriesId: 'storage_south_central' },
-  { key: 'sc_salt', label: 'SC · salt', seriesId: 'storage_sc_salt' },
-  { key: 'sc_nonsalt', label: 'SC · non-salt', seriesId: 'storage_sc_nonsalt' },
+  // Components of South Central, not regions of their own: summing them with
+  // the five regions counts South Central's change twice.
+  { key: 'sc_salt', label: 'SC · salt', seriesId: 'storage_sc_salt', subOf: 'south_central' },
+  { key: 'sc_nonsalt', label: 'SC · non-salt', seriesId: 'storage_sc_nonsalt', subOf: 'south_central' },
 ];
 
 export const L48_SERIES_ID = 'storage_lower48';
@@ -241,6 +243,7 @@ export function environmentComparison(rows, asOf) {
     observedMinBcf: Number.isFinite(observedMin) ? observedMin : null,
     rankPct: rank.pct,
     rankN: rank.n,
+    rankBelow: rank.rank,
   };
 }
 
@@ -444,13 +447,22 @@ export function projectLevel(rows, { windowWeeks = 4, horizonWeeks = 8, historyY
     residualQ50: realised.length ? quantile(realised.map((r) => r.deltaBcf), 0.50) : null,
     residualQ90: realised.length >= 3 ? quantile(realised.map((r) => r.deltaBcf), 0.90) : null,
     residualMax: realised.length ? Math.max(...realised.map((r) => r.deltaBcf)) : null,
+    // Analog level: the latest print plus each prior year's realised change
+    // over the same weeks. The `residual*` fields above are those changes, not
+    // regression residuals; the linear `modelBcf` cannot see a season turn
+    // (a mid-November fit extrapolates injections into January).
+    analogBcf: realised.length ? latest.value + quantile(realised.map((r) => r.deltaBcf), 0.5) : null,
+    analogLowBcf: realised.length ? latest.value + Math.min(...realised.map((r) => r.deltaBcf)) : null,
+    analogHighBcf: realised.length ? latest.value + Math.max(...realised.map((r) => r.deltaBcf)) : null,
     sameWeekLastYear: sameWeek ? sameWeek.value : null,
     sameWeekLastYearLagDays: sameWeek ? sameWeek.lagDays : null,
     riskN: risk.length,
     riskToPeakBcf: risk.length ? risk.reduce((s, r) => s + r.residual, 0) / risk.length : null,
     riskToPeakBcfMedian: risk.length >= 3 ? quantile(risk.map((r) => r.residual), 0.5) : null,
     riskToPeakBcfP90: risk.length >= 3 ? quantile(risk.map((r) => r.residual), 0.9) : null,
-    endsSeasonAbove2750Bcf: realised.length >= 3 ? modelBcf + quantile(realised.map((r) => r.deltaBcf), 0.10) > 2750 : null,
+    // Base is the latest print: adding a realised change to the trend-model
+    // level counted the next eight weeks twice.
+    endsSeasonAbove2750Bcf: realised.length >= 3 ? latest.value + quantile(realised.map((r) => r.deltaBcf), 0.10) > 2750 : null,
     pastPeakBcf,
     pastPeakDate,
   };
@@ -513,6 +525,7 @@ export function regionTable(periods, { regions = STORAGE_REGIONS } = {}) {
       key: region.key,
       label: region.label,
       seriesId: region.seriesId,
+      subOf: region.subOf ?? null,
       levelBcf: level,
       fillPctOfObservedMax: observedMax > 0 ? (level / observedMax) * 100 : null,
       roomToObservedMaxBcf: observedMax > 0 ? observedMax - level : null,
@@ -544,7 +557,8 @@ export function regionTable(periods, { regions = STORAGE_REGIONS } = {}) {
  * @param {number|null} l48WowBcf
  */
 export function regionChangeSum(regions, l48WowBcf) {
-  const contributing = (regions || []).filter((r) => r.wowBcf != null);
+  // The five EIA regions only: salt / non-salt are inside South Central.
+  const contributing = (regions || []).filter((r) => r.wowBcf != null && !r.subOf);
   const total = contributing.reduce((s, r) => s + r.wowBcf, 0);
   return {
     n: contributing.length,
@@ -816,3 +830,51 @@ export function restOfSeason(rows, asOf = null) {
 }
 
 export { matchYearAgo, percentileRank, ols, currentStreak, seasonalEnvelope };
+
+/**
+ * End-of-season level by analog: the latest print plus each prior year's
+ * realised change from the same week to the end of the current US season
+ * (withdrawal season 1 Nov – 31 Mar, injection season 1 Apr – 31 Oct).
+ *
+ * Each year's change is measured between its own weekly prints nearest the
+ * two dates (within 6 days), so a year with a gap is left out rather than
+ * interpolated. The 5-year average end level is returned alongside so the
+ * range reads against normal. Analogs, not a forecast: each repeats one
+ * year's weather.
+ *
+ * @param {Array<{period: Date, value: number}>} rows ascending weekly
+ * @returns {null | {endDate: Date, season: 'withdrawal'|'injection', n: number,
+ *   years: number[], minBcf: number, medianBcf: number, maxBcf: number, normalEndBcf: number|null}}
+ */
+export function endOfSeasonAnalog(rows, { lookbackYears = 5 } = {}) {
+  const latest = rows?.[rows.length - 1];
+  if (!latest) return null;
+  const m = latest.period.getMonth();
+  const withdrawal = m >= 10 || m <= 2;
+  const endYear = withdrawal ? (m >= 10 ? latest.period.getFullYear() + 1 : latest.period.getFullYear()) : latest.period.getFullYear();
+  const endDate = withdrawal ? new Date(endYear, 2, 31) : new Date(endYear, 9, 31);
+  if (daysBetween(latest.period, endDate) < 7) return null;
+  const ends = [];
+  const years = [];
+  const endsPrior = [];
+  for (let k = 1; k <= lookbackYears; k++) {
+    const a = matchYearAgo(rows, latest.period, k, 6);
+    const b = matchYearAgo(rows, endDate, k, 6);
+    if (!a || !b) continue;
+    ends.push(latest.value + (b.value - a.value));
+    endsPrior.push(b.value);
+    years.push(latest.period.getFullYear() - k);
+  }
+  if (!ends.length) return null;
+  const sorted = [...ends].sort((x, y) => x - y);
+  return {
+    endDate,
+    season: withdrawal ? 'withdrawal' : 'injection',
+    n: ends.length,
+    years,
+    minBcf: sorted[0],
+    medianBcf: quantile(sorted, 0.5),
+    maxBcf: sorted[sorted.length - 1],
+    normalEndBcf: endsPrior.reduce((s, x) => s + x, 0) / endsPrior.length,
+  };
+}

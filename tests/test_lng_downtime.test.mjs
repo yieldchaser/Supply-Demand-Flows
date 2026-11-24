@@ -290,3 +290,40 @@ test('Fleet card surfaces a live outage from the data, and clears on recovery', 
   const trueZero = [...healthy, mk('2026-09-01', 0, true)];
   assert.strictEqual(summarizeDaily(trueZero, 750).outage.type, 'OFFLINE');
 });
+
+test('a feed whose history starts later is not read as a commercial ramp', () => {
+  // Feed A posts ~180 MMcf/d from day 0; feed B's history begins on day 60 at
+  // ~900 MMcf/d (Freeport: TETCO since 2023, Gulf South only from 2026-05-25).
+  // The total steps from 180 to 1,080 because the dataset gained a meter, not
+  // because the plant ramped.
+  const day = (i) => new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10);
+  const rowsA = [];
+  const rowsB = [];
+  for (let i = 0; i < 120; i++) {
+    rowsA.push({ series_id: 'feed_a_d_timely', period: day(i), value: 180 + (i % 5) });
+    if (i >= 60) rowsB.push({ series_id: 'feed_b_d_timely', period: day(i), value: 900 + (i % 7) });
+  }
+  const bundle = { sources: { src_a: { data: rowsA }, src_b: { data: rowsB } } };
+  const conf = {
+    label: 'Synthetic', nameplate: 1200, zeroDaysThreshold: 2, cargoZero: false,
+    feeds: [{ source: 'src_a', stem: 'feed_a_d', label: 'A' }, { source: 'src_b', stem: 'feed_b_d', label: 'B' }],
+  };
+  const daily = buildDailyTotal(bundle, conf);
+  assert.equal(daily[0].feedsExpected, 1);
+  assert.equal(daily[daily.length - 1].feedsExpected, 2);
+  const events = detectDowntime(daily, conf);
+  assert.ok(!events.some((e) => e.type === 'RAMPING'), JSON.stringify(events.map((e) => `${e.type}:${e.startDate}`)));
+});
+
+test('partialFeedEra marks the days before a terminal\'s full feed set exists', async () => {
+  const { partialFeedEra } = await import('../docs/js/util/lng-downtime.js');
+  const daily = [
+    { dateStr: '2024-01-01', feedsExpected: 1 },
+    { dateStr: '2025-01-01', feedsExpected: 1 },
+    { dateStr: '2026-05-25', feedsExpected: 2 },
+    { dateStr: '2026-06-01', feedsExpected: 2 },
+  ];
+  assert.deepEqual(partialFeedEra(daily), { from: '2024-01-01', until: '2026-05-25', feeds: 1, of: 2 });
+  assert.equal(partialFeedEra(daily.slice(2)), null, 'all days complete');
+  assert.equal(partialFeedEra([{ dateStr: '2024-01-01', feedsExpected: 1 }]), null, 'single-feed terminal');
+});

@@ -88,16 +88,21 @@ export const LNG_TERMINALS = {
     ],
     locName: 'Stratton Ridge — dual feed (Gulf South + TETCO)',
     nameplate: 2100,
-    expectedCoveragePct: 52.9,
-    expectedMedianMmcf: 1111.5,
+    // Re-measured 2026-11-20 over the last 100 operating days (Gulf South +
+    // TETCO). The earlier 52.9% / 1,111.5 MMcf/d was measured over Jun–Aug 2026
+    // while the plant ran degraded; partial-outage days are not floor days, so
+    // they depressed that median. Visible coverage is capped near 78–80% by the
+    // unposted KMTP lateral (~400–450 MMcf/d), which 76.1% now matches.
+    expectedCoveragePct: 76.1,
+    expectedMedianMmcf: 1597.3,
     coverageTolerancePct: 10.0,
     coverageNote:
-      'MEASURED-PARTIAL: interstate-visible feeds only (Gulf South + TETCO, 52.9% median coverage of 2,100 MMcf/d nameplate). KMTP intrastate lateral (~400–450 MMcf/d capacity) is unmetered on public EBBs.',
+      'MEASURED-PARTIAL: interstate-visible feeds only (Gulf South + TETCO, 76.1% median coverage of 2,100 MMcf/d nameplate over the last 100 operating days). KMTP intrastate lateral (~400–450 MMcf/d capacity) is unmetered on public EBBs.',
     signal: 'sq',
     cycles: ['id1', 'id2', 'id3'],
     platformLabel: 'Boardwalk OAC + Enbridge rtba',
     platformNote:
-      'Gulf South posts ID1/ID2/ID3 only; TETCO (Enbridge rtba) posts Timely/Evening/Intraday. Figures are interstate-visible feedgas only (52.9% median of 2,100 MMcf/d nameplate over 100-day overlap). KMTP (intrastate) is not publicly posted.',
+      'Gulf South posts ID1/ID2/ID3 only; TETCO (Enbridge rtba) posts Timely/Evening/Intraday. Figures are interstate-visible feedgas only (76.1% median of 2,100 MMcf/d nameplate over the last 100 operating days). KMTP (intrastate) is not publicly posted.',
     methodLine:
       'Combined TSQ into Freeport LNG: Gulf South Stratton Ridge 24329 + TETCO Stratton Ridge 79999 (both delivery) · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Interstate-visible only',
   },
@@ -114,8 +119,9 @@ export const LNG_TERMINALS = {
     ],
     locName: 'Venture Global Plaquemines LNG Delivery (VGPQD)',
     nameplate: 3400,
-    expectedCoveragePct: 112.4,
-    expectedMedianMmcf: 3820.9,
+    // Re-measured 2026-11-24 over the 60-day guard window (tests/test_coverage_guard.py).
+    expectedCoveragePct: 123.1,
+    expectedMedianMmcf: 4186.1,
     coverageTolerancePct: 12.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
@@ -138,8 +144,9 @@ export const LNG_TERMINALS = {
     ],
     locName: 'Venture Global Calcasieu Pass Delivery (VGCPD)',
     nameplate: 1300,
-    expectedCoveragePct: 123.5,
-    expectedMedianMmcf: 1605.8,
+    // Re-measured 2026-11-24 over the 60-day guard window (tests/test_coverage_guard.py).
+    expectedCoveragePct: 129.9,
+    expectedMedianMmcf: 1688.1,
     coverageTolerancePct: 8.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
@@ -162,8 +169,9 @@ export const LNG_TERMINALS = {
     ],
     locName: 'Golden Pass Terminal (delivery meter)',
     nameplate: 2600,
-    expectedCoveragePct: 12.7,
-    expectedMedianMmcf: 330.4,
+    // Re-measured 2026-11-24 over the 60-day guard window (tests/test_coverage_guard.py).
+    expectedCoveragePct: 26.4,
+    expectedMedianMmcf: 686.0,
     coverageTolerancePct: 15.0,
     coverageNote:
       'MEASURED (commissioning ramp): loc 1097217 is the full-terminal consolidated plant intake meter with 2,600,910 Dth/d design capacity (matching 2,600 MMcf/d nameplate). Current ~330–359 MMcf/d flow is active Train 1 commissioning ramp, not partial pipeline visibility.',
@@ -238,14 +246,16 @@ export const LNG_TERMINALS = {
     ],
     locName: 'Plant intake 10001-D + feeder receipts 45001/37001/47001',
     nameplate: 750,
-    expectedCoveragePct: 104.6,
-    expectedMedianMmcf: 784.2,
+    // Re-measured 2026-11-24: 837.7 MMcf/d median over the last 100 operating
+    // days (and the last 60), outage days excluded (tests/test_coverage_guard.py).
+    expectedCoveragePct: 111.7,
+    expectedMedianMmcf: 837.7,
     coverageTolerancePct: 7.0,
     signal: 'sq',
     cycles: ['timely', 'evening', 'id1', 'id2', 'id3'],
     platformLabel: "BHE GT&S EBB (EGTS + CPL's own postings)",
     platformNote:
-      "MEASURED via Cove Point LNG LP's own postings. Headline = plant intake (10001-D): actual gas entering liquefaction (97–102% of nameplate). Feeder receipts shown as context — they include pass-through deliveries to local utilities that never reach the plant, so their sum EXCEEDS feedgas by design.",
+      "MEASURED via Cove Point LNG LP's own postings. Headline = plant intake (10001-D): actual gas entering liquefaction (~112% of the 750 MMcf/d FERC nameplate, median of the last 100 operating days). Feeder receipts shown as context — they include pass-through deliveries to local utilities that never reach the plant, so their sum EXCEEDS feedgas by design.",
     methodLine:
       'MEASURED: plant intake at CPL loc 10001-D · Dth ÷ 1.025 ÷ 1,000 = MMcf/d · Feeder context: Transco PV 45001 + Columbia Loudoun 37001 + EGTS Loudoun 47001 (receipt legs; mass balance closes at 1.017±0.036 vs plant+local) · Excluded from sums: 10002 storage cycling, duplicate EGTS twin · Strategic: Transco volumes public via CPL — Williams scraper not needed',
   },

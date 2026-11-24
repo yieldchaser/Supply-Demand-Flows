@@ -9,13 +9,13 @@ Blue Tide is an observatory, not an oracle. We prioritize transparency over pred
 ## Status
 ![Status](https://img.shields.io/badge/status-12%20live%20sources%20%C2%B7%20observatory%20shipped-brightgreen)
 
-Twelve ingestion pipelines run on schedule in CI. The **LNG Feedgas Observatory** covers all 8 operational U.S. export terminals with mathematically invariant cross-panel models, automated coverage guards, and multi-pipeline feed routing across 18 interactive dashboard panels.
+Fourteen ingestion pipelines run on schedule in CI. The **LNG Feedgas Observatory** covers all 8 operational U.S. export terminals with mathematically invariant cross-panel models, automated coverage guards, and multi-pipeline feed routing across 18 interactive dashboard panels.
 
 ## Observatory Panels (18 Live Panels)
 The observatory dashboard (`docs/index.html`) renders 18 specialized panels organized into eight domain sections:
 1. **National Balance & Macro**: Storage Trajectory (EIA weekly), Supply & Demand Balance (EIA monthly), Rig Counts (Baker Hughes weekly), Basin Production Trajectories.
 2. **Basin Momentum Deep Dive**: Basin Metrics Table, Trajectory Scatter, Regional Share Trends, Historical Basin Extremes.
-3. **Cross-Market Context**: Transatlantic Storage Divergence (US vs EU derived), European Storage Inventory (GIE AGSI+ daily).
+3. **Europe & Transatlantic**: Transatlantic Storage Divergence (US and EU stock vs their seasonal averages on one scale, weekly history, end-of-winter analogs on both sides); Where Europe's Gas Comes From (ENTSOG imports by route since 2021, Russian-origin share, US share of EU LNG, LNG send-out by country); European Gas Storage (GIE AGSI+ daily): 10-country total and each member state on a storage-year axis against a daily same-day prior-year band, per-day working-gas capacity, flow pace vs the same week in prior years, analog end-of-season outlook, distance-from-normal history, additive country attribution of the gap, demand cover from Eurostat, season scorecard and a country deviation heatmap.
 4. **Macro LNG Exports**: U.S. LNG Export Volumes (EIA monthly), Export Destination Shares (EIA monthly).
 5. **LNG Feedgas Fleet**: Fleet Overview Cards (Section 7, all 8 terminals with 8-day sparklines and latest utilization).
 6. **LNG Feedgas Detail**: Hero Terminal Feedgas (Section 5, multi-feed stacked and single-meter with full cycle revision tracking).
@@ -31,7 +31,9 @@ The observatory dashboard (`docs/index.html`) renders 18 specialized panels orga
 | **EIA Supply** | U.S. Energy Information Administration | Monthly dry production, net imports, and total consumption | 78 monthly periods (2020–2026) |
 | **EIA LNG Exports** | U.S. Energy Information Administration | Monthly gross LNG export volumes and country shares | 65 monthly periods (2021–2026) |
 | **Baker Hughes** | Baker Hughes Rig Count | Weekly oil and gas drilling rig counts by basin | 139 weekly periods (2024–2026) |
-| **GIE AGSI+** | Gas Infrastructure Europe | Daily European underground gas storage inventory and fullness % | 2,069 daily periods (2021–2026) |
+| **GIE AGSI+** | Gas Infrastructure Europe | Daily storage, % full, injection and withdrawal for 10 member states (EU-wide aggregate requested via `type=eu`) | 2,148 daily periods (2021–2026) |
+| **ENTSOG** | ENTSOG Transparency Platform | Daily physical flows at 75 EU entry points, summed into 9 import routes (Norway, LNG and LNG by country, Nord Stream, TurkStream, Ukraine border, Baltic/Finland, North Africa, TAP, UK) | Daily since 2021 |
+| **Eurostat** | Eurostat `nrg_cb_gasm` | Monthly inland gas consumption, EU-27 and the ten AGSI countries (days of winter cover, share of annual use) | Monthly since 2019 |
 | **Quorum** | myQuorumCloud IPWS (Tsp 2 & 10) | Plaquemines (Gator Express) and Calcasieu Pass (TransCameron) SQ | 1,996 gas days (2021–2026) |
 | **Enbridge** | Enbridge Link EBB | TETCO delivery into Freeport LNG (loc 79999) + Southeast/Midwest egress | 1,107 gas days (2023–2026) |
 | **BHE** | Berkshire Hathaway Energy / EGTS | Cove Point LNG consolidated plant intake delivery meter (loc 10001) | 612 gas days (2024–2026) |
@@ -54,13 +56,13 @@ All 8 operational U.S. LNG export terminals are live, coverage-guarded, and trac
 
 | Terminal | Pipeline / Platform | Feeds & Signal Type | Nameplate | Coverage & Baseline | History Depth | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Freeport LNG** | Gulf South (BWP) + TETCO (Enbridge) | Multi-feed SQ (2 feeds) | 2,100 MMcf/d | 52.9% median (KMTP intrastate feed missing) | 101 gas days | ✅ Live |
-| **Cove Point LNG** | BHE Cove Point Pipeline | Plant intake delivery SQ (loc 10001) | 750 MMcf/d | 97.1% median (full plant gate meter) | 612 gas days | ✅ Live |
+| **Freeport LNG** | Gulf South (BWP) + TETCO (Enbridge) | Multi-feed SQ (2 feeds) | 2,100 MMcf/d | 76.1% median (KMTP intrastate feed missing) | 101 gas days | ✅ Live |
+| **Cove Point LNG** | BHE Cove Point Pipeline | Plant intake delivery SQ (loc 10001) | 750 MMcf/d | 111.7% median (full plant gate meter) | 612 gas days | ✅ Live |
 | **Sabine Pass LNG** | Cheniere Creole Trail (CTPL) | Inferred delivery (OAC proxy) + NGPL context | 4,500 MMcf/d | 30.3% measured (non-CTPL feeds invisible) | 101 gas days | ✅ Live |
-| **Plaquemines LNG** | Quorum Gator Express | Delivery SQ at VGPQD (loc vgpqd) | 3,400 MMcf/d | 112.4% median (Phase 1 & 2 commissioning) | 1,996 gas days | ✅ Live |
+| **Plaquemines LNG** | Quorum Gator Express | Delivery SQ at VGPQD (loc vgpqd) | 3,400 MMcf/d | 123.1% median (Phase 1 & 2) | 1,996 gas days | ✅ Live |
 | **Cameron LNG** | GasNom Cameron Interstate (CIP) | Delivery SQ (loc 772300) | 2,000 MMcf/d | 72.9% measured (Columbia Gulf unmeasured) | 99 gas days | ✅ Live |
-| **Calcasieu Pass LNG**| Quorum TransCameron | Delivery SQ at VGCPD (loc vgcpd) | 1,300 MMcf/d | 123.5% median (runs above baseload design) | 1,996 gas days | ✅ Live |
-| **Golden Pass LNG** | GasNom Golden Pass Pipeline | Consolidated plant intake SQ (loc 1097217) | 2,600 MMcf/d | 12.7% median (active Train 1 commissioning) | 99 gas days | ✅ Live |
+| **Calcasieu Pass LNG**| Quorum TransCameron | Delivery SQ at VGCPD (loc vgcpd) | 1,300 MMcf/d | 129.9% median (runs above baseload design) | 1,996 gas days | ✅ Live |
+| **Golden Pass LNG** | GasNom Golden Pass Pipeline | Consolidated plant intake SQ (loc 1097217) | 2,600 MMcf/d | 26.4% median (commissioning ramp) | 99 gas days | ✅ Live |
 | **Corpus Christi LNG**| Cheniere Corpus Christi Pipeline | Inferred delivery (OAC proxy) + TGP comparison | 2,400 MMcf/d | 99.4% median (Cheniere pipeline gate) | 101 gas days | ✅ Live |
 | **Port Arthur LNG** | GasNom Port Arthur Pipeline | Pipeline delivery SQ | 1,900 MMcf/d | 0.0% (construction / pre-commissioning) | 99 gas days | ⏳ Non-Op |
 

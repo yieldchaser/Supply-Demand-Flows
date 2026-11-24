@@ -1,0 +1,104 @@
+{
+  "_doc": [
+    "EU gas imports by supply route, from ENTSOG Transparency 'Physical Flow' (kWh/d, daily, CET gas day).",
+    "Every point is measured on the EU receiving side ('entry'): non-EU operators (Gassco, Nord Stream AG, ...) do not publish to ENTSOG.",
+    "Several EU operators can report the same physical meter (Dornum is reported by three TSOs with identical series; Emden EPT1 by GUD and Gascade identically). The transformer drops any series identical to an earlier one in the same route on >=80% of common non-zero days, so listing a suspected duplicate is safe; list order decides which copy is kept.",
+    "Excluded on purpose: Kotlovka (BY->LT, mostly Kaliningrad transit leaving the EU), Serbia->Hungary (TurkStream gas already counted at Strandzha 2), Melendugno (TAP volume already counted at its Kipoi entry), Switzerland/Serbia/N. Macedonia/Moldova borders (transit or EU exports), Spain's virtual LNG tank (VTP), Ireland 'South North' (an IE->NI point).",
+    "UK interconnectors are a border, not an origin: UK exports to the EU are re-exported Norwegian, UKCS and LNG gas."
+  ],
+  "routes": {
+    "norway": {"label": "Norway (pipeline)", "points": [
+      ["FR-TSO-0003", "ITP-00045", "Dunkerque"],
+      ["BE-TSO-0001", "ITP-00106", "Zeebrugge ZPT"],
+      ["DE-TSO-0005", "ITP-00188", "Dornum (EPT1 & EPT2)"],
+      ["DE-TSO-0009", "ITP-00126", "Dornum (EPT1 & EPT2), OGE"],
+      ["DE-TSO-0009", "ITP-00525", "Dornum GASPOOL"],
+      ["DE-TSO-0005", "ITP-00081", "Emden EPT1 (GUD/Gascade)"],
+      ["DE-TSO-0002", "ITP-00105", "Emden EPT1 (duplicate report)"],
+      ["DE-TSO-0009", "ITP-00080", "Emden EPT1 (OGE)"],
+      ["NL-TSO-0001", "ITP-00160", "Emden EPT1 (GTS)"],
+      ["DE-TSO-0005", "ITP-00086", "Emden NPT"],
+      ["DE-TSO-0002", "ITP-00075", "Emden NPT (duplicate report)"],
+      ["NL-TSO-0001", "ITP-00161", "Emden NPT (GTS)"],
+      ["DK-TSO-0001", "ITP-00630", "Baltic Pipe North Sea Entry"]
+    ]},
+    "lng": {"label": "LNG send-out", "points": [
+      ["BE-TSO-0001", "LNG-00017", "Zeebrugge LNG", "BE"],
+      ["DE-TSO-0005", "LNG-00060", "Brunsbuettel FSRU", "DE"],
+      ["DE-TSO-0001", "LNG-00079", "Baltic Energy Gate", "DE"],
+      ["DE-TSO-0018", "LNG-00079", "Baltic Energy Gate (second report)", "DE"],
+      ["DE-TSO-0017", "LNG-00075", "Baltic Energy Gate (Port)", "DE"],
+      ["DE-TSO-0005", "LNG-00078", "Stade FSRU", "DE"],
+      ["DE-TSO-0009", "LNG-00083", "Wilhelmshaven", "DE"],
+      ["ES-TSO-0006", "LNG-00012", "Barcelona", "ES"],
+      ["ES-TSO-0006", "LNG-00013", "Bilbao", "ES"],
+      ["ES-TSO-0006", "LNG-00018", "Huelva", "ES"],
+      ["ES-TSO-0006", "LNG-00021", "Mugardos", "ES"],
+      ["ES-TSO-0006", "LNG-00022", "Cartagena", "ES"],
+      ["ES-TSO-0006", "LNG-00023", "Sagunto", "ES"],
+      ["ES-TSO-0006", "LNG-00016", "Musel", "ES"],
+      ["FI-TSO-0003", "LNG-00011", "Hamina", "FI"],
+      ["FI-TSO-0003", "LNG-00072", "Inkoo", "FI"],
+      ["BE-TSO-0001", "ITP-00519", "Dunkerque LNG to Belgium", "FR"],
+      ["FR-TSO-0003", "LNG-00003", "Dunkerque LNG", "FR"],
+      ["FR-TSO-0003", "LNG-00029", "Fos (Tonkin/Cavaou)", "FR"],
+      ["FR-TSO-0003", "LNG-00071", "Le Havre FSRU", "FR"],
+      ["FR-TSO-0003", "LNG-00024", "Montoir de Bretagne", "FR"],
+      ["GR-TSO-0001", "LNG-00014", "Revithoussa (Agia Triada)", "GR"],
+      ["HR-TSO-0001", "LNG-00032", "Krk (Croatia LNG)", "HR"],
+      ["IT-TSO-0001", "LNG-00015", "Adriatic LNG (Cavarzere)", "IT"],
+      ["IT-TSO-0004", "LNG-00015", "Adriatic LNG (second report)", "IT"],
+      ["IT-TSO-0001", "LNG-00004", "OLT Livorno", "IT"],
+      ["IT-TSO-0001", "LNG-00019", "Panigaglia", "IT"],
+      ["IT-TSO-0001", "LNG-00069", "Piombino FSRU", "IT"],
+      ["IT-TSO-0001", "LNG-00082", "Ravenna FSRU", "IT"],
+      ["LT-TSO-0001", "LNG-00030", "Klaipeda", "LT"],
+      ["NL-TSO-0001", "LNG-00068", "Eemshaven (EET)", "NL"],
+      ["NL-TSO-0001", "LNG-00027", "Gate Terminal", "NL"],
+      ["PL-TSO-0002", "LNG-00006", "Swinoujscie", "PL"],
+      ["PT-TSO-0001", "LNG-00026", "Sines", "PT"]
+    ]},
+    "russia_nordstream": {"label": "Russia: Nord Stream", "points": [
+      ["DE-TSO-0005", "ITP-00491", "Greifswald (OPAL side)"],
+      ["DE-TSO-0017", "ITP-00247", "Greifswald (duplicate report)"],
+      ["DE-TSO-0018", "ITP-00297", "Greifswald (duplicate report)"],
+      ["DE-TSO-0016", "ITP-00251", "Greifswald (NEL side)"],
+      ["DE-TSO-0020", "ITP-00454", "Greifswald (NEL duplicate report)"],
+      ["DE-TSO-0001", "ITP-00665", "Greifswald (Gascade)"]
+    ]},
+    "russia_turkstream": {"label": "Russia: TurkStream", "points": [
+      ["BG-TSO-0001", "ITP-00549", "Strandzha 2 / Malkoclar"]
+    ]},
+    "ukraine": {"label": "Ukraine border", "points": [
+      ["SK-TSO-0001", "ITP-00117", "Velke Kapusany"],
+      ["SK-TSO-0001", "ITP-00421", "Budince"],
+      ["HU-TSO-0001", "ITP-10006", "VIP Bereg"],
+      ["PL-TSO-0002", "ITP-10008", "GCP GAZ-SYSTEM/UA"],
+      ["RO-TSO-0001", "ITP-00087", "Isaccea I"],
+      ["RO-TSO-0001", "ITP-00299", "Isaccea II"],
+      ["RO-TSO-0001", "ITP-00300", "Isaccea III"],
+      ["RO-TSO-0001", "ITP-00438", "VIP Mediesu Aurit - Isaccea"]
+    ]},
+    "russia_other": {"label": "Russia: Baltic & Finland", "points": [
+      ["FI-TSO-0003", "ITP-00024", "Imatra"],
+      ["EE-TSO-0001", "ITP-00243", "Narva"],
+      ["EE-TSO-0001", "ITP-00187", "Varska"],
+      ["EE-TSO-0001", "ITP-00493", "Luhamaa (EE)"],
+      ["LV-TSO-0001", "ITP-00493", "Luhamaa (LV)"]
+    ]},
+    "north_africa": {"label": "North Africa", "points": [
+      ["IT-TSO-0001", "ITP-00093", "Mazara del Vallo (Algeria via Tunisia)"],
+      ["ES-TSO-0006", "ITP-00048", "Almeria (Medgaz)"],
+      ["IT-TSO-0001", "ITP-00074", "Gela (Libya)"],
+      ["ES-TSO-0006", "ITP-00082", "Tarifa (GME)"]
+    ]},
+    "tap": {"label": "Azerbaijan (TAP)", "points": [
+      ["AL-TSO-0001", "ITP-00274", "Kipoi (TAP entry)"]
+    ]},
+    "uk": {"label": "UK interconnectors", "points": [
+      ["BE-TSO-0001", "ITP-00061", "Zeebrugge IZT (Interconnector)"],
+      ["UK-TSO-0004", "ITP-00207", "Bacton (BBL)"],
+      ["IE-TSO-0002", "ITP-00495", "Moffat (to Ireland)"]
+    ]}
+  }
+}

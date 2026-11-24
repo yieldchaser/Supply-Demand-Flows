@@ -63,16 +63,31 @@ export function renderBasinsPanel(panelEl, bundle) {
 /*  Basin card HTML                                                    */
 /* ------------------------------------------------------------------ */
 
-function renderBasinCardHtml(basin, series) {
+/**
+ * Momentum over four weeks, judged against the basin's size: a move must be
+ * at least 2 rigs AND 3% of the level. A flat ±1 rule called +3 on Permian's
+ * 275 (1%) "accelerating" with the same weight as +3 on a 23-rig basin.
+ */
+export function basinMomentum(series) {
   const last12 = series.slice(-12);
   const latest = last12[last12.length - 1];
   const fourWeeksAgo = last12.length >= 5 ? last12[last12.length - 5] : last12[0];
   const delta4w = latest.value - fourWeeksAgo.value;
+  const threshold = Math.max(2, Math.abs(fourWeeksAgo.value) * 0.03);
+  const dir = delta4w >= threshold ? 'up' : delta4w <= -threshold ? 'down' : 'flat';
+  const vals = last12.map((d) => d.value);
+  return {
+    last12, latest, delta4w, dir,
+    pct4w: fourWeeksAgo.value ? (delta4w / fourWeeksAgo.value) * 100 : null,
+    lo: Math.min(...vals), hi: Math.max(...vals),
+  };
+}
 
-  let momentumClass, arrow;
-  if (delta4w > 1)       { momentumClass = 'basin-card--accel'; arrow = '↑'; }
-  else if (delta4w < -1) { momentumClass = 'basin-card--decel'; arrow = '↓'; }
-  else                   { momentumClass = 'basin-card--flat';  arrow = '→'; }
+function renderBasinCardHtml(basin, series) {
+  const { latest, delta4w, dir, pct4w, lo, hi, last12 } = basinMomentum(series);
+
+  const momentumClass = { up: 'basin-card--accel', down: 'basin-card--decel', flat: 'basin-card--flat' }[dir];
+  const arrow = { up: '↑', down: '↓', flat: '→' }[dir];
 
   const flavorBadge = {
     pure_gas:   '<span class="basin-card__flavor basin-card__flavor--gas">PURE GAS</span>',
@@ -91,10 +106,11 @@ function renderBasinCardHtml(basin, series) {
         <span class="basin-card__value num">${latest.value}</span>
         <span class="basin-card__delta">
           <span class="basin-card__arrow">${arrow}</span>
-          <span class="num">${delta4w >= 0 ? '+' : ''}${delta4w} / 4w</span>
+          <span class="num">${delta4w >= 0 ? '+' : ''}${delta4w} / 4w${pct4w == null ? '' : ` (${pct4w >= 0 ? '+' : ''}${pct4w.toFixed(0)}%)`}</span>
         </span>
       </div>
       <svg class="basin-card__spark" viewBox="0 0 200 60" preserveAspectRatio="none"></svg>
+      <div class="basin-card__range num">${last12.length} wk range ${lo}–${hi}</div>
     </div>
   `;
 }
@@ -109,15 +125,16 @@ function drawBasinSparkline(svgEl, series) {
 
   const w = 200, h = 60;
   const x = d3.scaleLinear().domain([0, last12.length - 1]).range([4, w - 4]);
-  const yExtent = d3.extent(last12, (d) => d.value);
-  const yPad = Math.max((yExtent[1] - yExtent[0]) * 0.2, 1);
-  const y = d3.scaleLinear().domain([yExtent[0] - yPad, yExtent[1] + yPad]).range([h - 4, 4]);
+  const [lo, hi] = d3.extent(last12, (d) => d.value);
+  // Vertical span is at least 20% of the level (and 4 rigs), centred on the
+  // data: a min–max stretch made a 1% wiggle fill the card like a collapse.
+  const span = Math.max(hi - lo, Math.abs(last12[last12.length - 1].value) * 0.2, 4);
+  const mid = (lo + hi) / 2;
+  const y = d3.scaleLinear().domain([mid - span * 0.6, mid + span * 0.6]).range([h - 4, 4]);
 
-  const fourWeeksAgoVal = last12.length >= 5 ? last12[last12.length - 5].value : last12[0].value;
-  const delta4w = last12[last12.length - 1].value - fourWeeksAgoVal;
-
-  const lineColor = delta4w > 1 ? 'var(--blue-flame)' : delta4w < -1 ? '#f59e0b' : 'rgba(156, 163, 175, 0.7)';
-  const fillColor = delta4w > 1 ? 'rgba(125, 211, 252, 0.15)' : delta4w < -1 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(156, 163, 175, 0.1)';
+  const { dir } = basinMomentum(series);
+  const lineColor = dir === 'up' ? 'var(--blue-flame)' : dir === 'down' ? '#f59e0b' : 'rgba(156, 163, 175, 0.7)';
+  const fillColor = dir === 'up' ? 'rgba(125, 211, 252, 0.15)' : dir === 'down' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(156, 163, 175, 0.1)';
 
   const lineGen = d3.line()
     .x((_, i) => x(i))

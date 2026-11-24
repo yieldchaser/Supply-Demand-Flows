@@ -139,6 +139,12 @@ def detect_eu_storage_print() -> dict[str, str] | None:
     if df.empty:
         return None
 
+    # GIE's EU-wide aggregate (gie_storage_eu_*) is a total of the countries,
+    # not another country: summing it with them would double-count the stock.
+    df = df[~df["series_id"].str.startswith("gie_storage_eu_")]
+    if df.empty:
+        return None
+
     latest_period = str(df["period"].max())
     day_df = df[df["period"] == latest_period]
     if day_df.empty:

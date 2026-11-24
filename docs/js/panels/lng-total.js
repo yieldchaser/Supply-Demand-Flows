@@ -2,11 +2,12 @@
  * LNG Total Panel — US Monthly LNG Export Volumes.
  *
  * Layout:
- *   Chart (full-width): monthly bar chart of total LNG exports (last 36 months)
- *                       with 12-month moving-average overlay.
- *   KPIs: latest month, MoM delta, YoY delta, 12-month rolling total.
+ *   Chart (full-width): monthly exports as a per-day rate (last 36 months)
+ *                       with the trailing 12-month rate overlaid.
+ *   KPIs: latest month, MoM and YoY change in Bcf/d, 12-month total in Bcf.
  *
- * Series: lng_export_total  (Bcf, monthly, from eia_lng source)
+ * Series: lng_export_total  (Bcf per month, eia_lng_exports). It is EIA's own
+ * national total; the per-destination rows sum to it within ~0.5 Bcf.
  */
 
 import * as d3 from 'd3';
@@ -26,13 +27,13 @@ export function renderLngTotalPanel(panelEl, bundle) {
   const drawRef = { current: null };
   const { chartEl, sidebarEl } = renderPanelChrome(panelEl, {
     title: 'US LNG Exports',
-    subtitle: 'EIA · total monthly volume · Bcf',
+    subtitle: 'EIA · monthly exports to all destinations · Bcf/d (monthly volume ÷ days in month)',
     sourceKey: 'eia_lng_exports',
     latestPeriod: source.latest_period,
     draw: () => drawRef.current?.(),
   });
 
-  const allRows = getSeries(source.data, 'lng_export_total');
+  const allRows = buildLngMonthly(getSeries(source.data, 'lng_export_total'));
   if (allRows.length < 2) {
     chartEl.innerHTML = '<div class="panel-error" style="font-size:12px">Insufficient LNG total data.</div>';
     return;
@@ -45,6 +46,40 @@ export function renderLngTotalPanel(panelEl, bundle) {
   renderLngTotalKpis(sidebarEl, allRows);
 }
 
+/**
+ * Monthly totals with their per-day rate, and the trailing 12-month mean of
+ * that rate. Months differ by up to three days, so month-on-month changes in
+ * Bcf carry a ±10% calendar effect (every February "drops"); the rate does not.
+ *
+ * @param {Array<{period: Date, value: number}>} rows  lng_export_total, Bcf
+ * @returns {Array<{period: Date, bcf: number, days: number, bcfd: number, ma12: number|null}>}
+ */
+export function buildLngMonthly(rows) {
+  const out = rows
+    .filter((r) => r.period instanceof Date && Number.isFinite(Number(r.value)))
+    .map((r) => {
+      const days = new Date(r.period.getFullYear(), r.period.getMonth() + 1, 0).getDate();
+      const bcf = Number(r.value);
+      return { period: r.period, bcf, days, bcfd: bcf / days };
+    });
+  out.forEach((r, i) => {
+    // 12 consecutive calendar months ending here, or nothing: a gap in the
+    // series must not stretch the window.
+    const w = out.slice(Math.max(0, i - 11), i + 1);
+    const span = i >= 11 ? monthsBetween(w[0].period, r.period) : -1;
+    r.ma12 = span === 11 ? w.reduce((s, x) => s + x.bcf, 0) / w.reduce((s, x) => s + x.days, 0) : null;
+  });
+  return out;
+}
+
+function monthsBetween(a, b) {
+  return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+}
+
+function monthLabel(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
 /* ================================================================== */
 /*  Bar Chart with MA overlay                                          */
 /* ================================================================== */
@@ -52,16 +87,18 @@ export function renderLngTotalPanel(panelEl, bundle) {
 function drawLngBarChart(container, rows) {
   container.innerHTML = '';
 
-  const margin = { top: 24, right: 16, bottom: 48, left: 56 };
+  const margin = { top: 24, right: 16, bottom: 36, left: 44 };
   const totalH = 320;
-  const width  = Math.max((container.getBoundingClientRect().width || 600), 300) - margin.left - margin.right;
+  const outerW = Math.max((container.getBoundingClientRect().width || 600), 300);
+  const width = outerW - margin.left - margin.right;
   const height = totalH - margin.top - margin.bottom;
 
   const svg = d3.select(container)
     .append('svg')
-    .attr('viewBox', `0 0 ${width + margin.left + margin.right} ${totalH}`)
+    .attr('viewBox', `0 0 ${outerW} ${totalH}`)
     .attr('preserveAspectRatio', 'xMidYMid meet')
-    .style('display', 'block');
+    .style('display', 'block')
+    .style('width', '100%');
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
   const x = d3.scaleBand()
@@ -69,88 +106,108 @@ function drawLngBarChart(container, rows) {
     .range([0, width])
     .padding(0.25);
 
-  const yMax = d3.max(rows, d => d.value) * 1.12;
-  const y = d3.scaleLinear().domain([0, yMax]).range([height, 0]);
+  const y = d3.scaleLinear()
+    .domain([0, d3.max(rows, (d) => Math.max(d.bcfd, d.ma12 ?? 0)) * 1.08])
+    .nice()
+    .range([height, 0]);
+  const ticks = y.ticks(5);
 
-  // Gridlines
-  [0.25, 0.5, 0.75, 1.0].map(f => yMax * f).forEach(v => {
-    g.append('line')
-      .attr('x1', 0).attr('x2', width)
-      .attr('y1', y(v)).attr('y2', y(v))
-      .attr('stroke', 'rgba(255,255,255,0.04)');
-  });
+  g.append('g').selectAll('line').data(ticks).join('line')
+    .attr('x1', 0).attr('x2', width)
+    .attr('y1', (v) => y(v)).attr('y2', (v) => y(v))
+    .attr('stroke', 'var(--chart-grid)');
+  g.append('g').selectAll('text').data(ticks).join('text')
+    .attr('x', -8).attr('y', (v) => y(v) + 4)
+    .attr('text-anchor', 'end')
+    .attr('font-size', 10).attr('font-family', 'var(--font-mono)')
+    .style('fill', 'var(--chart-label)')
+    .text((v) => v);
+  g.append('text').attr('x', -8).attr('y', -10).attr('text-anchor', 'end')
+    .attr('font-size', 10).style('fill', 'var(--chart-label)').text('Bcf/d');
 
-  // Bars
-  g.selectAll('.lng-bar')
+  const bars = g.selectAll('.lng-bar')
     .data(rows)
-    .enter().append('rect')
+    .join('rect')
     .attr('class', 'lng-bar')
     .attr('x', (_, i) => x(i))
-    .attr('y', d => y(d.value))
+    .attr('y', (d) => y(d.bcfd))
     .attr('width', x.bandwidth())
-    .attr('height', d => height - y(d.value))
+    .attr('height', (d) => height - y(d.bcfd))
     .style('fill', 'var(--blue-flame)')
     .attr('fill-opacity', 0.75)
-    .attr('rx', 2)
-    .on('mouseover', function() { d3.select(this).attr('fill-opacity', 1); })
-    .on('mouseout',  function() { d3.select(this).attr('fill-opacity', 0.75); })
-    .append('title')
-    .text(d => `${d.period.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}: ${d.value.toFixed(1)} Bcf (${(d.value / 30.4).toFixed(1)} Bcf/d equivalent)`);
+    .attr('rx', 2);
 
-  // 12-month moving average overlay
-  const MA_N = 12;
-  const maRows = rows.map((r, i) => {
-    if (i < MA_N - 1) return null;
-    const slice = rows.slice(i - MA_N + 1, i + 1);
-    return { i, value: d3.mean(slice, d => d.value) };
-  }).filter(Boolean);
-
-  if (maRows.length > 1) {
-    const maLine = d3.line()
-      .x(d => x(d.i) + x.bandwidth() / 2)
-      .y(d => y(d.value))
-      .curve(d3.curveMonotoneX);
-    g.append('path').datum(maRows).attr('d', maLine)
+  // Trailing 12-month mean, computed over the full history so it spans every
+  // bar shown rather than starting at the twelfth.
+  const ma = rows.map((r, i) => ({ i, v: r.ma12 })).filter((d) => d.v != null);
+  if (ma.length > 1) {
+    g.append('path').datum(ma)
+      .attr('d', d3.line().x((d) => x(d.i) + x.bandwidth() / 2).y((d) => y(d.v)).curve(d3.curveMonotoneX))
       .attr('fill', 'none')
-      .attr('stroke', 'rgba(125,211,252,0.45)')
+      .attr('stroke', 'var(--text-secondary)')
       .attr('stroke-width', 1.5)
       .attr('stroke-dasharray', '4,3');
   }
 
-  // X-axis: label every 6th month
+  // X-axis: January of each year, plus the first bar when it is not one.
   rows.forEach((r, i) => {
-    if (i % 6 !== 0) return;
-    const label = r.period.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    if (r.period.getMonth() !== 0 && i !== 0) return;
+    if (i === 0 && r.period.getMonth() > 8) return; // too close to the next January label
     g.append('text')
       .attr('x', x(i) + x.bandwidth() / 2)
-      .attr('y', height + 20)
+      .attr('y', height + 18)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 10).attr('font-family', 'var(--font-sans)')
+      .attr('font-size', 10).attr('font-family', 'var(--font-mono)')
       .style('fill', 'var(--chart-label)')
-      .text(label);
+      .text(r.period.getMonth() === 0 ? r.period.getFullYear() : r.period.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
   });
 
-  // Y-axis labels
-  [0, Math.round(yMax * 0.5), Math.round(yMax)].forEach(v => {
-    g.append('text')
-      .attr('x', -8).attr('y', y(v) + 4)
-      .attr('text-anchor', 'end')
-      .attr('font-size', 11).attr('font-family', 'var(--font-mono)')
-      .style('fill', 'var(--chart-label)')
-      .text(`${v} Bcf`);
-  });
+  // Legend
+  const lg = svg.append('g').attr('transform', `translate(${margin.left + 40}, 10)`);
+  lg.append('rect').attr('width', 10).attr('height', 10).style('fill', 'var(--blue-flame)').attr('fill-opacity', 0.75);
+  lg.append('text').attr('class', 'chart-legend-text').attr('x', 15).attr('y', 9).text('Monthly average');
+  lg.append('line').attr('x1', 130).attr('x2', 144).attr('y1', 5).attr('y2', 5)
+    .attr('stroke', 'var(--text-secondary)').attr('stroke-dasharray', '4,3').attr('stroke-width', 1.5);
+  lg.append('text').attr('class', 'chart-legend-text').attr('x', 150).attr('y', 9).text('Trailing 12 months');
 
   // Latest bar label
-  const last = rows[rows.length - 1];
   const lastI = rows.length - 1;
   g.append('text')
     .attr('x', x(lastI) + x.bandwidth() / 2)
-    .attr('y', y(last.value) - 6)
-    .attr('text-anchor', 'middle')
+    .attr('y', y(rows[lastI].bcfd) - 6)
+    .attr('text-anchor', 'end')
     .attr('font-size', 10).attr('font-weight', 600)
     .attr('font-family', 'var(--font-mono)')
     .style('fill', 'var(--blue-flame)')
-    .text(`${last.value.toFixed(1)}`);
+    .text(rows[lastI].bcfd.toFixed(1));
+
+  // Hover
+  const host = d3.select(container).style('position', 'relative');
+  const tip = host.append('div').attr('class', 'chart-tooltip').style('opacity', 0);
+  const yearAgo = (r) => rows.find((o) => o.period.getFullYear() === r.period.getFullYear() - 1
+    && o.period.getMonth() === r.period.getMonth());
+  const sgn = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}`;
+  g.append('rect').attr('width', width).attr('height', height).attr('fill', 'transparent')
+    .on('mousemove', (event) => {
+      const [mx] = d3.pointer(event);
+      const i = Math.max(0, Math.min(rows.length - 1, Math.floor(mx / x.step())));
+      const r = rows[i];
+      const prev = rows[i - 1];
+      const ya = yearAgo(r);
+      bars.attr('fill-opacity', (_, j) => (j === i ? 1 : 0.75));
+      const row = (l, v) => `<div class="tt-row"><span class="tt-label">${l}</span><span class="num">${v}</span></div>`;
+      const box = container.getBoundingClientRect();
+      const px = ((margin.left + x(i)) / outerW) * box.width;
+      tip.style('opacity', 1)
+        .style('left', `${Math.max(0, Math.min(px + 14, box.width - 230))}px`).style('top', '30px')
+        .html(`<div class="tt-date">${monthLabel(r.period)} · ${r.days} days</div>
+          ${row('Exports', `${r.bcfd.toFixed(2)} Bcf/d`)}
+          ${row('Monthly volume', `${r.bcf.toFixed(1)} Bcf`)}
+          ${prev ? row(`vs ${monthLabel(prev.period)}`, `${sgn(r.bcfd - prev.bcfd)} Bcf/d`) : ''}
+          ${ya ? row(`vs ${monthLabel(ya.period)}`, `${sgn(r.bcfd - ya.bcfd)} Bcf/d`) : ''}
+          ${r.ma12 == null ? '' : row('Trailing 12 months', `${r.ma12.toFixed(2)} Bcf/d`)}`);
+    })
+    .on('mouseleave', () => { tip.style('opacity', 0); bars.attr('fill-opacity', 0.75); });
 }
 
 /* ================================================================== */
@@ -161,60 +218,49 @@ function renderLngTotalKpis(sidebarEl, rows) {
   if (rows.length < 2) return;
 
   const latest = rows[rows.length - 1];
-  const prior  = rows[rows.length - 2];
-  const momDelta = latest.value - prior.value;
-  const momPct   = prior.value > 0 ? (momDelta / prior.value) * 100 : null;
+  const prior = rows[rows.length - 2];
+  const momDelta = latest.bcfd - prior.bcfd;
+  const yoyMatch = rows.find((r) => r.period.getFullYear() === latest.period.getFullYear() - 1
+    && r.period.getMonth() === latest.period.getMonth());
+  const yoyDelta = yoyMatch ? latest.bcfd - yoyMatch.bcfd : null;
 
-  // YoY: find same month last year (within ±20 days)
-  const yearAgo = new Date(latest.period.getTime());
-  yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-  const yoyMatch = rows
-    .filter(r => Math.abs(r.period.getTime() - yearAgo.getTime()) < 40 * 86400000)
-    .sort((a, b) => Math.abs(a.period - yearAgo) - Math.abs(b.period - yearAgo))[0];
-  const yoyDelta = yoyMatch ? latest.value - yoyMatch.value : null;
-
-  // Rolling 12-month totals
   const last12 = rows.slice(-12);
   const prior12 = rows.slice(-24, -12);
-  const rolling12 = last12.reduce((s, r) => s + r.value, 0);
-  const prior12Sum = prior12.reduce((s, r) => s + r.value, 0);
+  const rolling12 = last12.reduce((s, r) => s + r.bcf, 0);
+  const prior12Sum = prior12.reduce((s, r) => s + r.bcf, 0);
   const rolling12Delta = prior12.length >= 12 ? rolling12 - prior12Sum : null;
-
-  const periodLabel = latest.period.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  const sgn = (v, d = 1) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(d)}`;
 
   sidebarEl.innerHTML = [
     kpiCardHtml({
       label: 'Latest month',
-      value: `${latest.value.toFixed(1)} Bcf`,
-      delta: momPct != null ? {
-        value: `${momPct >= 0 ? '+' : ''}${momPct.toFixed(1)}% MoM`,
-        kind: momDelta >= 0 ? 'bullish' : 'bearish',
-      } : null,
-      helpText: periodLabel,
+      value: `${latest.bcfd.toFixed(1)} Bcf/d`,
+      delta: null,
+      helpText: `${monthLabel(latest.period)} · ${latest.bcf.toFixed(1)} Bcf over ${latest.days} days`,
     }),
     kpiCardHtml({
-      label: 'MoM change',
-      value: `${momDelta >= 0 ? '+' : ''}${momDelta.toFixed(1)} Bcf`,
-      delta: { value: momDelta >= 0 ? 'More exports' : 'Fewer exports', kind: momDelta >= 0 ? 'bullish' : 'bearish' },
-      helpText: `vs ${prior.period.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
+      label: 'Month on month',
+      value: `${sgn(momDelta, 2)} Bcf/d`,
+      delta: { value: `${sgn((momDelta / prior.bcfd) * 100)}%`, kind: momDelta >= 0 ? 'bullish' : 'bearish' },
+      helpText: `vs ${monthLabel(prior.period)} (${prior.bcfd.toFixed(1)} Bcf/d) · per-day, so month length does not count`,
     }),
     kpiCardHtml({
-      label: 'YoY change',
-      value: yoyDelta != null ? `${yoyDelta >= 0 ? '+' : ''}${yoyDelta.toFixed(1)} Bcf` : 'n/a',
+      label: 'Year on year',
+      value: yoyDelta != null ? `${sgn(yoyDelta, 2)} Bcf/d` : 'n/a',
       delta: yoyDelta != null ? {
-        value: `${yoyDelta >= 0 ? '+' : ''}${((yoyDelta / yoyMatch.value) * 100).toFixed(1)}% YoY`,
+        value: `${sgn((yoyDelta / yoyMatch.bcfd) * 100)}%`,
         kind: yoyDelta >= 0 ? 'bullish' : 'bearish',
       } : null,
-      helpText: yoyMatch ? `vs ${yoyMatch.period.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}` : '',
+      helpText: yoyMatch ? `vs ${monthLabel(yoyMatch.period)} (${yoyMatch.bcfd.toFixed(1)} Bcf/d)` : 'No same month a year earlier',
     }),
     kpiCardHtml({
       label: '12-month total',
       value: `${rolling12.toFixed(0)} Bcf`,
       delta: rolling12Delta != null ? {
-        value: `${rolling12Delta >= 0 ? '+' : ''}${rolling12Delta.toFixed(0)} Bcf vs prior 12mo`,
+        value: `${sgn(rolling12Delta, 0)} Bcf vs prior 12 mo`,
         kind: rolling12Delta >= 0 ? 'bullish' : 'bearish',
       } : null,
-      helpText: 'Rolling last 12 months',
+      helpText: `${monthLabel(last12[0].period)} – ${monthLabel(latest.period)} · ${latest.ma12 == null ? '' : `${latest.ma12.toFixed(1)} Bcf/d average`}`,
     }),
   ].join('');
 }

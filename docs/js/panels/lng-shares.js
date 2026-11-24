@@ -9,8 +9,12 @@
  *   lng_export_total           — denominator for share calculation
  *   lng_export_region_europe   — Europe volume
  *   lng_export_region_asia     — Asia volume
- *   lng_export_region_latam    — LatAm volume
- *   lng_export_region_other    — Other volume (or remainder)
+ *   lng_export_region_latam    — Latin America & Caribbean volume
+ *   lng_export_region_mea      — Middle East & Africa volume (Egypt, Jordan, …)
+ *   lng_export_region_other    — everything else (e.g. Canada)
+ *
+ * The regions partition the total: they are built in the transformer from
+ * the same destination rows on one region column, so they sum to it.
  *
  * This panel contextualises the Transatlantic Divergence card: when the
  * divergence reads "Bullish for US LNG exports," Europe's share should
@@ -29,6 +33,7 @@ const REGIONS = [
   { id: 'europe', label: 'Europe',       color: 'rgba(125,211,252,0.85)' },
   { id: 'asia',   label: 'Asia',         color: 'rgba(56, 189,248,0.75)' },
   { id: 'latam',  label: 'Latin America',color: 'rgba(34,211,164,0.70)' },
+  { id: 'mea',    label: 'Mid. East & Africa', color: 'rgba(251,191,36,0.70)' },
   { id: 'other',  label: 'Other',        color: 'rgba(156,163,175,0.50)' },
 ];
 
@@ -77,12 +82,14 @@ export function renderLngSharesPanel(panelEl, bundle) {
 
   const aligned = periods.map(period => {
     const t = period.getTime();
-    const entry = { period };
+    const days = new Date(period.getFullYear(), period.getMonth() + 1, 0).getDate();
+    const entry = { period, days, totalBcfd: (totalByPeriod.get(t) ?? 0) / days, bcfd: {} };
     let stackBase = 0;
     for (const reg of shareSeries) {
       const match = reg.rows.find(r => r.period.getTime() === t);
       const share = match ? match.share : 0;
       entry[reg.id] = share;
+      entry.bcfd[reg.id] = match ? match.value / days : 0;
       stackBase += share;
     }
     // Clamp: if stack > 100 due to rounding, normalise
@@ -142,7 +149,9 @@ function drawSharesChart(container, aligned, periods) {
     .x((_, i) => x(periods[i]))
     .y0(d => y(d[0]))
     .y1(d => y(d[1]))
-    .curve(d3.curveCatmullRom.alpha(0.5));
+    // Monotone: Catmull-Rom overshoots between monthly points, which can push
+    // a 100% stack past its frame.
+    .curve(d3.curveMonotoneX);
 
   stacked.forEach((layer, li) => {
     const color = REGIONS[li].color;
@@ -221,14 +230,14 @@ function setupSharesHover(svg, g, x, y, width, height, periods, aligned, margin)
 
       tooltip
         .style('opacity', 1)
-        .style('left', `${Math.min(tooltipX, svgRect.width - 180)}px`)
+        .style('left', `${Math.max(0, Math.min(tooltipX, svgRect.width - 240))}px`)
         .style('top', '12px')
         .html(`
-          <div class="tt-date">${row.period.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
-          ${REGIONS.map(r => `
+          <div class="tt-date">${row.period.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} · ${row.totalBcfd.toFixed(1)} Bcf/d total</div>
+          ${[...REGIONS].reverse().map(r => `
             <div class="tt-row">
               <span class="tt-label">${r.label}</span>
-              <span class="num">${(row[r.id] || 0).toFixed(1)}%</span>
+              <span class="num">${(row[r.id] || 0).toFixed(1)}% · ${(row.bcfd[r.id] || 0).toFixed(2)} Bcf/d</span>
             </div>`).join('')}
         `);
     })
@@ -274,32 +283,32 @@ function renderSharesKpis(sidebarEl, aligned, shareSeries, periods) {
     kpiCardHtml({
       label: 'Biggest destination',
       value: `${biggest.share.toFixed(1)}%`,
-      delta: { value: biggest.label, kind: 'bullish' },
-      helpText: 'Share of total US LNG this month',
+      delta: { value: biggest.label, kind: 'neutral' },
+      helpText: `Share of US LNG in ${latest.period.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} · ${(latest.bcfd[REGIONS.find((r) => r.label === biggest.label).id]).toFixed(1)} Bcf/d`,
     }),
     kpiCardHtml({
       label: 'Europe share',
       value: `${euNow.toFixed(1)}%`,
       delta: {
         value: `${euDelta >= 0 ? '+' : ''}${euDelta.toFixed(1)} pp MoM`,
-        kind: euDelta >= 0 ? 'bullish' : 'bearish',
+        kind: 'neutral',
       },
-      helpText: 'Elevated when EU storage is tight',
+      helpText: `${latest.bcfd.europe.toFixed(1)} Bcf/d · see the Europe chapter for EU storage and import routes`,
     }),
     kpiCardHtml({
       label: 'Asia share',
       value: `${asiaNow.toFixed(1)}%`,
       delta: {
         value: `${asiaDelta >= 0 ? '+' : ''}${asiaDelta.toFixed(1)} pp MoM`,
-        kind: asiaDelta >= 0 ? 'bullish' : 'bearish',
+        kind: 'neutral',
       },
-      helpText: 'JPN, KOR, CHN, IND + others',
+      helpText: `${latest.bcfd.asia.toFixed(1)} Bcf/d · JPN, KOR, CHN, IND, TWN and others`,
     }),
     kpiCardHtml({
       label: 'Biggest mover',
       value: `${bigMover.delta >= 0 ? '+' : ''}${bigMover.delta.toFixed(1)} pp`,
-      delta: { value: bigMover.label, kind: bigMover.delta >= 0 ? 'bullish' : 'bearish' },
-      helpText: 'Largest MoM share change',
+      delta: { value: bigMover.label, kind: 'neutral' },
+      helpText: `Largest share change vs ${prior.period.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}; cargo timing moves single months a lot`,
     }),
   ].join('');
 }

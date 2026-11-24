@@ -67,7 +67,7 @@ export const DOWNTIME_CONF = {
     ],
     zeroDaysThreshold: 2,
     cargoZero: false,
-    honesty: 'KMTP intrastate feed (~400–450 MMcf/d) is invisible. Combined total covers 52.9% median of 2,100 MMcf/d nameplate (1,111.5 MMcf/d median over 100-day overlap; peak 30d 1,538 MMcf/d = 73.2%).',
+    honesty: 'KMTP intrastate feed (~400–450 MMcf/d) is invisible. Combined total covers 76.1% median of 2,100 MMcf/d nameplate (1,597 MMcf/d median over the last 100 operating days to 2026-11-20; 52.9% over the degraded Jun–Aug 2026 run).',
   },
   cove_point: {
     label: 'Cove Point',
@@ -118,7 +118,7 @@ export const DOWNTIME_CONF = {
     ],
     zeroDaysThreshold: 3, // inherited default, unvalidated
     cargoZero: false, // inherited default, unvalidated
-    honesty: 'TSQ at VGCPD (delivery into Calcasieu Pass LNG) via Quorum TransCameron OpAvail (TspNo=10). Claimed 123.5% median coverage reflects baseload operation above design.',
+    honesty: 'TSQ at VGCPD (delivery into Calcasieu Pass LNG) via Quorum TransCameron OpAvail (TspNo=10). Claimed 129.9% median coverage reflects baseload operation above design.',
   },
   golden_pass: {
     label: 'Golden Pass',
@@ -128,7 +128,7 @@ export const DOWNTIME_CONF = {
     ],
     zeroDaysThreshold: 3, // inherited default, unvalidated
     cargoZero: false, // inherited default, unvalidated
-    honesty: 'Full-terminal consolidated delivery meter (loc 1097217) via GasNom. Current flow (~12.7% of nameplate) represents Train 1 commissioning ramp.',
+    honesty: 'Full-terminal consolidated delivery meter (loc 1097217) via GasNom. Current flow (~26% of nameplate, 60-day median) represents the commissioning ramp.',
   },
   corpus_christi: {
     label: 'Corpus Christi',
@@ -296,6 +296,11 @@ export function buildDailyTotal(bundle, conf) {
       posted: v.posted,
       postedZero: v.postedZero,
       feedsPosted: v.feedsPosted,
+      // How many measured feeds existed on this date. When a feed's history
+      // starts later than the others (Freeport: Gulf South from 2026-05-25,
+      // TETCO from 2023), the total changes definition on that day; the
+      // detector must not compare totals across that boundary.
+      feedsExpected: expectedFeeds,
       feedValues: v.feedValues,
     });
   });
@@ -370,8 +375,14 @@ export function detectDowntime(daily, conf) {
   // the relative floor it reveals, so the quoted baseline is the operating level
   // rather than a blend of operating and pinned days.
   const absoluteCut = trailingMedian(values.filter((v) => v > 0)) * FLOOR_PCT;
+  // Same feed composition only (see buildDailyTotal.feedsExpected): a baseline
+  // spanning the day a second feed's history begins mixes two definitions of
+  // "total" and reads the new feed as a ramp.
+  const comp = (d) => d.feedsExpected ?? 0;
   for (let i = 0; i < daily.length; i++) {
-    const raw = values.slice(Math.max(0, i - BASELINE_WINDOW), i);
+    const lo = Math.max(0, i - BASELINE_WINDOW);
+    const raw = [];
+    for (let j = lo; j < i; j++) if (comp(daily[j]) === comp(daily[i])) raw.push(values[j]);
     const pass1 = raw.filter((v) => v > 0 && v > absoluteCut);
     const cut = Math.max(absoluteCut, (trailingMedian(pass1) || 0) * FLOOR_PCT);
     medians[i] = trailingMedian(raw.filter((v) => v > 0 && v > cut), BASELINE_WINDOW);
@@ -495,7 +506,9 @@ export function detectDowntime(daily, conf) {
 
     // RAMPING (baseline rising)
     const rw = 7;
-    if (i >= rw * 2) {
+    const sameComposition = i >= rw * 2
+      && daily.slice(i - 2 * rw, i + 1).every((d) => comp(d) === comp(cur));
+    if (i >= rw * 2 && sameComposition) {
       const recent = values.slice(i - rw, i + 1).filter((val) => val > 0);
       const older = values.slice(i - 2 * rw, i - rw).filter((val) => val > 0);
       // Filtering out zeros would turn a recovery from an outage into a
@@ -592,11 +605,27 @@ export function buildDowntimeViewModel(bundle, key) {
   }
   const events = detectDowntime(daily, conf);
   const status = currentStatus(events, daily[daily.length - 1].dateStr);
+  const partialEra = partialFeedEra(daily);
+  if (partialEra) {
+    // An event in the era when only some of the terminal's meters exist is an
+    // event on those meters: it cannot say the whole terminal went down, and
+    // its volume impact is a share of the terminal's.
+    for (const e of events) {
+      const start = e.startDate || e.date;
+      if (start < partialEra.until) {
+        const d = daily.find((x) => x.dateStr === start);
+        e.partialFeeds = { have: d?.feedsExpected ?? partialEra.feeds, of: partialEra.of };
+      }
+    }
+  }
   const kpis = [
     kpiCardHtml({
       label: 'Current status',
       value: status.type,
-      delta: { value: status.duration + 'd', kind: status.kind === 'OFFLINE' ? 'bearish' : 'neutral' },
+      delta: {
+        value: status.duration ? `${status.duration}d in this state` : `as of ${daily[daily.length - 1].dateStr}`,
+        kind: status.kind === 'OFFLINE' ? 'bearish' : 'neutral',
+      },
       helpText: 'Latest classified state',
     }),
     kpiCardHtml({
@@ -612,7 +641,21 @@ export function buildDowntimeViewModel(bundle, key) {
       helpText: 'Posted gas days with at least one feed filing',
     }),
   ];
-  return { conf, daily, events, status, kpis };
+  return { conf, daily, events, status, kpis, partialEra };
+}
+
+/**
+ * The stretch, if any, before the terminal's full measured feed set exists
+ * (Freeport: TETCO from 2023, Gulf South only from 2026-05-25).
+ *
+ * @returns {{from: string, until: string, feeds: number, of: number}|null}
+ */
+export function partialFeedEra(daily) {
+  const of = (daily || []).reduce((m, d) => Math.max(m, d.feedsExpected ?? 0), 0);
+  if (of < 2) return null;
+  const first = daily.find((d) => (d.feedsExpected ?? of) === of);
+  if (!first || first.dateStr <= daily[0].dateStr) return null;
+  return { from: daily[0].dateStr, until: first.dateStr, feeds: daily[0].feedsExpected ?? 1, of };
 }
 
 /**
@@ -700,6 +743,7 @@ export function renderEventListHtml(events, conf) {
         </div>
         <div class="downtime-card__cause">${escapeHtml(causeStr)}</div>
         <div class="downtime-card__detail">${escapeHtml(e.detail)}</div>
+        ${e.partialFeeds ? `<div class="downtime-card__partial">Measured on ${e.partialFeeds.have} of ${e.partialFeeds.of} feeds: a stop on those meters, impact is their share only</div>` : ''}
       </div>
     `;
   }).join('');
@@ -727,6 +771,7 @@ export function renderEventListHtml(events, conf) {
         <td>
           <span class="downtime-table__cause">${escapeHtml(causeStr)}</span>
           <span class="downtime-table__detail"> · ${escapeHtml(e.detail)}</span>
+          ${e.partialFeeds ? `<span class="downtime-table__partial"> · ${e.partialFeeds.have} of ${e.partialFeeds.of} feeds measured</span>` : ''}
         </td>
       </tr>
     `;
