@@ -13,26 +13,26 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-11-26T03:51:28Z",
+    "last_inventory_run": "2026-11-26T11:18:40Z",
     "total_locations_seen": 779,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1836291.0
+        "scheduled_quantity_dth": 1834561.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1118212.0
+        "scheduled_quantity_dth": 1118211.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 792656.0
+        "scheduled_quantity_dth": 792655.0
       },
       {
         "loc_id": 23700,
@@ -50,13 +50,13 @@
         "loc_id": 2690,
         "loc_name": "Holmesville (To Transco)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 518645.0
+        "scheduled_quantity_dth": 518646.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 510473.0
+        "scheduled_quantity_dth": 510452.0
       },
       {
         "loc_id": 23371,
