@@ -1,7 +1,7 @@
 {
   "source": "gulf_south",
   "status": "warn",
-  "timestamp_utc": "2026-11-26T02:20:54Z",
+  "timestamp_utc": "2026-11-26T03:51:25Z",
   "error": "no-op run (scraper fetched 17 file(s) but 0 row(s) landed in curated — nothing new was published)",
   "metadata": {
     "rows_added": 0,
