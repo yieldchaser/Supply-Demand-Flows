@@ -13,68 +13,68 @@
   },
   "_meta": {
     "schema_version": 1,
-    "last_inventory_run": "2026-11-26T11:18:40Z",
+    "last_inventory_run": "2026-11-27T01:06:43Z",
     "total_locations_seen": 779,
     "unmatched_high_volume_delivery_meters": [
       {
         "loc_id": 23201,
         "loc_name": "Perryville Transportation Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1834561.0
+        "scheduled_quantity_dth": 1723328.0
       },
       {
         "loc_id": 22108,
         "loc_name": "Rock Springs/Scott Mtn (To Transco 85)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 1118211.0
+        "scheduled_quantity_dth": 1046393.0
       },
       {
         "loc_id": 23039,
         "loc_name": "Perryville Exchange Point",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 792655.0
+        "scheduled_quantity_dth": 720969.0
       },
       {
         "loc_id": 23700,
         "loc_name": "Gulf South Transfer To Coastal Bend",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 561829.0
+        "scheduled_quantity_dth": 565985.0
       },
       {
         "loc_id": 3362,
         "loc_name": "Lonewa (To Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 559008.0
-      },
-      {
-        "loc_id": 2690,
-        "loc_name": "Holmesville (To Transco)",
-        "flow_ind": "D",
-        "scheduled_quantity_dth": 518646.0
+        "scheduled_quantity_dth": 546673.0
       },
       {
         "loc_id": 23365,
         "loc_name": "Henry Hub (Sabine)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 510452.0
+        "scheduled_quantity_dth": 530928.0
+      },
+      {
+        "loc_id": 2690,
+        "loc_name": "Holmesville (To Transco)",
+        "flow_ind": "D",
+        "scheduled_quantity_dth": 479016.0
       },
       {
         "loc_id": 23371,
         "loc_name": "Bosco (Texas Gas)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 291188.0
+        "scheduled_quantity_dth": 305846.0
       },
       {
-        "loc_id": 26016,
-        "loc_name": "Bbt Trans-Union Claiborne Parish",
+        "loc_id": 24229,
+        "loc_name": "George Co Seme (Merrill To Fgt)",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 234313.0
+        "scheduled_quantity_dth": 229608.0
       },
       {
-        "loc_id": 22128,
-        "loc_name": "Clarke County (To Destin)",
+        "loc_id": 24255,
+        "loc_name": "Methanex Geismer 2",
         "flow_ind": "D",
-        "scheduled_quantity_dth": 214113.0
+        "scheduled_quantity_dth": 229479.0
       }
     ]
   }
