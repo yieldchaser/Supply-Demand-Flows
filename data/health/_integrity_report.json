@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-28T01:49:45.884782+00:00",
+  "generated_at": "2026-11-28T02:06:02.656185+00:00",
   "overall": "WARN",
   "sources": {
     "gulf_south": {
@@ -81,9 +81,9 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 1h ago and dataset consistent (stale 1d, resolved 2026-11-27, warn 2d / fail 4d)",
+          "message": "no divergence signal: health already reports 'warn' — plain stagnation covers the outage",
           "details": {
-            "stale_days": 1
+            "status": "warn"
           }
         }
       ],
@@ -356,7 +356,7 @@
           "severity": "SKIPPED",
           "message": "health stamp 3.1d old exceeds recency window 3d — it cannot vouch for today's dataset",
           "details": {
-            "age_days": 3.11
+            "age_days": 3.12
           }
         }
       ],
@@ -427,20 +427,20 @@
         {
           "check": "coverage",
           "severity": "PASS",
-          "message": "series coverage holds: 667→668 distinct series_id (limit 20%)",
+          "message": "series coverage holds: 668→668 distinct series_id (limit 20%)",
           "details": {
-            "before": 667,
+            "before": 668,
             "after": 668
           }
         },
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 36007→36268 / days 151→152",
+          "message": "history intact: rows 36268→36268 / days 152→152",
           "details": {
-            "rows_before": 36007,
+            "rows_before": 36268,
             "rows_after": 36268,
-            "days_before": 151,
+            "days_before": 152,
             "days_after": 152
           }
         },
@@ -538,7 +538,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 195h ago and dataset consistent (stale 15d, resolved 2026-11-13, warn 9d / fail 18d)",
+          "message": "no divergence: scraper 'ok' 196h ago and dataset consistent (stale 15d, resolved 2026-11-13, warn 9d / fail 18d)",
           "details": {
             "stale_days": 15
           }
@@ -720,7 +720,7 @@
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 630h ago and dataset consistent (stale 89d, resolved 2026-08-31, warn 75d / fail 135d)",
+          "message": "no divergence: scraper 'ok' 631h ago and dataset consistent (stale 89d, resolved 2026-08-31, warn 75d / fail 135d)",
           "details": {
             "stale_days": 89
           }
@@ -1016,11 +1016,11 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 122452→122470 / days 2081→2082",
+          "message": "history intact: rows 122470→122470 / days 2082→2082",
           "details": {
-            "rows_before": 122452,
+            "rows_before": 122470,
             "rows_after": 122470,
-            "days_before": 2081,
+            "days_before": 2082,
             "days_after": 2082
           }
         },
@@ -1113,18 +1113,18 @@
         {
           "check": "shrinkage",
           "severity": "PASS",
-          "message": "history intact: rows 24468→24540 / days 697→698",
+          "message": "history intact: rows 24540→24540 / days 698→698",
           "details": {
-            "rows_before": 24468,
+            "rows_before": 24540,
             "rows_after": 24540,
-            "days_before": 697,
+            "days_before": 698,
             "days_after": 698
           }
         },
         {
           "check": "divergence",
           "severity": "PASS",
-          "message": "no divergence: scraper 'ok' 0h ago and dataset consistent (stale 0d, resolved 2026-11-28, warn 2d / fail 4d)",
+          "message": "no divergence: scraper 'ok' 1h ago and dataset consistent (stale 0d, resolved 2026-11-28, warn 2d / fail 4d)",
           "details": {
             "stale_days": 0
           }
