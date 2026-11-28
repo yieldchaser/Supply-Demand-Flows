@@ -1,10 +1,10 @@
 {
   "source": "gasnom",
   "status": "ok",
-  "timestamp_utc": "2026-11-27T21:50:18Z",
+  "timestamp_utc": "2026-11-28T10:42:58Z",
   "error": null,
   "metadata": {
-    "gas_day": "2026-11-27",
+    "gas_day": "2026-11-28",
     "processed_count": 0,
     "skipped_count": 0,
     "rows": 0,
