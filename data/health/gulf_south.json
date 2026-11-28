@@ -1,13 +1,13 @@
 {
   "source": "gulf_south",
   "status": "warn",
-  "timestamp_utc": "2026-11-28T02:05:32Z",
-  "error": "no-op run (scraper fetched 18 file(s) but 0 row(s) landed in curated — nothing new was published)",
+  "timestamp_utc": "2026-11-28T03:39:06Z",
+  "error": "no-op run (scraper fetched 17 file(s) but 0 row(s) landed in curated — nothing new was published)",
   "metadata": {
     "rows_added": 0,
-    "files_fetched": 18,
+    "files_fetched": 17,
     "stage": "end_of_pipeline",
-    "reason": "scraper fetched 18 file(s) but 0 row(s) landed in curated — nothing new was published",
+    "reason": "scraper fetched 17 file(s) but 0 row(s) landed in curated — nothing new was published",
     "consecutive_no_ops": 1
   }
 }
